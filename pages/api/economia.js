@@ -1,3 +1,17 @@
+export default async function handler(req, res) {
+  // 🔓 Libera acesso CORS
+  res.setHeader('Access-Control-Allow-Origin', '*'); // ou coloque "https://base44.app"
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+
+  // ⚙️ Trata requisições de pré-verificação (CORS preflight)
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // --- Abaixo disso, deixe o resto do seu código como já estava ---
+  // ... resto da sua lógica da API ...
+}
 // pages/api/economia.js
 import { createClient } from '@supabase/supabase-js';
 
