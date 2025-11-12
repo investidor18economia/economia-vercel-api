@@ -1,13 +1,3 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-}
-// pages/api/economia.js
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -45,6 +35,14 @@ async function fetchFromSerpApi(query) {
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST' });
 
@@ -61,7 +59,6 @@ export default async function handler(req, res) {
 
     const cutoff = new Date(Date.now() - CACHE_TTL_MINUTES * 60000).toISOString();
 
-    // 1) Tentar ler cache
     const { data: cached, error: cacheErr } = await supabase
       .from('cache_results')
       .select('id, query, metadata, last_checked')
@@ -73,10 +70,14 @@ export default async function handler(req, res) {
     if (cacheErr) console.warn('Supabase cache read err', cacheErr);
 
     if (cached && cached.last_checked) {
-      return res.status(200).json({ source: 'cache', query: inputText, results: cached.metadata || [], cached_at: cached.last_checked });
+      return res.status(200).json({
+        source: 'cache',
+        query: inputText,
+        results: cached.metadata || [],
+        cached_at: cached.last_checked
+      });
     }
 
-    // 2) Buscar na SerpApi
     let results;
     try {
       results = await fetchFromSerpApi(inputText);
@@ -85,7 +86,6 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'Price service unavailable' });
     }
 
-    // 3) Salvar/atualizar cache (upsert na tabela cache_results)
     try {
       const payload = {
         query: inputText,
@@ -100,12 +100,13 @@ export default async function handler(req, res) {
       console.warn('Supabase write warning', err.message);
     }
 
-    // 4) Retornar resultado
     return res.status(200).json({ source: 'live', query: inputText, results });
 
   } catch (err) {
     console.error('API error', err);
-    return res.status(500).json({ error: 'internal_error', details: String(err.message || err) });
+    return res.status(500).json({
+      error: 'internal_error',
+      details: String(err.message || err)
+    });
   }
 }
-
