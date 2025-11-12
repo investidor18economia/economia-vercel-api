@@ -8,9 +8,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
-  // --- Abaixo disso, deixe o resto do seu código como já estava ---
-  // ... resto da sua lógica da API ...
 }
 // pages/api/economia.js
 import { createClient } from '@supabase/supabase-js';
