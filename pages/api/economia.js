@@ -6,8 +6,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
-  // coloque abaixo o resto do seu código original
 }
 
 // pages/api/economia.js
