@@ -6,6 +6,7 @@ if (origin && ALLOWED_ORIGINS.includes(origin)) {
 res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
 if (req.method === 'OPTIONS') return res.status(200).end();
+
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
