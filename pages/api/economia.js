@@ -1,7 +1,3 @@
-const clientKey = req.headers['x-api-key'];
-if (process.env.API_SHARED_KEY && clientKey !== process.env.API_SHARED_KEY) {
-  return res.status(403).json({ error: 'invalid_api_key' });
-}
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
