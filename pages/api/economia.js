@@ -1,12 +1,3 @@
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://base44.app').split(',');
-const origin = req.headers.origin;
-if (origin && ALLOWED_ORIGINS.includes(origin)) {
-  res.setHeader('Access-Control-Allow-Origin', origin);
-}
-res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
-if (req.method === 'OPTIONS') return res.status(200).end();
-
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,13 +35,14 @@ async function fetchFromSerpApi(query) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://base44.app').split(',');
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST' });
