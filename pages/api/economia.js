@@ -35,14 +35,30 @@ async function fetchFromSerpApi(query) {
 }
 
 export default async function handler(req, res) {
-  const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://base44.app').split(',');
-  const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  const allowedEnv = process.env.ALLOWED_ORIGINS || 'https://base44.app';
+  const ALLOWED_ORIGINS = allowedEnv.split(',').map(s => s.trim()).filter(Boolean);
+  const origin = (req.headers.origin || '').toString();
+
+  const originAllowed = ALLOWED_ORIGINS.some(pattern => {
+    if (!pattern) return false;
+    if (pattern.includes('*')) {
+      const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$');
+      return regex.test(origin);
+    }
+    return pattern === origin;
+  });
+
+  if (originAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
   }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST' });
@@ -111,3 +127,4 @@ export default async function handler(req, res) {
     });
   }
 }
+
