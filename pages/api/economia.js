@@ -1,5 +1,11 @@
 const SERPAPI_BASE = "https://serpapi.com/search.json";
 
+function ensureAbsoluteUrl(url) {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `https://${url}`;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
@@ -41,9 +47,15 @@ export default async function handler(req, res) {
     const json = await r.json().catch(() => ({}));
     const items = json.shopping_results || json.organic_results || [];
 
+    const base = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || "";
+    const baseWithProto = ensureAbsoluteUrl(base);
+
     const results = items.slice(0, 8).map((it) => {
       const realLink = it.product_link || it.serpapi_product_link || it.link || "";
-      const redirectUrl = `${process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || ""}/api/redirect?u=${encodeURIComponent(realLink)}&p=${encodeURIComponent(it.title || "")}`;
+      const redirectTarget = realLink;
+      const encodedTarget = encodeURIComponent(redirectTarget);
+      const encodedTitle = encodeURIComponent(it.title || "");
+      const redirectUrl = `${baseWithProto.replace(/\/$/, "")}/api/redirect?u=${encodedTarget}&p=${encodedTitle}`;
       return {
         title: it.title || it.product_title || it.name || "",
         price: it.price || it.price_string || it.extracted_price || "",
