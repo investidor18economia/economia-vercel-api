@@ -9,25 +9,21 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export default async function handler(req, res) {
   try {
-    // proteção simples: verificar x-api-key
     const clientKey = (req.headers["x-api-key"] || "").toString();
     if (API_SHARED_KEY && clientKey !== API_SHARED_KEY) {
       return res.status(403).json({ error: "invalid_api_key" });
     }
 
-    // DELETE ?id=uuid   -> padrão
     if (req.method === "DELETE") {
       const id = req.query.id;
       if (!id) return res.status(400).json({ error: "Missing id (uuid) in query" });
 
-      // delete item by id
       const { error } = await supabase.from("wishes").delete().eq("id", id);
       if (error) return res.status(500).json({ error: error.message });
 
       return res.status(200).json({ success: true, deleted_id: id });
     }
 
-    // POST { id }  OR { user_id, product_name }
     if (req.method === "POST") {
       const body = req.body || {};
       const { id, user_id, product_name } = body;
@@ -41,7 +37,6 @@ export default async function handler(req, res) {
         if (error) return res.status(500).json({ error: error.message });
         return res.status(200).json({ success: true, deleted_id: id });
       } else {
-        // delete by user_id + product_name
         const { error } = await supabase
           .from("wishes")
           .delete()
@@ -52,7 +47,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // métodos não permitidos
     return res.status(405).json({ error: "Method not allowed" });
   } catch (err) {
     console.error("delete-wish error:", err);
