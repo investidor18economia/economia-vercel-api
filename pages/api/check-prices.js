@@ -1,5 +1,30 @@
-if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
-  return res.status(401).json({ error: "Unauthorized (cron)" });
+// pages/api/check-prices.js
+import { createClient } from "@supabase/supabase-js";
+
+export default async function handler(req, res) {
+  // Método permitido
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Autorização do cron
+  if (
+    !req.headers.authorization ||
+    req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`
+  ) {
+    return res.status(401).json({ error: "Unauthorized (cron)" });
+  }
+
+  if (req.headers["x-api-key"] !== process.env.API_SHARED_KEY) {
+    return res.status(401).json({ success: false, error: "invalid_api_key" });
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  // ... (resto do código permanece igual)
 }
 // pages/api/check-prices.js
 import { createClient } from "@supabase/supabase-js";
