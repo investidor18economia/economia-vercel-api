@@ -1,3 +1,6 @@
+if (req.headers['authorization'] !== `Bearer ${process.env.CRON_SECRET}`) {
+  return res.status(401).json({ error: "Unauthorized (cron)" });
+}
 // pages/api/check-prices.js
 import { createClient } from "@supabase/supabase-js";
 
