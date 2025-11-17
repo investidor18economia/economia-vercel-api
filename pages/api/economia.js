@@ -1,74 +1,85 @@
-const SERPAPI_BASE = "https://serpapi.com/search.json";
+import { NextResponse } from "next/server";
+import { openai } from "./chat-gpt4o";
+import { createClient } from "@supabase/supabase-js";
+import { fetchProductData } from "@/lib/fetcher";
 
-function ensureAbsoluteUrl(url) {
-  if (!url) return "";
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  return `https://${url}`;
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
-
-  if (req.method === 'OPTIONS') return res.status(204).end();
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Only POST' });
-  }
-
-  const clientKey = req.headers['x-api-key'] || '';
-  if (process.env.API_SHARED_KEY && clientKey !== process.env.API_SHARED_KEY) {
-    return res.status(403).json({ error: 'invalid_api_key' });
-  }
-
-  const body = req.body || {};
-  const inputText = (body.text || '').trim();
-  if (!inputText) return res.status(400).json({ error: 'Missing parameter: text' });
-
-  const apiKey = process.env.SERPAPI_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'Server misconfigured: missing SERPAPI_KEY' });
-
+export async function POST(req) {
   try {
-    const params = new URLSearchParams({
-      engine: "google_shopping",
-      q: inputText,
-      gl: "br",
-      hl: "pt",
-      api_key: apiKey
-    });
+    const body = await req.json();
+    const { query, user_id } = body;
 
-    const url = `${SERPAPI_BASE}?${params.toString()}`;
-    const r = await fetch(url);
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      return res.status(r.status).json({ error: "SerpApi error", details: txt });
+    if (!query) {
+      return NextResponse.json({ error: "Missing query" }, { status: 400 });
     }
-    const json = await r.json().catch(() => ({}));
-    const items = json.shopping_results || json.organic_results || [];
 
-    const base = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL || "";
-    const baseWithProto = ensureAbsoluteUrl(base);
+    // 0 - CHECK MENSAGENS
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", user_id)
+      .single();
 
-    const results = items.slice(0, 8).map((it) => {
-      const realLink = it.product_link || it.serpapi_product_link || it.link || "";
-      const redirectTarget = realLink;
-      const encodedTarget = encodeURIComponent(redirectTarget);
-      const encodedTitle = encodeURIComponent(it.title || "");
-      const redirectUrl = `${baseWithProto.replace(/\/$/, "")}/api/redirect?u=${encodedTarget}&p=${encodedTitle}`;
-      return {
-        title: it.title || it.product_title || it.name || "",
-        price: it.price || it.price_string || it.extracted_price || "",
-        link: realLink,
-        affiliateLink: realLink,
-        redirectUrl,
-        source: it.source || it.store || ""
-      };
+    const isPlus = user?.plan === "plus";
+    const limit = isPlus
+      ? Number(process.env.PLUS_MONTHLY_MSGS)
+      : Number(process.env.FREE_MONTHLY_MSGS);
+
+    if (user.monthly_messages >= limit) {
+      return NextResponse.json({
+        mia: "Você atingiu o limite mensal da MIA para seu plano.",
+        prices: []
+      });
+    }
+
+    // 1 - BUSCA DE PREÇOS
+    const results = await fetchProductData(query);
+
+    // 2 - PROMPT PARA GPT-4O MINI
+    const prompt = `
+Você é a MIA, a assistente oficial da EconomIA.
+
+Pergunta do usuário: "${query}"
+
+Preços encontrados:
+${results.map(r => `• ${r.title} — R$ ${r.price} — ${r.link}`).join("\n")}
+
+Regras:
+- Seja clara, natural e útil.
+- Mostre o melhor preço.
+- Mostre a melhor opção custo-benefício.
+- Não invente preços.
+- Use SOMENTE os dados acima.
+`;
+
+    // 3 - CHAMADA GPT-4O MINI
+    const gpt = await openai.responses.create({
+      model: process.env.MODEL_GPT4O_MINI,
+      input: prompt
     });
 
-    return res.status(200).json({ source: "live", query: inputText, results });
+    const miaReply = gpt.output_text;
+
+    // 4 - UPDATE DE CONSUMO
+    await supabase
+      .from("users")
+      .update({ monthly_messages: user.monthly_messages + 1 })
+      .eq("id", user_id);
+
+    return NextResponse.json({
+      mia: miaReply,
+      prices: results
+    });
+
   } catch (err) {
-    console.error("ERROR /api/economia:", err);
-    return res.status(500).json({ error: "internal_error", details: String(err) });
+      console.error(err);
+      return NextResponse.json(
+        { error: "Erro interno no servidor" },
+        { status: 500 }
+      );
   }
 }
