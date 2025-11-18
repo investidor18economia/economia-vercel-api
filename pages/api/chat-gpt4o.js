@@ -14,7 +14,6 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// 🔹 Função para chamar GPT-4O Mini
 async function callOpenAI(messages) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -38,27 +37,6 @@ async function callOpenAI(messages) {
   return res.json();
 }
 
-// 🔹 Função para buscar preços no SerpApi
-async function fetchPrecosSerpAPI(query) {
-  if (!SERPAPI_KEY) throw new Error("SerpAPI key não configurada");
-
-  const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${SERPAPI_KEY}`;
-
-  const res = await fetch(url);
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Erro SerpAPI: ${res.status} ${txt}`);
-  }
-
-  const data = await res.json();
-  return (data.shopping_results || []).map(item => ({
-    product_name: item.title,
-    price: item.price,
-    link: item.link
-  }));
-}
-
-// 🔹 Handler principal
 export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
@@ -70,7 +48,6 @@ export default async function handler(req, res) {
 
   const { user_id, text, conversation_id: conv_id } = req.body;
   const textTrimmed = (text || "").trim();
-
   if (!user_id) return res.status(400).json({ error: "Missing user_id" });
   if (!textTrimmed) return res.status(400).json({ error: "Missing text" });
 
@@ -83,7 +60,6 @@ export default async function handler(req, res) {
       .select("id, plan, monthly_messages")
       .eq("id", user_id)
       .limit(1);
-
     const user = users?.[0];
     const plan = user?.plan || "free";
     const limit = plan === "plus" ? PLUS_LIMIT : FREE_LIMIT;
@@ -95,12 +71,31 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2️⃣ Buscar preços no SerpApi
+    // 2️⃣ Buscar preços: Supabase + SerpAPI
     let results = [];
+
     try {
-      results = await fetchPrecosSerpAPI(textTrimmed);
+      // Supabase
+      const supaResults = await supabase
+        .from("cache_results")
+        .select("*")
+        .ilike("product_name", `%${textTrimmed}%`)
+        .limit(5);
+
+      // SerpAPI
+      const serpResponse = await fetch(`https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(textTrimmed)}&api_key=${SERPAPI_KEY}`);
+      const serpData = await serpResponse.json();
+      const serpResults = (serpData.shopping_results || []).map(p => ({
+        product_name: p.title,
+        price: p.price,
+        link: p.link
+      }));
+
+      // Juntando resultados
+      results = [...(supaResults.data || []), ...serpResults];
+
     } catch (err) {
-      console.error("Erro ao buscar preços SerpAPI:", err);
+      console.error("Erro ao buscar preços:", err);
     }
 
     // 3️⃣ Criar prompt GPT-4O Mini
@@ -110,7 +105,7 @@ Você é a MIA, assistente da EconomIA.
 O usuário perguntou: "${textTrimmed}"
 
 Aqui estão os preços encontrados:
-${results.map(r => `• ${r.product_name} — ${r.price} — ${r.link}`).join("\n")}
+${results.map(r => `• ${r.product_name} — R$ ${r.price} — ${r.link}`).join("\n")}
 
 Responda de forma clara e amigável.
 Mostre o melhor preço e o custo-benefício.
