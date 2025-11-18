@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
     // Validate API shared key
     const clientKey = (req.headers["x-api-key"] || "").toString();
-    if (!clientKey || clientKey !== process.env.API_SHARED_KEY) {
+    if (!clientKey || clientKey !== process.env.minha_chave_181199) {
       return res.status(401).json({ error: "invalid_api_key" });
     }
 
