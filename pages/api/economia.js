@@ -1,5 +1,5 @@
+// /api/economia.js
 import { NextResponse } from "next/server";
-import { openai } from "./chat-gpt4o";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -16,7 +16,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "Missing query" }, { status: 400 });
     }
 
-    // 0 - CHECK MENSAGENS
+    // 0 - CHECAR MENSAGENS DO USUÁRIO
     const { data: user } = await supabase
       .from("users")
       .select("*")
@@ -28,57 +28,59 @@ export async function POST(req) {
       ? Number(process.env.PLUS_MONTHLY_MSGS)
       : Number(process.env.FREE_MONTHLY_MSGS);
 
-    if (user.monthly_messages >= limit) {
+    if ((user?.monthly_messages || 0) >= limit) {
       return NextResponse.json({
-        mia: "Você atingiu o limite mensal da MIA para seu plano.",
+        mia: `Você atingiu o limite mensal da MIA para seu plano.`,
         prices: []
       });
     }
 
-    // 1 - BUSCA DE PREÇOS
-    const results = await fetchProductData(query);
+    // 1 - BUSCA DE PREÇOS NO SUPABASE
+    let results = [];
+    try {
+      const { data } = await supabase
+        .from("cache_results")
+        .select("*")
+        .ilike("product_name", `%${query}%`)
+        .limit(10);
+      results = data || [];
+    } catch (err) {
+      console.error("Erro ao buscar preços:", err);
+    }
 
-    // 2 - PROMPT PARA GPT-4O MINI
-    const prompt = `
-Você é a MIA, a assistente oficial da EconomIA.
-
-Pergunta do usuário: "${query}"
-
-Preços encontrados:
-${results.map(r => `• ${r.title} — R$ ${r.price} — ${r.link}`).join("\n")}
-
-Regras:
-- Seja clara, natural e útil.
-- Mostre o melhor preço.
-- Mostre a melhor opção custo-benefício.
-- Não invente preços.
-- Use SOMENTE os dados acima.
-`;
-
-    // 3 - CHAMADA GPT-4O MINI
-    const gpt = await openai.responses.create({
-      model: process.env.MODEL_GPT4O_MINI,
-      input: prompt
+    // 2 - CHAMAR A API /api/chat-gpt4o
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/chat-gpt4o`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.API_SHARED_KEY
+      },
+      body: JSON.stringify({
+        text: query,
+        user_id,
+        conversation_id: null
+      })
     });
 
-    const miaReply = gpt.output_text;
+    const data = await response.json();
 
-    // 4 - UPDATE DE CONSUMO
+    // 3 - ATUALIZAR MENSAGENS DO USUÁRIO (caso queira manter contagem no /api/economia)
     await supabase
       .from("users")
-      .update({ monthly_messages: user.monthly_messages + 1 })
+      .update({ monthly_messages: (user?.monthly_messages || 0) + 1 })
       .eq("id", user_id);
 
+    // 4 - RETORNAR RESPOSTA + PREÇOS
     return NextResponse.json({
-      mia: miaReply,
+      mia: data.reply || "Desculpe, não consegui gerar uma resposta.",
       prices: results
     });
 
   } catch (err) {
-      console.error(err);
-      return NextResponse.json(
-        { error: "Erro interno no servidor" },
-        { status: 500 }
-      );
+    console.error("Erro interno /api/economia:", err);
+    return NextResponse.json(
+      { error: "Erro interno no servidor" },
+      { status: 500 }
+    );
   }
 }
