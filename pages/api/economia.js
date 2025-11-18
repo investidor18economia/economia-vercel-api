@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { openai } from "./chat-gpt4o";
 import { createClient } from "@supabase/supabase-js";
-import { fetchProductData } from "@/lib/fetcher";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
