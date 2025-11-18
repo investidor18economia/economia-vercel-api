@@ -1,12 +1,10 @@
-// /api/chat-gpt4o.js
+// pages/api/ai.js
 import { createClient } from "@supabase/supabase-js";
+import { callOpenAI } from "../../lib/openai";
+import { fetchSerpPrices } from "../../lib/prices";
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-const MODEL = process.env.MODEL_GPT4O_MINI || "gpt-4o-mini";
 const API_SHARED_KEY = process.env.API_SHARED_KEY;
-const FREE_LIMIT = parseInt(process.env.FREE_MONTHLY_MSGS || "5", 10);
-const PLUS_LIMIT = parseInt(process.env.PLUS_MONTHLY_MSGS || "300", 10);
-const SERPAPI_KEY = process.env.SERPAPI_KEY;
+const MODEL = process.env.MODEL_GPT4O_MINI || "gpt-4o-mini";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -14,140 +12,120 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-async function callOpenAI(messages) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENAI_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages,
-      temperature: 0.15,
-      max_tokens: 800,
-    }),
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`OpenAI error ${res.status} ${txt}`);
-  }
-
-  return res.json();
-}
-
 export default async function handler(req, res) {
-  if (req.method !== "POST")
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const clientKey = (req.headers["x-api-key"] || "").toString();
   if (!API_SHARED_KEY || clientKey !== API_SHARED_KEY) {
     return res.status(401).json({ error: "invalid_api_key" });
   }
 
-  const { user_id, text, conversation_id: conv_id } = req.body;
-  const textTrimmed = (text || "").trim();
+  const { text, user_id, conversation_id: conv_id } = req.body || {};
+  const query = (text || "").trim();
   if (!user_id) return res.status(400).json({ error: "Missing user_id" });
-  if (!textTrimmed) return res.status(400).json({ error: "Missing text" });
+  if (!query) return res.status(400).json({ error: "Missing text" });
 
   let conversation_id = conv_id || null;
 
   try {
-    // 1️⃣ Obter usuário e plano
+    // 1) read user and limits from supabase
     const { data: users } = await supabase
       .from("users")
       .select("id, plan, monthly_messages")
       .eq("id", user_id)
       .limit(1);
-    const user = users?.[0];
+    const user = users?.[0] || null;
     const plan = user?.plan || "free";
+    const FREE_LIMIT = parseInt(process.env.FREE_MONTHLY_MSGS || "5", 10);
+    const PLUS_LIMIT = parseInt(process.env.PLUS_MONTHLY_MSGS || "300", 10);
     const limit = plan === "plus" ? PLUS_LIMIT : FREE_LIMIT;
-
     if ((user?.monthly_messages || 0) >= limit) {
-      return res.status(403).json({
-        error: "quota_exceeded",
-        message: `Você atingiu o limite de ${limit} perguntas mensais para seu plano (${plan}).`,
-      });
+      return res.status(403).json({ error: "quota_exceeded", message: `Quota ${limit} reached` });
     }
 
-    // 2️⃣ Buscar preços: Supabase + SerpAPI
-    let results = [];
-
-    try {
-      // Supabase
-      const supaResults = await supabase
-        .from("cache_results")
-        .select("*")
-        .ilike("product_name", `%${textTrimmed}%`)
-        .limit(5);
-
-      // SerpAPI
-      const serpResponse = await fetch(`https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(textTrimmed)}&api_key=${SERPAPI_KEY}`);
-      const serpData = await serpResponse.json();
-      const serpResults = (serpData.shopping_results || []).map(p => ({
-        product_name: p.title,
-        price: p.price,
-        link: p.link
-      }));
-
-      // Juntando resultados
-      results = [...(supaResults.data || []), ...serpResults];
-
-    } catch (err) {
-      console.error("Erro ao buscar preços:", err);
-    }
-
-    // 3️⃣ Criar prompt GPT-4O Mini
-    const prompt = `
-Você é a MIA, assistente da EconomIA.
-
-O usuário perguntou: "${textTrimmed}"
-
-Aqui estão os preços encontrados:
-${results.map(r => `• ${r.product_name} — R$ ${r.price} — ${r.link}`).join("\n")}
-
-Responda de forma clara e amigável.
-Mostre o melhor preço e o custo-benefício.
-Use SOMENTE os dados fornecidos acima.
-`;
-
-    // 4️⃣ Chamar GPT-4O Mini
-    const messagesForOpenAI = [
-      { role: "system", content: "Você é a MIA, assistente da EconomIA. Seja amigável, objetivo e explique custo-benefício." },
-      { role: "user", content: prompt }
-    ];
-
-    const openaiRes = await callOpenAI(messagesForOpenAI);
-    const miaReply = openaiRes.choices?.[0]?.message?.content || "";
-
-    // 5️⃣ Criar conversa caso não exista
+    // 2) ensure conversation
     if (!conversation_id) {
       const insertConv = await supabase.from("conversations").insert([{ user_id }]).select("id").limit(1);
       conversation_id = insertConv.data?.[0]?.id || null;
     }
 
-    // 6️⃣ Salvar mensagens
-    if (conversation_id) {
-      await supabase.from("messages").insert([{ conversation_id, role: "user", content: textTrimmed }]);
-      await supabase.from("messages").insert([{ conversation_id, role: "assistant", content: miaReply }]);
+    // 3) fetch prices: first try Supabase cache, then SerpAPI fallback
+    let prices = [];
+    try {
+      const { data: cacheRows } = await supabase
+        .from("cache_results")
+        .select("*")
+        .ilike("product_name", `%${query}%`)
+        .limit(6);
+      if (cacheRows && cacheRows.length) {
+        prices = cacheRows.map(r => ({
+          product_name: r.product_name,
+          price: r.price,
+          link: r.link || r.redirectUrl || null,
+        }));
+      }
+    } catch (e) {
+      console.warn("supabase cache read failed", e);
     }
 
-    // 7️⃣ Atualizar contagem de mensagens
-    await supabase
-      .from("users")
-      .update({ monthly_messages: (user?.monthly_messages || 0) + 1 })
-      .eq("id", user_id);
+    if (!prices.length) {
+      // fallback to SerpAPI
+      try {
+        prices = await fetchSerpPrices(query, Number(process.env.SERPAPI_MAX || 10));
+      } catch (err) {
+        console.warn("SerpAPI failed", err);
+      }
+    }
 
-    // 8️⃣ Retornar reply + preços
+    // 4) build prompt for GPT
+    const systemPrompt = `Você é a MIA, assistente da EconomIA. Seja objetivo, amigável, explique custo-benefício e use apenas os dados fornecidos.`;
+    const pricesText = prices && prices.length ? prices.map(p => `• ${p.product_name} — ${p.price} — ${p.link || "sem link"}`).join("\n") : "Sem preços disponíveis.";
+
+    const userPrompt = `
+Usuário perguntou: "${query}"
+
+Preços encontrados:
+${pricesText}
+
+Responda de forma curta, amigável, cite o melhor preço e o custo-benefício. Use SOMENTE os dados acima.
+`;
+
+    // 5) call OpenAI
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ];
+
+    const openaiRes = await callOpenAI(messages, { model: process.env.MODEL_GPT4O_MINI || MODEL });
+    const miaReply = openaiRes?.choices?.[0]?.message?.content || openaiRes.output_text || "Desculpe, não consegui gerar resposta.";
+
+    // 6) save messages & usage & increment monthly count
+    try {
+      await supabase.from("messages").insert([
+        { conversation_id, role: "user", content: query },
+        { conversation_id, role: "assistant", content: miaReply }
+      ]);
+      await supabase.from("usage_log").insert([{
+        user_id,
+        model: process.env.MODEL_GPT4O_MINI || MODEL,
+        prompt_tokens: openaiRes?.usage?.prompt_tokens || null,
+        completion_tokens: openaiRes?.usage?.completion_tokens || null,
+        cost: null
+      }]);
+      await supabase.from("users").update({ monthly_messages: (user?.monthly_messages || 0) + 1 }).eq("id", user_id);
+    } catch (e) {
+      console.warn("saving usage failed", e);
+    }
+
+    // 7) return unified response
     return res.status(200).json({
       conversation_id,
       reply: miaReply,
-      prices: results
+      prices
     });
 
   } catch (err) {
-    console.error("Erro handler chat-gpt4o:", err);
+    console.error("ai handler error:", err);
     return res.status(500).json({ error: "internal_error", details: String(err) });
   }
 }
