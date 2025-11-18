@@ -6,6 +6,7 @@ const MODEL = process.env.MODEL_GPT4O_MINI || "gpt-4o-mini";
 const API_SHARED_KEY = process.env.API_SHARED_KEY;
 const FREE_LIMIT = parseInt(process.env.FREE_MONTHLY_MSGS || "5", 10);
 const PLUS_LIMIT = parseInt(process.env.PLUS_MONTHLY_MSGS || "300", 10);
+const SERPAPI_KEY = process.env.SERPAPI_KEY;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -13,6 +14,7 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
+// 🔹 Função para chamar GPT-4O Mini
 async function callOpenAI(messages) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -36,6 +38,27 @@ async function callOpenAI(messages) {
   return res.json();
 }
 
+// 🔹 Função para buscar preços no SerpApi
+async function fetchPrecosSerpAPI(query) {
+  if (!SERPAPI_KEY) throw new Error("SerpAPI key não configurada");
+
+  const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${SERPAPI_KEY}`;
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Erro SerpAPI: ${res.status} ${txt}`);
+  }
+
+  const data = await res.json();
+  return (data.shopping_results || []).map(item => ({
+    product_name: item.title,
+    price: item.price,
+    link: item.link
+  }));
+}
+
+// 🔹 Handler principal
 export default async function handler(req, res) {
   if (req.method !== "POST")
     return res.status(405).json({ error: "Method not allowed" });
@@ -47,18 +70,20 @@ export default async function handler(req, res) {
 
   const { user_id, text, conversation_id: conv_id } = req.body;
   const textTrimmed = (text || "").trim();
+
   if (!user_id) return res.status(400).json({ error: "Missing user_id" });
   if (!textTrimmed) return res.status(400).json({ error: "Missing text" });
 
   let conversation_id = conv_id || null;
 
   try {
-    // ✅ 1 - Obter usuário e plano
+    // 1️⃣ Obter usuário e plano
     const { data: users } = await supabase
       .from("users")
       .select("id, plan, monthly_messages")
       .eq("id", user_id)
       .limit(1);
+
     const user = users?.[0];
     const plan = user?.plan || "free";
     const limit = plan === "plus" ? PLUS_LIMIT : FREE_LIMIT;
@@ -70,33 +95,29 @@ export default async function handler(req, res) {
       });
     }
 
-    // ✅ 2 - Buscar preços no Supabase
+    // 2️⃣ Buscar preços no SerpApi
     let results = [];
     try {
-      results = await supabase
-        .from("cache_results")
-        .select("*")
-        .ilike("product_name", `%${textTrimmed}%`)
-        .limit(10);
+      results = await fetchPrecosSerpAPI(textTrimmed);
     } catch (err) {
-      console.error("Erro ao buscar preços:", err);
+      console.error("Erro ao buscar preços SerpAPI:", err);
     }
 
-    // ✅ 3 - Criar prompt GPT-4O Mini
+    // 3️⃣ Criar prompt GPT-4O Mini
     const prompt = `
 Você é a MIA, assistente da EconomIA.
 
 O usuário perguntou: "${textTrimmed}"
 
 Aqui estão os preços encontrados:
-${results.map(r => `• ${r.product_name} — R$ ${r.price} — ${r.link}`).join("\n")}
+${results.map(r => `• ${r.product_name} — ${r.price} — ${r.link}`).join("\n")}
 
 Responda de forma clara e amigável.
 Mostre o melhor preço e o custo-benefício.
 Use SOMENTE os dados fornecidos acima.
 `;
 
-    // ✅ 4 - Chamar GPT-4O Mini
+    // 4️⃣ Chamar GPT-4O Mini
     const messagesForOpenAI = [
       { role: "system", content: "Você é a MIA, assistente da EconomIA. Seja amigável, objetivo e explique custo-benefício." },
       { role: "user", content: prompt }
@@ -105,25 +126,25 @@ Use SOMENTE os dados fornecidos acima.
     const openaiRes = await callOpenAI(messagesForOpenAI);
     const miaReply = openaiRes.choices?.[0]?.message?.content || "";
 
-    // ✅ 5 - Criar conversa caso não exista
+    // 5️⃣ Criar conversa caso não exista
     if (!conversation_id) {
       const insertConv = await supabase.from("conversations").insert([{ user_id }]).select("id").limit(1);
       conversation_id = insertConv.data?.[0]?.id || null;
     }
 
-    // ✅ 6 - Salvar mensagens
+    // 6️⃣ Salvar mensagens
     if (conversation_id) {
       await supabase.from("messages").insert([{ conversation_id, role: "user", content: textTrimmed }]);
       await supabase.from("messages").insert([{ conversation_id, role: "assistant", content: miaReply }]);
     }
 
-    // ✅ 7 - Atualizar contagem de mensagens
+    // 7️⃣ Atualizar contagem de mensagens
     await supabase
       .from("users")
       .update({ monthly_messages: (user?.monthly_messages || 0) + 1 })
       .eq("id", user_id);
 
-    // ✅ 8 - Retornar reply + preços
+    // 8️⃣ Retornar reply + preços
     return res.status(200).json({
       conversation_id,
       reply: miaReply,
