@@ -1,4 +1,3 @@
-// pages/api/delete-wish.js
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -9,47 +8,41 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
 
-  if (req.method === "OPTIONS") return res.status(204).end();
-  if (req.method !== "POST") return res.status(405).json({ success: false, error: "Only POST allowed" });
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // proteção interna: verifica a shared key (opcional mas recomendada)
+  // optional internal protection
   const clientKey = req.headers["x-api-key"] || "";
   if (process.env.API_SHARED_KEY && clientKey !== process.env.API_SHARED_KEY) {
-    return res.status(403).json({ success: false, error: "invalid_api_key" });
+    // allow if not set, but if set require it
+    return res.status(403).json({ error: "invalid_api_key" });
   }
 
   try {
-    const body = req.body || {};
-    const { id, user_id } = body;
+    const { id, user_id } = req.body || {};
+    if (!id) return res.status(400).json({ error: "id is required" });
 
-    if (!id) return res.status(400).json({ success: false, error: "Missing parameter: id" });
+    const query = supabase.from("wishes").delete().eq("id", id);
 
-    // Faz a deleção e retorna as linhas deletadas para confirmação
-    const { data, error } = await supabase
-      .from("wishes")
-      .delete()
-      .eq("id", id)
-      .eq("user_id", user_id || null)
-      .select();
+    if (user_id) query.eq("user_id", user_id);
+
+    const { data, error } = await query.select();
 
     if (error) {
-      console.error("Supabase DELETE error:", error);
-      return res.status(500).json({ success: false, error: error.message || String(error) });
+      console.error("delete-wish error:", error);
+      return res.status(500).json({ error: "db_error", details: error.message || error });
     }
 
     if (!data || data.length === 0) {
-      // nenhuma linha deletada
-      return res.status(404).json({ success: false, message: "Nenhuma linha deletada (id não encontrado ou user_id mismatch)" });
+      return res.status(404).json({ error: "not_found" });
     }
 
-    // sucesso real — registro deletado
-    return res.status(200).json({ success: true, deleted_id: id, deleted_rows: data.length });
+    return res.status(200).json({ success: true, deleted: data });
   } catch (err) {
     console.error("ERROR /api/delete-wish:", err);
-    return res.status(500).json({ success: false, error: String(err) });
+    return res.status(500).json({ error: String(err) });
   }
 }
-
