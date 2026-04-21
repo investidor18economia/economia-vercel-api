@@ -54,6 +54,39 @@ function cleanTitle(title) {
     .replace(/\s+/g, " ")
     .trim();
 }
+function wantsNewProduct(query) {
+  return /\bnovo\b|\bnova\b|\blacrado\b|\blacrada\b|\bzerado\b/i.test(query || "");
+}
+
+function isUsedLikeProduct(title) {
+  const t = (title || "").toLowerCase();
+
+  const usedTerms = [
+    "usado",
+    "usada",
+    "seminovo",
+    "seminova",
+    "semi-novo",
+    "semi nova",
+    "recondicionado",
+    "recondicionada",
+    "open box",
+    "mostruário",
+    "mostruario",
+    "vitrine",
+    "marcas de uso",
+    "marca de uso",
+    "com uso",
+    "bateria",
+    "saúde da bateria",
+    "saude da bateria",
+    "trocafone",
+    "segunda mão",
+    "segunda mao"
+  ];
+
+  return usedTerms.some(term => t.includes(term));
+}
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -115,6 +148,20 @@ export default async function handler(req, res) {
 
       products = withinBudget;
     }
+    const wantsNew = wantsNewProduct(query);
+
+if (wantsNew) {
+  const newOnlyProducts = products.filter((p) => !isUsedLikeProduct(p.product_name));
+
+  if (!newOnlyProducts.length) {
+    return res.status(200).json({
+      reply: "⚠️ Não encontrei opções novas confiáveis para essa busca.\n📊 Encontrei apenas itens com sinais de uso ou condição duvidosa.\n❓ Quer ver mesmo assim ou prefere ajustar a busca?",
+      prices: products
+    });
+  }
+
+  products = newOnlyProducts;
+}
 
     const isGamer = /gamer|jogar|cyberpunk/i.test(query);
 
