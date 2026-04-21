@@ -30,11 +30,15 @@ export default async function handler(req, res) {
 
     const userId = user_id || "guest";
 
-    const { data: user } = await supabase
+    const { data: user, error: userError } = await supabase
       .from("users")
       .select("plan, monthly_messages")
       .eq("id", userId)
       .maybeSingle();
+
+    if (userError) {
+      console.error("Erro ao buscar user:", userError);
+    }
 
     const isPlus = user?.plan === "plus";
     const limit = isPlus
@@ -48,7 +52,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const protocol =
+      req.headers["x-forwarded-proto"] ||
+      (req.headers.host?.includes("localhost") ? "http" : "https");
+
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const apiUrl = `${protocol}://${host}`;
 
     const response = await fetch(`${apiUrl}/api/chat-gpt4o`, {
       method: "POST",
@@ -66,6 +75,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("Erro chat-gpt4o:", response.status, data);
       return res.status(500).json({
         reply: data.reply || "Desculpe, tive um problema. Tente novamente!",
         prices: []
@@ -73,13 +83,19 @@ export default async function handler(req, res) {
     }
 
     if (userId !== "guest") {
-      await supabase
+      const currentMessages = user?.monthly_messages || 0;
+
+      const { error: upsertError } = await supabase
         .from("users")
         .upsert({
           id: userId,
-          monthly_messages: (user?.monthly_messages || 0) + 1,
+          monthly_messages: currentMessages + 1,
           plan: user?.plan || "free"
         });
+
+      if (upsertError) {
+        console.error("Erro ao atualizar user:", upsertError);
+      }
     }
 
     return res.status(200).json({
