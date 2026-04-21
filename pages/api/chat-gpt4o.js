@@ -15,37 +15,6 @@ function parsePrice(value) {
   return parseFloat(String(value).replace(/[^\d,]/g, "").replace(",", "."));
 }
 
-function normalizeQuery(text) {
-  return (text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-// 🧠 NOVO: SCORE DE QUALIDADE DO PRODUTO
-function scoreProduct(p) {
-  const title = (p.product_name || "").toLowerCase();
-  const price = parsePrice(p.price);
-
-  let score = 0;
-
-  // base
-  score += 1000 - price; // mais barato ganha ponto, mas não domina tudo
-
-  // ❌ penalizações
-  if (/usado|seminovo|recondicionado/.test(title)) score -= 300;
-  if (/leia|descricao|vendo|troco|retirada/.test(title)) score -= 400;
-  if (title.length < 20) score -= 200;
-
-  // ✅ bônus
-  if (/gb|ssd|ram|128|256|512/.test(title)) score += 100;
-  if (/pro|max|plus|ultra/.test(title)) score += 120;
-  if (/novo|lacrado/.test(title)) score += 150;
-
-  return score;
-}
-
 function extractBudget(text) {
   const q = (text || "").toLowerCase();
 
@@ -68,18 +37,163 @@ function extractBudget(text) {
   return null;
 }
 
+function cleanTitle(title) {
+  return (title || "")
+    .replace(/\b(barato|barata|promoção|promocao|oferta|p sair hoje|para sair hoje|agora|aproveite|imperdível|imperdivel)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeQuery(text) {
+  return (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 function wantsNewProduct(query) {
-  return /\bnovo\b|\bnova\b|\blacrado\b|\bzerado\b/i.test(query || "");
+  return /\bnovo\b|\bnova\b|\blacrado\b|\blacrada\b|\bzerado\b/i.test(query || "");
+}
+
+function isUsedLikeProduct(title) {
+  const t = (title || "").toLowerCase();
+  return /usado|usada|seminovo|seminova|recondicionado|open box|bateria|marcas de uso|trocafone|segunda mao|segunda mão/.test(t);
+}
+
+function isSuspiciousListing(title) {
+  const t = (title || "").toLowerCase();
+  return /leia|descri|vende|vendo|troco|retirada|retirar|chat|urgente|oportunidade|negocio|negócio/.test(t);
+}
+
+function isBadProduct(title) {
+  return isUsedLikeProduct(title) || isSuspiciousListing(title);
+}
+
+function detectGreeting(query) {
+  const q = normalizeQuery(query);
+
+  const greetings = [
+    "oi",
+    "ola",
+    "opa",
+    "iae",
+    "eae",
+    "e ai",
+    "fala",
+    "fala ai",
+    "salve",
+    "bom dia",
+    "boa tarde",
+    "boa noite",
+    "tudo bem",
+    "td bem",
+    "como vai",
+    "como vc ta",
+    "como voce ta",
+    "como voce esta",
+    "como vc esta",
+    "hey",
+    "hello",
+    "hi"
+  ];
+
+  return greetings.some((g) => q === g || q.startsWith(g + " "));
+}
+
+function detectComparison(query) {
+  const q = normalizeQuery(query);
+
+  return (
+    /\bou\b/.test(q) ||
+    /melhor comprar/.test(q) ||
+    /qual compensa mais/.test(q) ||
+    /qual vale mais a pena/.test(q) ||
+    /versus/.test(q) ||
+    /\bvs\b/.test(q)
+  );
+}
+
+function detectRecommendation(query) {
+  const q = normalizeQuery(query);
+
+  return (
+    /qual o melhor/.test(q) ||
+    /\bmelhor\b/.test(q) ||
+    /vale a pena/.test(q) ||
+    /compensa/.test(q) ||
+    /custo beneficio/.test(q) ||
+    /custo-beneficio/.test(q) ||
+    /recomenda/.test(q) ||
+    /indica/.test(q)
+  );
+}
+
+function detectUseCase(query) {
+  const q = normalizeQuery(query);
+
+  const useCases = [
+    "jogo", "jogar", "games", "gamer", "cyberpunk", "fps",
+    "trabalho", "trabalhar", "planilhas", "office",
+    "estudo", "estudar", "faculdade", "aula",
+    "uso basico", "dia a dia",
+    "fotos", "camera", "video",
+    "bateria", "duracao",
+    "edicao", "design", "programacao"
+  ];
+
+  return useCases.some((term) => q.includes(term));
+}
+
+function detectGenericCategory(query) {
+  const q = normalizeQuery(query);
+
+  const categories = [
+    "celular",
+    "iphone",
+    "smartphone",
+    "notebook",
+    "pc",
+    "computador",
+    "tv",
+    "televisao",
+    "videogame",
+    "console",
+    "ps5",
+    "xbox",
+    "fone",
+    "headset",
+    "tablet",
+    "monitor",
+    "cadeira",
+    "tenis",
+    "geladeira",
+    "maquina de lavar"
+  ];
+
+  return categories.some((term) => q.includes(term));
+}
+
+function detectPriceSearch(query) {
+  const q = normalizeQuery(query);
+
+  return (
+    /mais barato/.test(q) ||
+    /menor preco/.test(q) ||
+    /mais em conta/.test(q) ||
+    /preco mais baixo/.test(q)
+  );
 }
 
 function detectIntent(query) {
   const q = normalizeQuery(query);
 
-  if (/oi|ola|opa|fala|bom dia|boa tarde|boa noite/.test(q)) return "greeting";
-  if (/ou|vs|versus|melhor comprar/.test(q)) return "comparison";
-  if (/vale a pena|compensa/.test(q)) return "decision";
-  if (/melhor|recomenda|indica/.test(q)) return "recommendation";
-  if (/celular|notebook|tv|ps5|xbox/.test(q)) return "generic";
+  if (detectGreeting(q)) return "greeting";
+  if (detectComparison(q)) return "comparison";
+  if (detectRecommendation(q) && detectUseCase(q)) return "specific_use";
+  if (detectRecommendation(q)) return "recommendation";
+  if (detectGenericCategory(q) && !detectUseCase(q) && !detectPriceSearch(q)) return "generic";
+  if (detectPriceSearch(q)) return "price_search";
 
   return "other";
 }
@@ -101,14 +215,21 @@ export default async function handler(req, res) {
 
   if (intent === "greeting") {
     return res.status(200).json({
-      reply: "👋 Oi! Me fala o que você quer comprar que eu te ajudo a escolher a melhor opção.",
+      reply: "👋 Oi! Me fala o que você quer comprar que eu te ajudo a encontrar a melhor opção.",
+      prices: []
+    });
+  }
+
+  if (intent === "generic") {
+    return res.status(200).json({
+      reply: "🧠 Pra eu te indicar a melhor compra, me fala rapidinho: é pra jogo, trabalho, estudo ou uso básico?",
       prices: []
     });
   }
 
   if (intent === "comparison") {
     return res.status(200).json({
-      reply: "⚖️ Me manda os 2 modelos que você quer comparar e o que é mais importante pra você (preço, desempenho, bateria, etc).",
+      reply: "⚖️ Me diz os 2 modelos que você quer comparar e, se puder, o que pesa mais pra você: preço, desempenho, durabilidade ou custo-benefício.",
       prices: []
     });
   }
@@ -118,7 +239,7 @@ export default async function handler(req, res) {
 
     if (!products.length) {
       return res.status(200).json({
-        reply: "⚠️ Não encontrei resultados confiáveis.",
+        reply: "⚠️ Nenhum resultado encontrado.",
         prices: []
       });
     }
@@ -130,46 +251,63 @@ export default async function handler(req, res) {
     }
 
     if (wantsNewProduct(query)) {
-      const filtered = products.filter(
-        (p) => !/usado|seminovo|recondicionado/.test(p.product_name.toLowerCase())
-      );
+      const filtered = products.filter((p) => !isUsedLikeProduct(p.product_name));
       if (filtered.length) products = filtered;
     }
 
     let validProducts = products
       .map((p) => ({ ...p, numericPrice: parsePrice(p.price) }))
-      .filter((p) => !isNaN(p.numericPrice));
+      .filter((p) => !isNaN(p.numericPrice))
+      .sort((a, b) => a.numericPrice - b.numericPrice);
 
     if (!validProducts.length) {
       return res.status(200).json({
-        reply: "⚠️ Não encontrei resultados válidos.",
+        reply: "⚠️ Nenhum resultado encontrado.",
         prices: []
       });
     }
 
-    // 🧠 NOVO: rankear por score
-    validProducts = validProducts
-      .map((p) => ({ ...p, score: scoreProduct(p) }))
-      .sort((a, b) => b.score - a.score);
+    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name));
+    const base = goodProducts.length ? goodProducts : validProducts;
 
-    const best = validProducts[0];
+    const best = base[0];
+    const title = cleanTitle(best.product_name);
 
-    let reply = `🧠 Essa é a melhor escolha considerando custo-benefício:\n\n💰 ${best.price}\n📦 ${best.product_name}`;
+    const hasCheaperBad = validProducts.some(
+      (p) => parsePrice(p.price) < parsePrice(best.price) && isBadProduct(p.product_name)
+    );
 
-    if (intent === "decision") {
-      reply += `\n\n👉 Sim, essa opção compensa pelo equilíbrio entre preço e qualidade.`;
+    let reply = `💰 Melhor preço confiável: ${best.price}\n🧠 ${title}`;
+
+    if (hasCheaperBad) {
+      reply += `\n⚠️ Existem opções mais baratas, mas podem ser menos confiáveis`;
+    }
+
+    if (intent === "specific_use") {
+      if (/estudar/i.test(normalizeQuery(query))) {
+        reply += `\n📊 Boa opção para estudo e uso diário`;
+      } else if (/gamer|jogar|cyberpunk/i.test(normalizeQuery(query))) {
+        if (/rtx|gtx|radeon|geforce|gamer/i.test(title.toLowerCase())) {
+          reply += `\n📊 Parece mais preparado para jogos do que modelos comuns`;
+        } else {
+          reply += `\n📊 Parece mais indicado para uso leve do que para jogos pesados`;
+          reply += `\n⚠️ Para jogos exigentes, pode valer investir mais`;
+        }
+      } else if (/trabalho/i.test(normalizeQuery(query))) {
+        reply += `\n📊 Boa opção para trabalho e uso geral`;
+      }
     }
 
     if (intent === "recommendation") {
-      reply += `\n\n📊 Dentro das opções encontradas, essa entrega o melhor retorno pelo valor.`;
+      reply += `\n📊 Boa opção de custo-benefício`;
     }
 
-    reply += `\n\n❓ Quer que eu compare com outra opção ou te mostre alternativas?`;
+    reply += `\n❓ Quer ver mais opções?`;
 
     return res.status(200).json({
       reply,
       prices: validProducts.map((p) => ({
-        product_name: p.product_name,
+        product_name: cleanTitle(p.product_name),
         price: p.price,
         link: p.link,
         thumbnail: p.thumbnail
