@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       .from("users")
       .select("plan, monthly_messages")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     const isPlus = user?.plan === "plus";
     const limit = isPlus
@@ -48,8 +48,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const apiUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://economia-ai.vercel.app";
-    
+    const apiUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
     const response = await fetch(`${apiUrl}/api/chat-gpt4o`, {
       method: "POST",
       headers: {
@@ -63,22 +63,23 @@ export default async function handler(req, res) {
       })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erro chat-gpt4o:", response.status, errorText);
       return res.status(500).json({
-        reply: "Desculpe, tive um problema. Tente novamente!",
+        reply: data.reply || "Desculpe, tive um problema. Tente novamente!",
         prices: []
       });
     }
 
-    const data = await response.json();
-
     if (userId !== "guest") {
       await supabase
         .from("users")
-        .update({ monthly_messages: (user?.monthly_messages || 0) + 1 })
-        .eq("id", userId);
+        .upsert({
+          id: userId,
+          monthly_messages: (user?.monthly_messages || 0) + 1,
+          plan: user?.plan || "free"
+        });
     }
 
     return res.status(200).json({
