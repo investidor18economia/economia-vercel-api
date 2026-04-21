@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { fetchSerpPrices } from "../../lib/prices";
 
 const API_SHARED_KEY = process.env.API_SHARED_KEY;
 
@@ -8,22 +9,60 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-function extractBudget(text) {
-  const match = text.match(/(\d+[.,]?\d*)\s*(mil|reais|r\$)?/i);
-  if (!match) return null;
-
-  let value = parseFloat(match[1].replace(",", "."));
-  if (match[2]?.toLowerCase() === "mil") value *= 1000;
-
-  return value;
+function parsePrice(value) {
+  if (typeof value === "number") return value;
+  if (!value) return NaN;
+  return parseFloat(String(value).replace(/[^\d,]/g, "").replace(",", "."));
 }
 
-function parsePrice(p) {
-  return parseFloat(p?.replace(/[^\d,]/g, "").replace(",", "."));
+function formatBRL(value) {
+  return value.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+function extractBudget(text) {
+  const q = (text || "").toLowerCase();
+
+  const patterns = [
+    /até\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
+    /abaixo\s*de\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
+    /menos\s*de\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
+    /no\s*m[aá]ximo\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = q.match(pattern);
+    if (match) {
+      let value = parseFloat(match[1].replace(",", "."));
+      if (match[2]) value *= 1000;
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function isComplexQuery(query) {
+  return /qual o melhor|melhor|vale a pena|compensa|rodar|gamer|cyberpunk|estudar|ou /i.test(query);
+}
+
+function cleanTitle(title) {
+  return (title || "")
+    .replace(/\b(barato|promoção|oferta|imperdível|p sair hoje|para sair hoje)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -34,7 +73,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "invalid_api_key" });
   }
 
-  const { text } = req.body || {};
+  const { text, user_id, conversation_id } = req.body || {};
   const query = (text || "").trim();
 
   if (!query) {
@@ -42,54 +81,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 🔥 usar rota local corretamente
-    const response = await fetch(
-      `http://localhost:3000/api/search?q=${encodeURIComponent(query)}`
-    );
+    let products = await fetchSerpPrices(query, Number(process.env.SERPAPI_MAX || 8));
 
-    let data = {};
-    try {
-      data = await response.json();
-    } catch {}
-
-    let products = data.products || [];
-
-    // 🔥 fallback caso API falhe
     if (!products.length) {
       return res.status(200).json({
-        reply: "⚠️ Não encontrei resultados confiáveis. Tente outra busca.",
-        products: []
+        reply: "⚠️ Nenhum resultado encontrado. Tente uma busca diferente.",
+        prices: []
       });
     }
 
     const budget = extractBudget(query);
 
     if (budget) {
-      const withinBudget = products.filter(p => {
+      const withinBudget = products.filter((p) => {
         const price = parsePrice(p.price);
         return !isNaN(price) && price <= budget;
       });
 
       if (!withinBudget.length) {
-        const lowest = Math.min(...products.map(p => parsePrice(p.price)));
+        const validPrices = products
+          .map((p) => parsePrice(p.price))
+          .filter((p) => !isNaN(p));
+
+        const lowestAvailable = validPrices.length ? Math.min(...validPrices) : null;
 
         return res.status(200).json({
-          reply: `⚠️ Não encontrei boas opções dentro de R$ ${budget.toLocaleString("pt-BR")}
-📊 Os modelos mais próximos começam em R$ ${lowest.toLocaleString("pt-BR")}
-❓ Quer ver opções nessa faixa?`,
-          products
+          reply: lowestAvailable
+            ? `⚠️ Não encontrei boas opções dentro de ${formatBRL(budget)}.\n📊 Os modelos mais próximos começam em ${formatBRL(lowestAvailable)}.\n❓ Quer ver opções nessa faixa maior?`
+            : `⚠️ Não encontrei boas opções dentro de ${formatBRL(budget)}.\n❓ Quer ver opções em outra faixa?`,
+          prices: products
         });
       }
 
       products = withinBudget;
     }
 
-    // 🔥 melhorar escolha com contexto
     const isGamer = /gamer|jogar|cyberpunk/i.test(query);
 
     if (isGamer) {
-      const gamerFiltered = products.filter(p =>
-        /gamer|rtx|gtx|radeon|ryzen 7|i7/i.test(p.title.toLowerCase())
+      const gamerFiltered = products.filter((p) =>
+        /gamer|rtx|gtx|radeon|geforce|ryzen 7|ryzen 5|i7|i5/.test((p.product_name || "").toLowerCase())
       );
 
       if (gamerFiltered.length) {
@@ -97,33 +128,76 @@ export default async function handler(req, res) {
       }
     }
 
-    const best = products[0];
+    const validProducts = products
+      .map((p) => ({
+        ...p,
+        numericPrice: parsePrice(p.price)
+      }))
+      .filter((p) => !isNaN(p.numericPrice))
+      .sort((a, b) => a.numericPrice - b.numericPrice);
 
-    let reply = `💰 Melhor preço confiável: ${best.price}`;
-
-    if (data.priceRange) {
-      reply += `\n📊 Faixa normal: ${data.priceRange.min} até ${data.priceRange.max}`;
+    if (!validProducts.length) {
+      return res.status(200).json({
+        reply: "⚠️ Nenhum resultado encontrado. Tente uma busca diferente.",
+        prices: []
+      });
     }
 
-    reply += `\n🧠 ${best.title}`;
+    const best = validProducts[0];
+    const title = cleanTitle(best.product_name);
 
-    if (isGamer) {
-      if (!/rtx|gtx|radeon/i.test(best.title.toLowerCase())) {
-        reply += `\n⚠️ Pode não rodar jogos pesados como Cyberpunk`;
+    let reply = "";
+
+    if (isComplexQuery(query)) {
+      reply += `💰 Melhor opção encontrada: ${best.price}\n`;
+      reply += `🧠 ${title}\n`;
+
+      if (/estudar/i.test(query)) {
+        reply += `📊 Boa opção para estudo e uso diário\n`;
+      } else if (isGamer) {
+        if (/rtx|gtx|radeon|geforce/i.test(title.toLowerCase())) {
+          reply += `📊 Parece mais preparado para jogos do que modelos comuns\n`;
+        } else {
+          reply += `📊 Parece mais indicado para uso leve do que para jogos pesados\n`;
+          reply += `⚠️ Para Cyberpunk, o ideal é investir mais\n`;
+        }
+      } else {
+        reply += `📊 Boa opção dentro da busca feita\n`;
       }
+
+      reply += `❓ Quer ver mais opções parecidas?`;
+    } else {
+      reply += `💰 Melhor preço confiável: ${best.price}\n`;
+      reply += `🧠 ${title}\n`;
+      reply += `❓ Quer ver mais opções parecidas?`;
     }
 
-    reply += `\n❓ Quer ver mais opções parecidas?`;
+    try {
+      if (user_id && conversation_id) {
+        await supabase.from("messages").insert([
+          { conversation_id, role: "user", content: query },
+          { conversation_id, role: "assistant", content: reply }
+        ]);
+      }
+    } catch (e) {
+      console.warn("Falha ao salvar mensagens", e);
+    }
 
     return res.status(200).json({
       reply,
-      products
+      prices: validProducts.map((p) => ({
+        product_name: p.product_name,
+        price: p.price,
+        link: p.link,
+        thumbnail: p.thumbnail
+      }))
     });
 
   } catch (err) {
-    console.error(err);
+    console.error("chat-gpt4o error:", err);
     return res.status(500).json({
-      reply: "Erro ao processar a busca."
+      reply: "Desculpe, tive um problema ao processar sua busca.",
+      prices: []
     });
   }
 }
