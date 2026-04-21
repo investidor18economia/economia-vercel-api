@@ -75,10 +75,26 @@ function isUsedLikeProduct(title) {
 function isSuspiciousListing(title) {
   const t = (title || "").toLowerCase();
 
-  const suspiciousTerms = [
-    "leia a descrição", "vende-se", "vendo",
-    "troco", "retirada", "chama no chat"
-  ];
+ const suspiciousTerms = [
+  "leia a descrição",
+  "leia a descricao",
+  "vende-se",
+  "vendo",
+  "troco",
+  "retirada",
+  "retirar",
+  "chama no chat",
+  "chamar no chat",
+  "somente hoje",
+  "oportunidade",
+  "urgente",
+  "negocio",
+  "negócio",
+  "falar no chat",
+  "fale no chat",
+  "descrição",
+  "descricao"
+];
 
   return suspiciousTerms.some(term => t.includes(term));
 }
