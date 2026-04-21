@@ -62,7 +62,11 @@ function wantsNewProduct(query) {
 
 function isUsedLikeProduct(title) {
   const t = (title || "").toLowerCase();
-  function isSuspiciousListing(title) {
+  function isSuspiciousListing(title)
+  {
+    function isBadProduct(title) {
+  return isSuspiciousListing(title) || isUsedLikeProduct(title);
+}
   const t = (title || "").toLowerCase();
 
   const suspiciousTerms = [
@@ -216,11 +220,28 @@ if (wantsNew) {
       });
     }
 
-    const best = validProducts[0];
-    const title = cleanTitle(best.product_name);
+   // separar produtos bons
+const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name));
 
-    let reply = "";
+// escolher base: bons primeiro, se não tiver usa todos
+const baseProducts = goodProducts.length ? goodProducts : validProducts;
 
+// ordenar por preço
+baseProducts.sort((a, b) => {
+  return parsePrice(a.price) - parsePrice(b.price);
+});
+
+// pegar o melhor
+const best = baseProducts[0];
+const title = cleanTitle(best.product_name);
+    const hasCheaperBadOption = validProducts.some((p) => {
+  const price = parsePrice(p.price);
+  return (
+    !isNaN(price) &&
+    price < parsePrice(best.price) &&
+    isBadProduct(p.product_name)
+  );
+});
     if (isComplexQuery(query)) {
       reply += `💰 Melhor opção encontrada: ${best.price}\n`;
       reply += `🧠 ${title}\n`;
@@ -240,9 +261,13 @@ if (wantsNew) {
 
       reply += `❓ Quer ver mais opções parecidas?`;
     } else {
-      reply += `💰 Melhor preço confiável: ${best.price}\n`;
-      reply += `🧠 ${title}\n`;
-      reply += `❓ Quer ver mais opções parecidas?`;
+      reply = `💰 Melhor preço confiável: ${best.price}
+🧠 ${title}${
+  hasCheaperBadOption
+    ? "\n⚠️ Existem opções mais baratas, mas podem ser usadas ou menos confiáveis"
+    : ""
+}
+❓ Quer ver mais opções parecidas?`;
     }
 
     try {
