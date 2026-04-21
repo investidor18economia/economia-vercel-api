@@ -13,9 +13,13 @@ function extractBudget(text) {
   if (!match) return null;
 
   let value = parseFloat(match[1].replace(",", "."));
-  if (match[2] === "mil") value *= 1000;
+  if (match[2]?.toLowerCase() === "mil") value *= 1000;
 
   return value;
+}
+
+function parsePrice(p) {
+  return parseFloat(p?.replace(/[^\d,]/g, "").replace(",", "."));
 }
 
 export default async function handler(req, res) {
@@ -30,7 +34,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "invalid_api_key" });
   }
 
-  const { text, user_id } = req.body || {};
+  const { text } = req.body || {};
   const query = (text || "").trim();
 
   if (!query) {
@@ -38,38 +42,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 🔥 chama sua API inteligente
+    // 🔥 usar rota local corretamente
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/api/search?q=${encodeURIComponent(query)}`
+      `http://localhost:3000/api/search?q=${encodeURIComponent(query)}`
     );
 
-    const data = await response.json();
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {}
 
-    if (!response.ok || !data.products?.length) {
+    let products = data.products || [];
+
+    // 🔥 fallback caso API falhe
+    if (!products.length) {
       return res.status(200).json({
-        reply: "⚠️ Não encontrei resultados confiáveis para essa busca.",
+        reply: "⚠️ Não encontrei resultados confiáveis. Tente outra busca.",
         products: []
       });
     }
 
     const budget = extractBudget(query);
 
-    let products = data.products;
-
-    // 🔥 FILTRO DE ORÇAMENTO
     if (budget) {
       const withinBudget = products.filter(p => {
-        const price = parseFloat(
-          p.price?.replace(/[^\d,]/g, "").replace(",", ".")
-        );
-        return price <= budget;
+        const price = parsePrice(p.price);
+        return !isNaN(price) && price <= budget;
       });
 
       if (!withinBudget.length) {
+        const lowest = Math.min(...products.map(p => parsePrice(p.price)));
+
         return res.status(200).json({
           reply: `⚠️ Não encontrei boas opções dentro de R$ ${budget.toLocaleString("pt-BR")}
-📊 Os modelos mais próximos começam acima disso
-❓ Quer ver opções nessa faixa maior?`,
+📊 Os modelos mais próximos começam em R$ ${lowest.toLocaleString("pt-BR")}
+❓ Quer ver opções nessa faixa?`,
           products
         });
       }
@@ -77,9 +84,21 @@ export default async function handler(req, res) {
       products = withinBudget;
     }
 
+    // 🔥 melhorar escolha com contexto
+    const isGamer = /gamer|jogar|cyberpunk/i.test(query);
+
+    if (isGamer) {
+      const gamerFiltered = products.filter(p =>
+        /gamer|rtx|gtx|radeon|ryzen 7|i7/i.test(p.title.toLowerCase())
+      );
+
+      if (gamerFiltered.length) {
+        products = gamerFiltered;
+      }
+    }
+
     const best = products[0];
 
-    // 🔥 RESPOSTA INTELIGENTE
     let reply = `💰 Melhor preço confiável: ${best.price}`;
 
     if (data.priceRange) {
@@ -88,13 +107,9 @@ export default async function handler(req, res) {
 
     reply += `\n🧠 ${best.title}`;
 
-    // 🔥 DETECTAR PERGUNTA COMPLEXA
-    if (/melhor|vale|compensa|rodar|jogar/i.test(query)) {
-      reply += `\n📊 Boa opção para uso geral`;
-
-      if (/cyberpunk|gamer|jogar/i.test(query)) {
-        reply += `, mas pode não rodar jogos pesados`;
-        reply += `\n⚠️ Para jogos exigentes, ideal investir mais`;
+    if (isGamer) {
+      if (!/rtx|gtx|radeon/i.test(best.title.toLowerCase())) {
+        reply += `\n⚠️ Pode não rodar jogos pesados como Cyberpunk`;
       }
     }
 
@@ -107,6 +122,8 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: "Erro no servidor" });
+    return res.status(500).json({
+      reply: "Erro ao processar a busca."
+    });
   }
 }
