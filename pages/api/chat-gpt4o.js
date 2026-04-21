@@ -53,80 +53,41 @@ function cleanTitle(title) {
     .replace(/\b(barato|barata|promoção|promocao|oferta|imperdível|imperdivel|p sair hoje|para sair hoje|aproveite|últimas unidades|ultimas unidades)\b/gi, "")
     .replace(/\b(agora)\b/gi, "")
     .replace(/\s+/g, " ")
-    .replace(/\s+-\s+/g, " - ")
     .trim();
 }
+
 function wantsNewProduct(query) {
   return /\bnovo\b|\bnova\b|\blacrado\b|\blacrada\b|\bzerado\b/i.test(query || "");
 }
 
 function isUsedLikeProduct(title) {
   const t = (title || "").toLowerCase();
-  function isSuspiciousListing(title)
-  {
-    function isBadProduct(title) {
-  return isSuspiciousListing(title) || isUsedLikeProduct(title);
-}
-  const t = (title || "").toLowerCase();
-
-  const suspiciousTerms = [
-    "leia a descrição",
-    "leia a descricao",
-    "vende-se",
-    "vendo",
-    "troco",
-    "retirada",
-    "retirar",
-    "chama no chat",
-    "chamar no chat",
-    "somente hoje",
-    "oportunidade",
-    "urgente",
-    "negocio",
-    "negócio",
-    "falar no chat",
-    "fale no chat"
-  ];
-
-  return suspiciousTerms.some(term => t.includes(term));
-}
 
   const usedTerms = [
-    "usado",
-    "usada",
-    "seminovo",
-    "seminova",
-    "semi-novo",
-    "semi nova",
-    "recondicionado",
-    "recondicionada",
-    "open box",
-    "mostruário",
-    "mostruario",
-    "vitrine",
-    "marcas de uso",
-    "marca de uso",
-    "com uso",
-    "bateria",
-    "saúde da bateria",
-    "saude da bateria",
-    "trocafone",
-    "segunda mão",
-    "segunda mao"
+    "usado", "usada", "seminovo", "seminova",
+    "recondicionado", "open box", "vitrine",
+    "marcas de uso", "bateria", "trocafone"
   ];
 
   return usedTerms.some(term => t.includes(term));
 }
 
+function isSuspiciousListing(title) {
+  const t = (title || "").toLowerCase();
+
+  const suspiciousTerms = [
+    "leia a descrição", "vende-se", "vendo",
+    "troco", "retirada", "chama no chat"
+  ];
+
+  return suspiciousTerms.some(term => t.includes(term));
+}
+
+function isBadProduct(title) {
+  return isSuspiciousListing(title) || isUsedLikeProduct(title);
+}
+
 export default async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
-
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -136,19 +97,15 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: "invalid_api_key" });
   }
 
-  const { text, user_id, conversation_id } = req.body || {};
+  const { text } = req.body || {};
   const query = (text || "").trim();
 
-  if (!query) {
-    return res.status(400).json({ error: "Missing text" });
-  }
-
   try {
-    let products = await fetchSerpPrices(query, Number(process.env.SERPAPI_MAX || 8));
+    let products = await fetchSerpPrices(query, 8);
 
     if (!products.length) {
       return res.status(200).json({
-        reply: "⚠️ Nenhum resultado encontrado. Tente uma busca diferente.",
+        reply: "⚠️ Nenhum resultado encontrado.",
         prices: []
       });
     }
@@ -156,134 +113,46 @@ export default async function handler(req, res) {
     const budget = extractBudget(query);
 
     if (budget) {
-      const withinBudget = products.filter((p) => {
-        const price = parsePrice(p.price);
-        return !isNaN(price) && price <= budget;
-      });
-
-      if (!withinBudget.length) {
-        const validPrices = products
-          .map((p) => parsePrice(p.price))
-          .filter((p) => !isNaN(p));
-
-        const lowestAvailable = validPrices.length ? Math.min(...validPrices) : null;
-
-        return res.status(200).json({
-          reply: lowestAvailable
-            ? `⚠️ Não encontrei boas opções dentro de ${formatBRL(budget)}.\n📊 Os modelos mais próximos começam em ${formatBRL(lowestAvailable)}.\n❓ Quer ver opções nessa faixa maior?`
-            : `⚠️ Não encontrei boas opções dentro de ${formatBRL(budget)}.\n❓ Quer ver opções em outra faixa?`,
-          prices: products
-        });
-      }
-
-      products = withinBudget;
-    }
-    const wantsNew = wantsNewProduct(query);
-
-if (wantsNew) {
-  const newOnlyProducts = products.filter((p) => !isUsedLikeProduct(p.product_name));
-
-  if (!newOnlyProducts.length) {
-    return res.status(200).json({
-      reply: "⚠️ Não encontrei opções novas confiáveis para essa busca.\n📊 Encontrei apenas itens com sinais de uso ou condição duvidosa.\n❓ Quer ver mesmo assim ou prefere ajustar a busca?",
-      prices: products
-    });
-  }
-
-  products = newOnlyProducts;
-}
-
-    const isGamer = /gamer|jogar|cyberpunk/i.test(query);
-
-    if (isGamer) {
-      const gamerFiltered = products.filter((p) =>
-        /gamer|rtx|gtx|radeon|geforce|ryzen 7|ryzen 5|i7|i5/.test((p.product_name || "").toLowerCase())
-      );
-
-      if (gamerFiltered.length) {
-        products = gamerFiltered;
-      }
+      products = products.filter(p => parsePrice(p.price) <= budget);
     }
 
-    const validProducts = products
-      .map((p) => ({
-        ...p,
-        numericPrice: parsePrice(p.price)
-      }))
-      .filter((p) => !isNaN(p.numericPrice))
+    if (wantsNewProduct(query)) {
+      const filtered = products.filter(p => !isUsedLikeProduct(p.product_name));
+      if (filtered.length) products = filtered;
+    }
+
+    let validProducts = products
+      .map(p => ({ ...p, numericPrice: parsePrice(p.price) }))
+      .filter(p => !isNaN(p.numericPrice))
       .sort((a, b) => a.numericPrice - b.numericPrice);
 
     if (!validProducts.length) {
       return res.status(200).json({
-        reply: "⚠️ Nenhum resultado encontrado. Tente uma busca diferente.",
+        reply: "⚠️ Nenhum resultado encontrado.",
         prices: []
       });
     }
 
-   // separar produtos bons
-const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name));
+    const goodProducts = validProducts.filter(p => !isBadProduct(p.product_name));
+    const base = goodProducts.length ? goodProducts : validProducts;
 
-// escolher base: bons primeiro, se não tiver usa todos
-const baseProducts = goodProducts.length ? goodProducts : validProducts;
+    const best = base[0];
+    const title = cleanTitle(best.product_name);
 
-// ordenar por preço
-baseProducts.sort((a, b) => {
-  return parsePrice(a.price) - parsePrice(b.price);
-});
+    const hasCheaperBad = validProducts.some(p =>
+      parsePrice(p.price) < parsePrice(best.price) &&
+      isBadProduct(p.product_name)
+    );
 
-// pegar o melhor
-const best = baseProducts[0];
-const title = cleanTitle(best.product_name);
-    const hasCheaperBadOption = validProducts.some((p) => {
-  const price = parsePrice(p.price);
-  return (
-    !isNaN(price) &&
-    price < parsePrice(best.price) &&
-    isBadProduct(p.product_name)
-  );
-});
-    if (isComplexQuery(query)) {
-      reply += `💰 Melhor opção encontrada: ${best.price}\n`;
-      reply += `🧠 ${title}\n`;
-
-      if (/estudar/i.test(query)) {
-        reply += `📊 Boa opção para estudo e uso diário\n`;
-      } else if (isGamer) {
-        if (/rtx|gtx|radeon|geforce/i.test(title.toLowerCase())) {
-          reply += `📊 Parece mais preparado para jogos do que modelos comuns\n`;
-        } else {
-          reply += `📊 Parece mais indicado para uso leve do que para jogos pesados\n`;
-          reply += `⚠️ Para Cyberpunk, o ideal é investir mais\n`;
-        }
-      } else {
-        reply += `📊 Boa opção dentro da busca feita\n`;
-      }
-
-      reply += `❓ Quer ver mais opções parecidas?`;
-    } else {
-      reply = `💰 Melhor preço confiável: ${best.price}
+    const reply = `💰 Melhor preço confiável: ${best.price}
 🧠 ${title}${
-  hasCheaperBadOption
-    ? "\n⚠️ Existem opções mais baratas, mas podem ser usadas ou menos confiáveis"
-    : ""
+  hasCheaperBad ? "\n⚠️ Existem opções mais baratas, mas podem ser menos confiáveis" : ""
 }
-❓ Quer ver mais opções parecidas?`;
-    }
-
-    try {
-      if (user_id && conversation_id) {
-        await supabase.from("messages").insert([
-          { conversation_id, role: "user", content: query },
-          { conversation_id, role: "assistant", content: reply }
-        ]);
-      }
-    } catch (e) {
-      console.warn("Falha ao salvar mensagens", e);
-    }
+❓ Quer ver mais opções?`;
 
     return res.status(200).json({
       reply,
-      prices: validProducts.map((p) => ({
+      prices: validProducts.map(p => ({
         product_name: cleanTitle(p.product_name),
         price: p.price,
         link: p.link,
@@ -292,9 +161,9 @@ const title = cleanTitle(best.product_name);
     });
 
   } catch (err) {
-    console.error("chat-gpt4o error:", err);
+    console.error(err);
     return res.status(500).json({
-      reply: "Desculpe, tive um problema ao processar sua busca.",
+      reply: "Erro interno",
       prices: []
     });
   }
