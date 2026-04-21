@@ -62,6 +62,30 @@ function wantsNewProduct(query) {
 
 function isUsedLikeProduct(title) {
   const t = (title || "").toLowerCase();
+  function isSuspiciousListing(title) {
+  const t = (title || "").toLowerCase();
+
+  const suspiciousTerms = [
+    "leia a descrição",
+    "leia a descricao",
+    "vende-se",
+    "vendo",
+    "troco",
+    "retirada",
+    "retirar",
+    "chama no chat",
+    "chamar no chat",
+    "somente hoje",
+    "oportunidade",
+    "urgente",
+    "negocio",
+    "negócio",
+    "falar no chat",
+    "fale no chat"
+  ];
+
+  return suspiciousTerms.some(term => t.includes(term));
+}
 
   const usedTerms = [
     "usado",
@@ -117,6 +141,7 @@ export default async function handler(req, res) {
 
   try {
     let products = await fetchSerpPrices(query, Number(process.env.SERPAPI_MAX || 8));
+    products = products.filter((p) => !isSuspiciousListing(p.product_name));
 
     if (!products.length) {
       return res.status(200).json({
