@@ -15,104 +15,39 @@ function parsePrice(value) {
   return parseFloat(String(value).replace(/[^\d,]/g, "").replace(",", "."));
 }
 
-function formatBRL(value) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  });
-}
-
 function extractBudget(text) {
   const q = (text || "").toLowerCase();
+  const match = q.match(/até\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i);
+  if (!match) return null;
 
-  const patterns = [
-    /até\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
-    /abaixo\s*de\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
-    /menos\s*de\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i,
-    /no\s*m[aá]ximo\s*r?\$?\s*(\d+[.,]?\d*)\s*(mil)?/i
-  ];
-
-  for (const pattern of patterns) {
-    const match = q.match(pattern);
-    if (match) {
-      let value = parseFloat(match[1].replace(",", "."));
-      if (match[2]) value *= 1000;
-      return value;
-    }
-  }
-
-  return null;
-}
-
-function isComplexQuery(query) {
-  return /qual o melhor|melhor|vale a pena|compensa|rodar|gamer|cyberpunk|estudar|ou /i.test(query);
+  let value = parseFloat(match[1].replace(",", "."));
+  if (match[2]) value *= 1000;
+  return value;
 }
 
 function cleanTitle(title) {
   return (title || "")
-    .replace(/\b(barato|barata|promoção|promocao|oferta|imperdível|imperdivel|p sair hoje|para sair hoje|aproveite|últimas unidades|ultimas unidades)\b/gi, "")
-    .replace(/\b(agora)\b/gi, "")
+    .replace(/\b(barato|promoção|oferta|p sair hoje|agora)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function wantsNewProduct(query) {
-  return /\bnovo\b|\bnova\b|\blacrado\b|\blacrada\b|\bzerado\b/i.test(query || "");
+  return /\bnovo\b|\bnova\b|\blacrado\b/i.test(query || "");
 }
 
 function isUsedLikeProduct(title) {
   const t = (title || "").toLowerCase();
-
-  const usedTerms = [
-    "usado", "usada", "seminovo", "seminova",
-    "recondicionado", "open box", "vitrine",
-    "marcas de uso", "bateria", "trocafone"
-  ];
-
-  return usedTerms.some(term => t.includes(term));
+  return /usado|seminovo|recondicionado|open box|bateria|marcas de uso/.test(t);
 }
 
 function isSuspiciousListing(title) {
   const t = (title || "").toLowerCase();
-
- const suspiciousTerms = [
-  "leia a descrição",
-  "leia a descricao",
-  "vende-se",
-  "vendo",
-  "troco",
-  "retirada",
-  "retirar",
-  "chama no chat",
-  "chamar no chat",
-  "somente hoje",
-  "oportunidade",
-  "urgente",
-  "negocio",
-  "negócio",
-  "falar no chat",
-  "fale no chat",
-  "descrição",
-  "descricao"
-];
-
-  return suspiciousTerms.some(term => t.includes(term));
+  return /leia|descri|vende|vendo|troco|retirada|chat/.test(t);
 }
 
-function isGoodProduct(title) {
-  const t = (title || "").toLowerCase();
-
-  // NÃO pode conter sinais de anúncio informal
-  if (isSuspiciousListing(t)) return false;
-
-  // NÃO pode parecer usado
-  if (isUsedLikeProduct(t)) return false;
-
-  // precisa ter pelo menos alguma estrutura de produto real
-  const hasModelSignal =
-    /\d{2,}gb|\d{3,}gb|\d{2,}tb|\d{3,}tb|iphone|samsung|notebook|ps5|console|intel|ryzen/i.test(t);
-
-  return hasModelSignal;
+function isBadProduct(title) {
+  return isUsedLikeProduct(title) || isSuspiciousListing(title);
 }
 
 export default async function handler(req, res) {
@@ -138,17 +73,20 @@ export default async function handler(req, res) {
       });
     }
 
+    // orçamento
     const budget = extractBudget(query);
-
     if (budget) {
-      products = products.filter(p => parsePrice(p.price) <= budget);
+      const filtered = products.filter(p => parsePrice(p.price) <= budget);
+      if (filtered.length) products = filtered;
     }
 
+    // novo
     if (wantsNewProduct(query)) {
       const filtered = products.filter(p => !isUsedLikeProduct(p.product_name));
       if (filtered.length) products = filtered;
     }
 
+    // ordenar
     let validProducts = products
       .map(p => ({ ...p, numericPrice: parsePrice(p.price) }))
       .filter(p => !isNaN(p.numericPrice))
@@ -161,12 +99,17 @@ export default async function handler(req, res) {
       });
     }
 
-    const goodProducts = validProducts.filter((p) => isGoodProduct(p.product_name));
+    // separar bons
+    const goodProducts = validProducts.filter(p => !isBadProduct(p.product_name));
+
+    // escolher base
     const base = goodProducts.length ? goodProducts : validProducts;
 
+    // melhor produto
     const best = base[0];
     const title = cleanTitle(best.product_name);
 
+    // aviso inteligente
     const hasCheaperBad = validProducts.some(p =>
       parsePrice(p.price) < parsePrice(best.price) &&
       isBadProduct(p.product_name)
