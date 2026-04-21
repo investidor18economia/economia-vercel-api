@@ -99,8 +99,20 @@ function isSuspiciousListing(title) {
   return suspiciousTerms.some(term => t.includes(term));
 }
 
-function isBadProduct(title) {
-  return isSuspiciousListing(title) || isUsedLikeProduct(title);
+function isGoodProduct(title) {
+  const t = (title || "").toLowerCase();
+
+  // NÃO pode conter sinais de anúncio informal
+  if (isSuspiciousListing(t)) return false;
+
+  // NÃO pode parecer usado
+  if (isUsedLikeProduct(t)) return false;
+
+  // precisa ter pelo menos alguma estrutura de produto real
+  const hasModelSignal =
+    /\d{2,}gb|\d{3,}gb|\d{2,}tb|\d{3,}tb|iphone|samsung|notebook|ps5|console|intel|ryzen/i.test(t);
+
+  return hasModelSignal;
 }
 
 export default async function handler(req, res) {
@@ -149,7 +161,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const goodProducts = validProducts.filter(p => !isBadProduct(p.product_name));
+    const goodProducts = validProducts.filter((p) => isGoodProduct(p.product_name));
     const base = goodProducts.length ? goodProducts : validProducts;
 
     const best = base[0];
