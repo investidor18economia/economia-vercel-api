@@ -141,7 +141,6 @@ export default async function handler(req, res) {
 
   try {
     let products = await fetchSerpPrices(query, Number(process.env.SERPAPI_MAX || 8));
-    products = products.filter((p) => !isSuspiciousListing(p.product_name));
 
     if (!products.length) {
       return res.status(200).json({
