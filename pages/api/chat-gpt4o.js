@@ -50,8 +50,10 @@ function isComplexQuery(query) {
 
 function cleanTitle(title) {
   return (title || "")
-    .replace(/\b(barato|promoção|oferta|imperdível|p sair hoje|para sair hoje)\b/gi, "")
+    .replace(/\b(barato|barata|promoção|promocao|oferta|imperdível|imperdivel|p sair hoje|para sair hoje|aproveite|últimas unidades|ultimas unidades)\b/gi, "")
+    .replace(/\b(agora)\b/gi, "")
     .replace(/\s+/g, " ")
+    .replace(/\s+-\s+/g, " - ")
     .trim();
 }
 function wantsNewProduct(query) {
@@ -233,7 +235,7 @@ if (wantsNew) {
     return res.status(200).json({
       reply,
       prices: validProducts.map((p) => ({
-        product_name: p.product_name,
+        product_name: cleanTitle(p.product_name),
         price: p.price,
         link: p.link,
         thumbnail: p.thumbnail
