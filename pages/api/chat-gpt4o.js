@@ -306,8 +306,13 @@ if (/notebook|laptop|pc gamer|computador/.test(q)) {
   // jogos médios
   if (useIntent === "gaming_medium") {
     if (!/gtx|rtx|radeon/.test(title)) score -= 200;
+    
     if (/gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570/.test(title)) score += 60;
+    
     if (/gtx 750|gt 710|gt 730|1gb video|2gb video/.test(title)) score -= 220;
+
+    // 🚨 GPUs muito antigas (não aceitar)
+if (/gtx 750|gtx 650|gt 710|gt 730/.test(title)) score -= 300;
   }
 
   // jogos pesados
