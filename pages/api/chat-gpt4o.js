@@ -323,7 +323,53 @@ Instruções para esta resposta:
 - Evite soar robótica.
 `.trim();
 }
+const SMART_FOLLOW_UPS = {
+  generic: [
+    "Se quiser, eu posso refinar melhor pelo seu tipo de uso. 👀",
+    "Posso te mostrar opções mais equilibradas em custo-benefício também.",
+    "Se quiser, eu posso filtrar algo mais certeiro pro que você precisa.",
+    "Quer que eu ajuste isso com base no seu uso principal?"
+  ],
+  specific: [
+    "Se quiser, eu posso ver se existe uma opção ainda melhor nessa faixa.",
+    "Posso comparar com alternativas parecidas, se você quiser.",
+    "Quer que eu veja se esse preço está realmente bom?",
+    "Se quiser, eu posso procurar uma opção mais barata ou mais forte."
+  ],
+  comparison: [
+    "Se quiser, eu também posso comparar pensando no seu perfil de uso.",
+    "Posso te dizer qual faz mais sentido pro seu caso, se você quiser.",
+    "Quer que eu refine isso por preço, desempenho ou custo-benefício?",
+    "Se quiser, eu posso te dar uma recomendação mais direta entre os dois."
+  ],
+  decision: [
+    "Se quiser, eu posso checar se existe uma alternativa mais segura nessa faixa.",
+    "Posso ver se esse preço está valendo a pena mesmo.",
+    "Quer que eu compare com outras opções antes de você decidir?",
+    "Se quiser, eu posso procurar algo melhor pelo mesmo valor."
+  ]
+};
+function getSmartFollowUp(intent, reply) {
+  const text = (reply || "").trim();
 
+  if (!text) return "";
+
+  // evita adicionar follow-up se a resposta já terminar convidando o usuário
+  if (
+    /\?\s*$/.test(text) ||
+    /se quiser/i.test(text) ||
+    /posso/i.test(text) ||
+    /quer que eu/i.test(text)
+  ) {
+    return "";
+  }
+
+  const bucket =
+    SMART_FOLLOW_UPS[intent] ||
+    SMART_FOLLOW_UPS.specific;
+
+  return bucket[Math.floor(Math.random() * bucket.length)];
+}
 function buildFallbackReply(intent, bestProduct, period) {
   const productTitle = bestProduct?.product_name ? cleanTitle(bestProduct.product_name) : "";
   const productPrice = bestProduct?.price || "";
@@ -498,6 +544,11 @@ export default async function handler(req, res) {
     if (!reply || reply.length < 20) {
       reply = buildFallbackReply(intent, bestProduct, period);
     }
+    const smartFollowUp = getSmartFollowUp(intent, reply);
+
+if (smartFollowUp) {
+  reply = `${reply}\n\n${smartFollowUp}`;
+}
 
     if (reply.length > 900) {
       reply = reply.slice(0, 900).trim();
