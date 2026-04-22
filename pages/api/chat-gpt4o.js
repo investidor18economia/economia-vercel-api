@@ -93,13 +93,153 @@ function isAccessoryMismatch(query, title) {
 }
 
 function isBadProduct(title, query) {
-  return (
-    isUsedLikeProduct(title) ||
-    isSuspiciousListing(title) ||
-    isAccessoryMismatch(query, title)
-  );
+  const t = (title || "").toLowerCase();
+  const q = normalizeQuery(query);
+
+  if (
+    isUsedLikeProduct(t) ||
+    isSuspiciousListing(t) ||
+    isAccessoryMismatch(q, t)
+  ) {
+    return true;
+  }
+
+  if ((q.includes("celular") || q.includes("smartphone")) && /b220|tecla|flip|feature phone|2g|3g|bot[aã]o/.test(t)) {
+    return true;
+  }
+
+  if ((q.includes("notebook") || q.includes("laptop")) && /mochila|base cooler|mouse|teclado|capa/.test(t)) {
+    return true;
+  }
+
+  if ((q.includes("cadeira")) && /mesa|apoio de pe avulso|almofada/.test(t)) {
+    return true;
+  }
+
+  if ((q.includes("ps5") || q.includes("xbox") || q.includes("console")) && /controle|gift card|assinatura|skin/.test(t)) {
+    return true;
+  }
+
+  return false;
+}
+function getQueryWords(query) {
+  return normalizeQuery(query)
+    .split(" ")
+    .map((w) => w.trim())
+    .filter((w) => w.length > 2);
 }
 
+function getDetectedUseIntent(query) {
+  const q = normalizeQuery(query);
+
+  if (/jogo|jogar|gamer|fps|fortnite|gta|warzone|valorant|cs|cyberpunk/.test(q)) {
+    return "gaming";
+  }
+
+  if (/trabalho|trabalhar|office|planilha|empresa|produtividade/.test(q)) {
+    return "work";
+  }
+
+  if (/estudo|estudar|faculdade|aula|curso/.test(q)) {
+    return "study";
+  }
+
+  if (/foto|fotos|camera|câmera|video|vídeo/.test(q)) {
+    return "photo";
+  }
+
+  if (/conforto|ergonomia|ergon[oô]mica|ficar sentado|tempo sentado/.test(q)) {
+    return "comfort";
+  }
+
+  if (/custo beneficio|custo-beneficio|compensa|vale a pena|melhor custo/.test(q)) {
+    return "value";
+  }
+
+  return "general";
+}
+
+function scoreRelevanceToQuery(title, query) {
+  const t = (title || "").toLowerCase();
+  const queryWords = getQueryWords(query);
+
+  let score = 0;
+
+  queryWords.forEach((word) => {
+    if (t.includes(word)) score += 10;
+  });
+
+  return score;
+}
+
+function scoreTitleQuality(title) {
+  const t = (title || "").toLowerCase();
+  let score = 0;
+
+  if (t.length > 25) score += 10;
+  if (t.length < 15) score -= 40;
+
+  if (/pro|max|plus|ultra|premium|turbo/.test(t)) score += 18;
+  if (/novo|lacrado/.test(t)) score += 20;
+  if (/gb|ssd|ram|hz|fps|mah|mp|polegadas|pol|inch|256gb|512gb|128gb|1tb/.test(t)) score += 15;
+
+  return score;
+}
+
+function scorePriceCoherence(price, query) {
+  const q = normalizeQuery(query);
+
+  if (Number.isNaN(price)) return -50;
+  if (price <= 0) return -50;
+
+  let score = 0;
+
+  // preço muito baixo costuma ser suspeito em várias categorias
+  if (/notebook|laptop|pc gamer|computador/.test(q) && price < 900) score -= 80;
+  if (/celular|smartphone|iphone|xiaomi|samsung|motorola/.test(q) && price < 250) score -= 100;
+  if (/ps5|playstation|xbox|console/.test(q) && price < 1200) score -= 150;
+  if (/tv|smart tv/.test(q) && price < 500) score -= 80;
+
+  // bônus leve para preço coerente
+  if (price > 20) score += Math.max(0, 3000 - price) / 25;
+
+  return score;
+}
+
+function scoreUseIntentMatch(title, query) {
+  const t = (title || "").toLowerCase();
+  const useIntent = getDetectedUseIntent(query);
+
+  let score = 0;
+
+  if (useIntent === "gaming") {
+    if (/gamer|rtx|gtx|geforce|radeon|ryzen 5|ryzen 7|i5|i7|144hz|165hz/.test(t)) score += 50;
+    if (/gtx 750|gt 710|gt 730|1gb video|2gb video|dual core/.test(t)) score -= 180;
+    if (/chromebook|basico|b[aá]sico/.test(t)) score -= 100;
+  }
+
+  if (useIntent === "work") {
+    if (/i5|i7|ryzen 5|ryzen 7|ssd|8gb|16gb|full hd/.test(t)) score += 30;
+  }
+
+  if (useIntent === "study") {
+    if (/ssd|8gb|full hd|ryzen 5|i5/.test(t)) score += 20;
+  }
+
+  if (useIntent === "photo") {
+    if (/iphone|galaxy|samsung|xiaomi|camera|c[aâ]mera|pro|max|ultra/.test(t)) score += 25;
+  }
+
+  if (useIntent === "comfort") {
+    if (/ergon[oô]mica|ergonomica|apoio|reclin[aá]vel|reclinavel|lombar/.test(t)) score += 30;
+  }
+
+  if (useIntent === "value") {
+    if (/8gb|16gb|256gb|512gb|ssd|ryzen 5|i5/.test(t)) score += 20;
+  }
+
+  return score;
+}
 function scoreProduct(product, query) {
   const title = (product.product_name || "").toLowerCase();
   const q = normalizeQuery(query);
@@ -107,61 +247,61 @@ function scoreProduct(product, query) {
 
   let score = 0;
 
-  // 🧠 1. PREÇO (equilíbrio, não só barato)
-  if (!Number.isNaN(price)) {
-    if (price > 20) score += Math.max(0, 3000 - price) / 25;
-  }
+  // 1. relevância com a busca
+  score += scoreRelevanceToQuery(title, q);
 
-  // 🚨 2. PENALIZAÇÕES GERAIS (lixo)
+  // 2. qualidade geral do título
+  score += scoreTitleQuality(title);
+
+  // 3. coerência do preço
+  score += scorePriceCoherence(price, q);
+
+  // 4. aderência ao uso desejado
+  score += scoreUseIntentMatch(title, q);
+
+  // 5. penalizações fortes
   if (isUsedLikeProduct(title)) score -= 150;
   if (isSuspiciousListing(title)) score -= 150;
-  if (isAccessoryMismatch(q, title)) score -= 200;
+  if (isAccessoryMismatch(q, title)) score -= 220;
 
-  // 🧠 3. RELEVÂNCIA COM BUSCA
-  const queryWords = q.split(" ").filter(w => w.length > 2);
-
-  let relevance = 0;
-  queryWords.forEach(word => {
-    if (title.includes(word)) relevance += 10;
-  });
-
-  score += relevance;
-
-  // 📦 4. QUALIDADE DO TÍTULO
-  if (title.length > 25) score += 10;
-  if (title.length < 15) score -= 40;
-
-  // ⭐ 5. SINAIS DE PRODUTO MELHOR
-  if (/pro|max|plus|ultra|premium/.test(title)) score += 20;
-  if (/novo|lacrado/.test(title)) score += 25;
-
-  // ⚙️ 6. ESPECIFICAÇÕES (genérico)
-  if (/gb|ssd|ram|hz|fps|mah|mp|polegadas|pol|inch/.test(title)) score += 15;
-
-  // 📱 7. DETECÇÃO DE CATEGORIA AUTOMÁTICA
-  if (q.includes("celular") || q.includes("smartphone")) {
-    if (/b220|tecla|flip|feature phone|2g|3g/.test(title)) score -= 400;
-    if (/smartphone|iphone|xiaomi|samsung|motorola|realme/.test(title)) score += 60;
+  // 6. regras gerais por tipo automático
+  if (/celular|smartphone|iphone|xiaomi|samsung|motorola|galaxy|redmi|realme/.test(q)) {
+    if (/smartphone|iphone|xiaomi|samsung|motorola|galaxy|redmi|realme/.test(title)) score += 60;
+    if (/5g/.test(title)) score += 20;
+    if (/8gb|256gb|128gb/.test(title)) score += 20;
+    if (/b220|tecla|flip|feature phone|2g|3g|bot[aã]o/.test(title)) score -= 350;
   }
 
-  if (q.includes("notebook") || q.includes("laptop")) {
-    if (/mochila|capa|teclado|mouse/.test(title)) score -= 200;
-    if (/notebook|laptop/.test(title)) score += 60;
+  if (/notebook|laptop|pc gamer|computador/.test(q)) {
+    if (/notebook|laptop|pc gamer|computador/.test(title)) score += 60;
+    if (/ryzen 5|ryzen 7|i5|i7/.test(title)) score += 35;
+    if (/16gb|8gb|ssd|512gb|256gb/.test(title)) score += 20;
+    if (/gamer|rtx|gtx|geforce|radeon/.test(title) && /jogo|jogar|gamer/.test(q)) score += 45;
+    if (/chromebook/.test(title) && /jogo|jogar|gamer/.test(q)) score -= 180;
+    if (/gtx 750|gt 710|gt 730|1gb video|2gb video/.test(title) && /jogo|jogar|gamer|gta|warzone|valorant/.test(q)) score -= 220;
   }
 
-  if (q.includes("cadeira")) {
-    if (/mesa|apoio|almofada/.test(title)) score -= 150;
+  if (/cadeira/.test(q)) {
     if (/cadeira/.test(title)) score += 50;
+    if (/gamer/.test(title) && /gamer/.test(q)) score += 35;
+    if (/ergonomica|ergon[oô]mica|reclinavel|reclin[aá]vel|apoio/.test(title)) score += 20;
+    if (/mesa|apoio de pe avulso|almofada/.test(title)) score -= 150;
   }
 
-  if (q.includes("tv") || q.includes("monitor")) {
-    if (/suporte|controle|antena/.test(title)) score -= 200;
-    if (/tv|monitor/.test(title)) score += 50;
+  if (/ps5|playstation|xbox|console/.test(q)) {
+    if (/ps5|playstation|xbox|series s|series x/.test(title)) score += 70;
+    if (/controle|gift card|assinatura|skin|jogo avulso/.test(title)) score -= 250;
   }
 
-  if (q.includes("ps5") || q.includes("xbox")) {
-    if (/controle|gift card|skin/.test(title)) score -= 300;
-    if (/ps5|xbox/.test(title)) score += 60;
+  if (/tv|televis|monitor/.test(q)) {
+    if (/tv|smart tv|monitor/.test(title)) score += 55;
+    if (/4k|full hd|uhd|144hz|165hz/.test(title)) score += 20;
+    if (/suporte|controle remoto|antena/.test(title)) score -= 180;
+  }
+
+  if (/geladeira|freezer|fogao|fogão|maquina de lavar|máquina de lavar|lavadora/.test(q)) {
+    if (/geladeira|freezer|fogao|fogão|maquina de lavar|máquina de lavar|lavadora/.test(title)) score += 55;
+    if (/220v|110v|inox|inverse|frost free|lava e seca/.test(title)) score += 15;
   }
 
   return score;
