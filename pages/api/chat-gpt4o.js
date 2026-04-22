@@ -185,6 +185,7 @@ function scoreRelevanceToQuery(title, query) {
   });
 
   return score;
+  }
 }
 
 function scoreTitleQuality(title) {
