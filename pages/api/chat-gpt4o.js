@@ -192,7 +192,63 @@ function getTimePeriod() {
   if (hour >= 12 && hour < 18) return "tarde";
   return "noite";
 }
+function getCategoryContextHint(query) {
+  const q = normalizeQuery(query);
 
+  if (/celular|smartphone|iphone|samsung galaxy|motorola|xiaomi/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente o uso principal do usuário, como: fotos, trabalho, estudo, jogos, bateria ou uso geral.";
+  }
+
+  if (/notebook|pc gamer|computador|laptop/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente o tipo de uso, como: trabalho, estudo, jogos, edição, programação ou uso básico.";
+  }
+
+  if (/geladeira|frigerador|freezer/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente capacidade, tamanho da casa, consumo de energia e tipo de uso da família.";
+  }
+
+  if (/maquina de lavar|máquina de lavar|lavadora|lava e seca/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente capacidade, frequência de uso, quantidade de roupa e espaço disponível.";
+  }
+
+  if (/tv|televis|smart tv/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente tamanho desejado, uso principal, qualidade de imagem e distância de visualização.";
+  }
+
+  if (/monitor/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente tamanho, resolução, trabalho, jogos ou uso geral.";
+  }
+
+  if (/fone|headset|earbud|airpods/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente se o foco é música, chamadas, trabalho, academia, jogos ou conforto.";
+  }
+
+  if (/cadeira|cadeira gamer|cadeira ergonomica|cadeira ergonômica/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente conforto, ergonomia, tempo de uso por dia e ambiente de uso.";
+  }
+
+  if (/mesa/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente espaço disponível, tipo de uso, tamanho e organização.";
+  }
+
+  if (/ps5|playstation|xbox|console/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente se o usuário prioriza desempenho, preço, catálogo de jogos ou custo-benefício.";
+  }
+
+  if (/tablet|ipad/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente estudo, desenho, trabalho, leitura ou entretenimento.";
+  }
+
+  if (/roda|pneu/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente modelo do carro, aro, uso urbano ou estrada e preferência visual.";
+  }
+
+  if (/fogao|fogão|cooktop|forno/.test(q)) {
+    return "Se precisar refinar, tente entender principalmente tamanho da cozinha, frequência de uso, quantidade de bocas e praticidade.";
+  }
+
+  return "Se precisar refinar, faça uma pergunta final contextual baseada no tipo de produto e no que mais influencia a decisão de compra.";
+}
 function formatProductsForPrompt(products) {
   return products
     .slice(0, 5)
@@ -220,6 +276,7 @@ Contexto da solicitação do usuário:
 - Período do dia do usuário: ${period}
 - Orçamento detectado: ${budget ? `R$ ${budget}` : "não informado"}
 - Preferência por produto novo: ${wantsNew ? "sim" : "não informada"}
+- Orientação de contexto por categoria: ${getCategoryContextHint(query)}
 
 Produtos encontrados e já filtrados/rankeados:
 ${formatProductsForPrompt(products)}
@@ -234,7 +291,7 @@ Instruções para esta resposta:
   apenas cumprimente com base no horário e convide o usuário a dizer o que quer comprar.
 
 - Se a pergunta for genérica:
-  você pode sugerir uma opção inicial plausível, explicar rapidamente o motivo e terminar com uma pergunta contextual adequada ao produto.
+  você pode sugerir uma opção inicial plausível, explicar rapidamente o motivo e terminar com uma pergunta contextual adequada ao produto, usando a orientação de contexto por categoria quando ela estiver disponível.
 
 - Se a pergunta for específica:
   recomende de forma mais direta e termine oferecendo ajuda opcional.
