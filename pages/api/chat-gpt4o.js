@@ -141,6 +141,17 @@ function scoreProduct(product, query) {
 
 function detectIntent(query) {
   const q = normalizeQuery(query);
+  const normalized = q
+  .replace(/i+$/g, "i")
+  .replace(/a+$/g, "a")
+  .replace(/o+$/g, "o")
+  .replace(/\?+$/g, "")
+  .replace(/!+$/g, "")
+  .trim();
+
+if (/^(oi|ola|olá|opa|eai|e ai|eae|iae|fala|salve|bom dia|boa tarde|boa noite)$/.test(normalized)) {
+  return "greeting";
+}
 
   const isGreeting =
     /^(oi|ola|olá|opa|e ai|eae|iae|fala|salve|bom dia|boa tarde|boa noite)\b/.test(q);
