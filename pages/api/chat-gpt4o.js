@@ -185,7 +185,7 @@ function scoreRelevanceToQuery(title, query) {
   });
 
   return score;
-  }
+}
 
 
 function scoreTitleQuality(title) {
@@ -279,6 +279,33 @@ function hasAcceptableGpuForUse(title, useIntent) {
 
   return true;
 }
+function hasDedicatedGpu(title) {
+  const t = (title || "").toLowerCase();
+  return /gtx|rtx|radeon|rx/.test(t);
+}
+
+function isTooOldGpu(title) {
+  const t = (title || "").toLowerCase();
+  return /gtx 750|gtx 650|gt 710|gt 730|550ti|1gb video|2gb video/.test(t);
+}
+
+function hasAcceptableGpuForUse(title, useIntent) {
+  const t = (title || "").toLowerCase();
+
+  if (useIntent === "gaming_light") {
+    return /gtx|rtx|radeon|vega 7|vega 8/.test(t);
+  }
+
+  if (useIntent === "gaming_medium") {
+    return /gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570|rx 580|rtx/.test(t);
+  }
+
+  if (useIntent === "gaming_heavy") {
+    return /gtx 1660|rtx|rx 580|rx 6600/.test(t);
+  }
+
+  return true;
+}
 function scoreProduct(product, query) {
   const title = (product.product_name || "").toLowerCase();
   const q = normalizeQuery(query);
@@ -341,7 +368,7 @@ if (/notebook|laptop|pc gamer|computador/.test(q)) {
   if (/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score += 100;
 }
   
-  if (/cadeira/.test(q)) {
+ } if (/cadeira/.test(q)) {
     if (/cadeira/.test(title)) score += 50;
     if (/gamer/.test(title) && /gamer/.test(q)) score += 35;
     if (/ergonomica|ergon[oô]mica|reclinavel|reclin[aá]vel|apoio/.test(title)) score += 20;
@@ -763,21 +790,9 @@ export default async function handler(req, res) {
 
     let products = await fetchSerpPrices(query, 10);
     console.log("Produtos encontrados:", products.length);
-    function isBadProduct(p) {
-  const title = (p.product_name || "").toLowerCase();
-
-  return (
-    title.includes("b220") ||
-    title.includes("tecla") ||
-    title.includes("flip") ||
-    title.includes("feature phone") ||
-    title.includes("2g") ||
-    title.includes("3g")
-  );
-}
-
+    
 // 🔥 filtra produtos ruins
-products = products.filter(p => !isBadProduct(p));
+products = products.filter((p) => !isBadProduct(p.product_name, query));
 
     if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
