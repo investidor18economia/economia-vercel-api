@@ -174,8 +174,18 @@ function detectIntent(query) {
   return "other";
 }
 
-function getTimePeriod(date = new Date()) {
-  const hour = date.getHours();
+function getBrazilHour() {
+  const formatter = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    hour12: false
+  });
+
+  return Number(formatter.format(new Date()));
+}
+
+function getTimePeriod() {
+  const hour = getBrazilHour();
 
   if (hour >= 0 && hour < 6) return "madrugada";
   if (hour >= 6 && hour < 12) return "manha";
