@@ -421,7 +421,7 @@ export default async function handler(req, res) {
 
     const aiResponse = await callOpenAI(messages, {
       temperature: 0.45,
-      max_tokens: 260
+      max_tokens: 500
     });
 
     let reply = getOpenAIText(aiResponse)?.trim();
