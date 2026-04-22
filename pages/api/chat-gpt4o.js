@@ -260,9 +260,13 @@ function getCategoryContextHint(query) {
 
   return "Se precisar refinar, faça uma pergunta final contextual baseada no tipo de produto e no que mais influencia a decisão de compra.";
 }
-function formatProductsForPrompt(products) {
+function getProductLimitForAI(intent) {
+  if (intent === "comparison") return 3;
+  return 2;
+}
+function formatProductsForPrompt(products, limit = 2) {
   return products
-    .slice(0, 5)
+    .slice(0, limit)
     .map((p, index) => {
       const safeTitle = cleanTitle(p.product_name);
       const safePrice = p.price || "Preço não informado";
@@ -278,7 +282,8 @@ function buildUserPrompt({
   budget,
   wantsNew,
   period,
-  products
+  products,
+  productLimit
 }) {
   return `
 Contexto da solicitação do usuário:
@@ -290,7 +295,7 @@ Contexto da solicitação do usuário:
 - Orientação de contexto por categoria: ${getCategoryContextHint(query)}
 
 Produtos encontrados e já filtrados/rankeados:
-${formatProductsForPrompt(products)}
+${formatProductsForPrompt(products, productLimit)}
 
 Instruções para esta resposta:
 - Responda como a MIA.
@@ -319,6 +324,7 @@ Instruções para esta resposta:
   - "O Xbox Series S é mais barato e faz sentido pra quem quer economizar..."
   
 - Em perguntas que não sejam saudação pura, não comece a resposta com cumprimento como bom dia, boa tarde, boa noite, olá ou oi.
+- Ao citar opções, priorize mostrar 2 produtos. Só mostre 3 se isso realmente ajudar a comparação ou a decisão. Evite listas longas.
 - Mantenha a resposta curta ou média.
 - Evite soar robótica.
 `.trim();
@@ -437,14 +443,15 @@ export default async function handler(req, res) {
         },
         {
           role: "user",
-          content: buildUserPrompt({
-            query,
-            intent,
-            budget,
-            wantsNew,
-            period,
-            products: []
-          })
+         content: buildUserPrompt({
+  query,
+  intent,
+  budget,
+  wantsNew,
+  period,
+  products: [],
+  productLimit: 0
+})
         }
       ];
 
@@ -514,7 +521,8 @@ export default async function handler(req, res) {
       .sort((a, b) => b.score - a.score);
 
     const bestProduct = rankedProducts[0];
-    const topProductsForAI = rankedProducts.slice(0, 5);
+const productLimit = getProductLimitForAI(intent);
+const topProductsForAI = rankedProducts.slice(0, productLimit);
 
     const messages = [
       {
@@ -524,13 +532,14 @@ export default async function handler(req, res) {
       {
         role: "user",
         content: buildUserPrompt({
-          query,
-          intent,
-          budget,
-          wantsNew,
-          period,
-          products: topProductsForAI
-        })
+  query,
+  intent,
+  budget,
+  wantsNew,
+  period,
+  products: topProductsForAI,
+  productLimit
+})
       }
     ];
 
