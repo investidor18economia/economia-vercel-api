@@ -520,6 +520,21 @@ export default async function handler(req, res) {
     }
 
     let products = await fetchSerpPrices(query, 10);
+    function isBadProduct(p) {
+  const title = (p.product_name || "").toLowerCase();
+
+  return (
+    title.includes("b220") ||
+    title.includes("tecla") ||
+    title.includes("flip") ||
+    title.includes("feature phone") ||
+    title.includes("2g") ||
+    title.includes("3g")
+  );
+}
+
+// 🔥 filtra produtos ruins
+products = products.filter(p => !isBadProduct(p));
 
     if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
