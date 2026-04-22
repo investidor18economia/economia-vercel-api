@@ -166,7 +166,7 @@ function detectIntent(query) {
     /para|pra|com|novo|nova|lacrado|lacrada|gamer|fotos|camera|câmera|trabalho|estudo|jogo|jogar|uso basico|uso básico/.test(q);
 
   if (isGreeting) return "greeting";
-  if (isComparison) return "comparison";
+  if (isComparison || /entre/.test(q)) return "comparison";
   if (isDecision) return "decision";
   if (hasCategory && !hasSpecificConstraint && !hasRecommendationIntent) return "generic";
   if (hasRecommendationIntent || hasSpecificConstraint) return "specific";
@@ -229,14 +229,29 @@ Instruções para esta resposta:
 - Seja natural, humana, carismática e útil.
 - Não invente especificações técnicas.
 - Não diga que você é um modelo ou IA da OpenAI.
-- Se for saudação, apenas cumprimente com base no horário e convide o usuário a dizer o que quer comprar.
-- Se a pergunta for genérica, você pode sugerir uma opção inicial plausível, explicar rapidamente o motivo e terminar com uma pergunta contextual adequada ao produto.
-- Se a pergunta for específica, recomende de forma mais direta e termine oferecendo ajuda opcional.
-- Se for comparação, faça uma leitura inicial útil e depois pergunte o que pesa mais para o usuário.
+
+- Se for saudação:
+  apenas cumprimente com base no horário e convide o usuário a dizer o que quer comprar.
+
+- Se a pergunta for genérica:
+  você pode sugerir uma opção inicial plausível, explicar rapidamente o motivo e terminar com uma pergunta contextual adequada ao produto.
+
+- Se a pergunta for específica:
+  recomende de forma mais direta e termine oferecendo ajuda opcional.
+
+- Se for comparação:
+  1. NÃO peça contexto imediatamente.
+  2. Comece com uma análise clara e útil entre as opções citadas.
+  3. Destaque diferenças práticas (ex: desempenho, custo-benefício, uso ideal).
+  4. Diga de forma simples qual tende a ser melhor em cada caso.
+  5. Só depois faça uma pergunta para entender a prioridade do usuário.
+
+  Exemplo de comportamento esperado:
+  - "O PS5 é mais forte e melhor pra quem quer desempenho máximo..."
+  - "O Xbox Series S é mais barato e faz sentido pra quem quer economizar..."
+
 - Mantenha a resposta curta ou média.
 - Evite soar robótica.
-`.trim();
-}
 
 function buildFallbackReply(intent, bestProduct, period) {
   const productTitle = bestProduct?.product_name ? cleanTitle(bestProduct.product_name) : "";
