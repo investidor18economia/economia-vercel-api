@@ -303,7 +303,21 @@ function scoreProduct(product, query) {
     if (/geladeira|freezer|fogao|fogão|maquina de lavar|máquina de lavar|lavadora/.test(title)) score += 55;
     if (/220v|110v|inox|inverse|frost free|lava e seca/.test(title)) score += 15;
   }
+// 🚨 penalizar hardware MUITO antigo
 
+if (/pc gamer|computador|notebook/.test(q)) {
+  if (/i3 1|i3 2|i5 1|i5 2|i5 3|i7 1|i7 2/.test(title)) {
+    score -= 250;
+  }
+
+  if (/ddr3/.test(title)) {
+    score -= 120;
+  }
+
+  if (!/gtx|rtx|radeon/.test(title) && /gamer|jogo|gta/.test(q)) {
+    score -= 180;
+  }
+}
   return score;
 }
 
