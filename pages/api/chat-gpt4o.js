@@ -304,26 +304,17 @@ if (/notebook|laptop|pc gamer|computador/.test(q)) {
   }
 
   // jogos médios
-  if (useIntent === "gaming_medium") {
-    // 🚨 SEM GPU = NÃO ACEITAR
-if (!/gtx|rtx|radeon/.test(title)) {
-  score -= 400;
+ if (useIntent === "gaming_medium") {
+  if (!/gtx|rtx|radeon/.test(title)) score -= 400;
+
+  if (/gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570|rx 580/.test(title)) score += 60;
+
+  if (/gtx 750|gtx 650|gt 710|gt 730|550ti|1gb video|2gb video/.test(title)) score -= 350;
 }
-    if (!/gtx|rtx|radeon/.test(title)) score -= 200;
-    
-    if (/gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570/.test(title)) score += 60;
-    
-    if (/gtx 750|gt 710|gt 730|1gb video|2gb video/.test(title)) score -= 220;
-
-    // 🚨 GPUs muito antigas (não aceitar)
-if (/gtx 750|gtx 650|gt 710|gt 730/.test(title)) score -= 300;
-  }
-
   // jogos pesados
   if (useIntent === "gaming_heavy") {
-    if (!/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score -= 300;
-    if (/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score += 100;
-  }
+  if (!/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score -= 450;
+  if (/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score += 100;
 }
   
   if (/cadeira/.test(q)) {
@@ -796,6 +787,28 @@ products = products.filter(p => !isBadProduct(p));
         numericPrice: parsePrice(p.price)
       }))
       .filter((p) => !Number.isNaN(p.numericPrice));
+    const useIntent = getDetectedUseIntent(query);
+
+if (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy") {
+  const gamingValidProducts = validProducts.filter((p) => {
+    const title = p.product_name || "";
+
+    if (isTooOldGpu(title)) return false;
+    if (!hasDedicatedGpu(title)) return false;
+    if (!hasAcceptableGpuForUse(title, useIntent)) return false;
+
+    return true;
+  });
+
+  if (gamingValidProducts.length > 0) {
+    validProducts = gamingValidProducts;
+  } else {
+    return res.status(200).json({
+      reply: "⚠️ Nessa faixa de preço, não encontrei um PC realmente confiável para esse tipo de jogo. Se quiser, eu posso tentar achar a opção menos arriscada ou te dizer a faixa mais realista.",
+      prices: []
+    });
+  }
+}
 
     if (!validProducts.length) {
       return res.status(200).json({
