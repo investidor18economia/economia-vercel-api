@@ -252,6 +252,8 @@ Instruções para esta resposta:
 
 - Mantenha a resposta curta ou média.
 - Evite soar robótica.
+`.trim();
+}
 
 function buildFallbackReply(intent, bestProduct, period) {
   const productTitle = bestProduct?.product_name ? cleanTitle(bestProduct.product_name) : "";
