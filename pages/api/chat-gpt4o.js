@@ -305,6 +305,10 @@ if (/notebook|laptop|pc gamer|computador/.test(q)) {
 
   // jogos médios
   if (useIntent === "gaming_medium") {
+    // 🚨 SEM GPU = NÃO ACEITAR
+if (!/gtx|rtx|radeon/.test(title)) {
+  score -= 400;
+}
     if (!/gtx|rtx|radeon/.test(title)) score -= 200;
     
     if (/gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570/.test(title)) score += 60;
