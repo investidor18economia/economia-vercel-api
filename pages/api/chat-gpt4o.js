@@ -318,6 +318,21 @@ if (/pc gamer|computador|notebook/.test(q)) {
     score -= 180;
   }
 }
+  // 🚨 penalizar anúncio confuso ou suspeito
+
+if (/ou/.test(title) && /gtx|rtx|radeon/.test(title)) {
+  score -= 200;
+}
+
+// 🚨 penalizar xeon disfarçado
+if (/xeon|e3|e5/.test(title)) {
+  score -= 180;
+}
+
+// 🚨 penalizar descrição genérica demais
+if (/pc gamer barato|cpu gamer barato/.test(title)) {
+  score -= 120;
+}
   return score;
 }
 
