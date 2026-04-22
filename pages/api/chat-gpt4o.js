@@ -256,6 +256,29 @@ function scoreUseIntentMatch(title, query) {
 
   return score;
 }
+function hasDedicatedGpu(title) {
+  const t = (title || "").toLowerCase();
+  return /gtx|rtx|radeon|rx/.test(t);
+}
+
+function isTooOldGpu(title) {
+  const t = (title || "").toLowerCase();
+  return /gtx 750|gtx 650|gt 710|gt 730|550ti|1gb video|2gb video/.test(t);
+}
+
+function hasAcceptableGpuForUse(title, useIntent) {
+  const t = (title || "").toLowerCase();
+
+  if (useIntent === "gaming_medium") {
+    return /gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570|rx 580|rtx/.test(t);
+  }
+
+  if (useIntent === "gaming_heavy") {
+    return /gtx 1660|rtx|rx 580|rx 6600/.test(t);
+  }
+
+  return true;
+}
 function scoreProduct(product, query) {
   const title = (product.product_name || "").toLowerCase();
   const q = normalizeQuery(query);
