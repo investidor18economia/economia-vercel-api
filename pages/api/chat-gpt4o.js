@@ -132,27 +132,42 @@ function getQueryWords(query) {
 function getDetectedUseIntent(query) {
   const q = normalizeQuery(query);
 
-  if (/jogo|jogar|gamer|fps|fortnite|gta|warzone|valorant|cs|cyberpunk/.test(q)) {
-    return "gaming";
+  // 🎮 jogos leves
+  if (/minecraft|roblox|the sims/.test(q)) {
+    return "gaming_light";
   }
 
-  if (/trabalho|trabalhar|office|planilha|empresa|produtividade/.test(q)) {
+  // 🎮 jogos médios
+  if (/gta|fortnite|valorant|cs|csgo/.test(q)) {
+    return "gaming_medium";
+  }
+
+  // 🎮 jogos pesados
+  if (/warzone|cyberpunk|elden ring|red dead|hogwarts/.test(q)) {
+    return "gaming_heavy";
+  }
+
+  if (/jogo|jogar|gamer/.test(q)) {
+    return "gaming_medium";
+  }
+
+  if (/trabalho|office|empresa/.test(q)) {
     return "work";
   }
 
-  if (/estudo|estudar|faculdade|aula|curso/.test(q)) {
+  if (/estudo|faculdade/.test(q)) {
     return "study";
   }
 
-  if (/foto|fotos|camera|câmera|video|vídeo/.test(q)) {
+  if (/foto|camera/.test(q)) {
     return "photo";
   }
 
-  if (/conforto|ergonomia|ergon[oô]mica|ficar sentado|tempo sentado/.test(q)) {
+  if (/conforto|ergonomia/.test(q)) {
     return "comfort";
   }
 
-  if (/custo beneficio|custo-beneficio|compensa|vale a pena|melhor custo/.test(q)) {
+  if (/custo beneficio|compensa/.test(q)) {
     return "value";
   }
 
@@ -271,16 +286,37 @@ function scoreProduct(product, query) {
     if (/8gb|256gb|128gb/.test(title)) score += 20;
     if (/b220|tecla|flip|feature phone|2g|3g|bot[aã]o/.test(title)) score -= 350;
   }
+if (/notebook|laptop|pc gamer|computador/.test(q)) {
+  if (/notebook|laptop|pc gamer|computador/.test(title)) score += 60;
+  if (/ryzen 5|ryzen 7|i5|i7/.test(title)) score += 35;
+  if (/16gb|8gb|ssd|512gb|256gb/.test(title)) score += 20;
 
-  if (/notebook|laptop|pc gamer|computador/.test(q)) {
-    if (/notebook|laptop|pc gamer|computador/.test(title)) score += 60;
-    if (/ryzen 5|ryzen 7|i5|i7/.test(title)) score += 35;
-    if (/16gb|8gb|ssd|512gb|256gb/.test(title)) score += 20;
-    if (/gamer|rtx|gtx|geforce|radeon/.test(title) && /jogo|jogar|gamer/.test(q)) score += 45;
-    if (/chromebook/.test(title) && /jogo|jogar|gamer/.test(q)) score -= 180;
-    if (/gtx 750|gt 710|gt 730|1gb video|2gb video/.test(title) && /jogo|jogar|gamer|gta|warzone|valorant/.test(q)) score -= 220;
+  const useIntent = getDetectedUseIntent(q);
+
+  // penalizações gerais de hardware antigo
+  if (/i3 1|i3 2|i5 1|i5 2|i5 3|i7 1|i7 2/.test(title)) score -= 250;
+  if (/ddr3/.test(title)) score -= 120;
+  if (/chromebook/.test(title) && /jogo|jogar|gamer/.test(q)) score -= 180;
+
+  // jogos leves
+  if (useIntent === "gaming_light") {
+    if (/gtx|rtx|radeon/.test(title)) score += 30;
   }
 
+  // jogos médios
+  if (useIntent === "gaming_medium") {
+    if (!/gtx|rtx|radeon/.test(title)) score -= 200;
+    if (/gtx 1050|gtx 1050ti|gtx 1650|rx 560|rx 570/.test(title)) score += 60;
+    if (/gtx 750|gt 710|gt 730|1gb video|2gb video/.test(title)) score -= 220;
+  }
+
+  // jogos pesados
+  if (useIntent === "gaming_heavy") {
+    if (!/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score -= 300;
+    if (/rtx|gtx 1660|rx 580|rx 6600/.test(title)) score += 100;
+  }
+}
+  
   if (/cadeira/.test(q)) {
     if (/cadeira/.test(title)) score += 50;
     if (/gamer/.test(title) && /gamer/.test(q)) score += 35;
@@ -303,21 +339,6 @@ function scoreProduct(product, query) {
     if (/geladeira|freezer|fogao|fogão|maquina de lavar|máquina de lavar|lavadora/.test(title)) score += 55;
     if (/220v|110v|inox|inverse|frost free|lava e seca/.test(title)) score += 15;
   }
-// 🚨 penalizar hardware MUITO antigo
-
-if (/pc gamer|computador|notebook/.test(q)) {
-  if (/i3 1|i3 2|i5 1|i5 2|i5 3|i7 1|i7 2/.test(title)) {
-    score -= 250;
-  }
-
-  if (/ddr3/.test(title)) {
-    score -= 120;
-  }
-
-  if (!/gtx|rtx|radeon/.test(title) && /gamer|jogo|gta/.test(q)) {
-    score -= 180;
-  }
-}
   // 🚨 penalizar anúncio confuso ou suspeito
 
 if (/ou/.test(title) && /gtx|rtx|radeon/.test(title)) {
