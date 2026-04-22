@@ -520,6 +520,7 @@ export default async function handler(req, res) {
     }
 
     let products = await fetchSerpPrices(query, 10);
+    console.log("Produtos encontrados:", products.length);
     function isBadProduct(p) {
   const title = (p.product_name || "").toLowerCase();
 
