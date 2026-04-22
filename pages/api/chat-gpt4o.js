@@ -203,6 +203,25 @@ function getTimePeriod() {
   if (hour >= 12 && hour < 18) return "tarde";
   return "noite";
 }
+function detectUserStyle(query) {
+  const q = normalizeQuery(query);
+
+  const technicalTerms =
+    /oled|amoled|rtx|gtx|ssd|ram|hz|fps|snapdragon|ryzen|i5|i7|benchmark|latencia|latência|resolucao|resolução|painel|nits|dlss|ray tracing/.test(q);
+
+  const casualTone =
+    /quero|me indica|compensa|vale a pena|bom|barato|top|massa|legal|e ai|eai|oi|opa/.test(q);
+
+  if (technicalTerms) {
+    return "tecnico";
+  }
+
+  if (casualTone) {
+    return "casual";
+  }
+
+  return "simples";
+}
 function getCategoryContextHint(query) {
   const q = normalizeQuery(query);
 
@@ -283,7 +302,8 @@ function buildUserPrompt({
   wantsNew,
   period,
   products,
-  productLimit
+  productLimit,
+  userStyle
 }) {
   return `
 Contexto da solicitação do usuário:
@@ -292,12 +312,18 @@ Contexto da solicitação do usuário:
 - Período do dia do usuário: ${period}
 - Orçamento detectado: ${budget ? `R$ ${budget}` : "não informado"}
 - Preferência por produto novo: ${wantsNew ? "sim" : "não informada"}
+- Estilo de linguagem do usuário detectado: ${userStyle}
 - Orientação de contexto por categoria: ${getCategoryContextHint(query)}
 
 Produtos encontrados e já filtrados/rankeados:
 ${formatProductsForPrompt(products, productLimit)}
 
 Instruções para esta resposta:
+- Adapte o tom ao estilo do usuário detectado.
+- Se o estilo for "simples", fale de forma bem clara, leve e fácil de entender.
+- Se o estilo for "casual", fale de forma natural, próxima e descontraída, sem exagerar.
+- Se o estilo for "tecnico", você pode usar um pouco mais de precisão e termos técnicos, mas sem exagerar nem ficar fria.
+- Nunca perca clareza.
 - Evite começar a resposta com frases como:
   "Se você está procurando..."
   "Para um..."
@@ -323,6 +349,7 @@ Instruções para esta resposta:
 - Evite listar vantagens demais de forma mecânica.
 - Quando possível, use uma linguagem mais próxima do dia a dia.
 - Em vez de parecer catálogo, pareça uma assistente ajudando alguém a decidir.
+- A resposta precisa estar alinhada com o primeiro produto da lista, porque ele será o produto principal exibido no card da interface.
 - Se a resposta estiver ficando longa, resuma.
 
 - Se for saudação:
@@ -346,7 +373,7 @@ Instruções para esta resposta:
   - "O Xbox Series S é mais barato e faz sentido pra quem quer economizar..."
   
 - Em perguntas que não sejam saudação pura, não comece a resposta com cumprimento como bom dia, boa tarde, boa noite, olá ou oi.
-- Ao citar opções, priorize mostrar 2 produtos. Só mostre 3 se isso realmente ajudar a comparação ou a decisão. Evite listas longas.
+- Ao citar opções, trate sempre o primeiro produto da lista como a recomendação principal. Se mencionar outra opção, cite no máximo 1 alternativa e deixe claro que ela é apenas uma alternativa. Não transforme a resposta em listão.
 - Mantenha a resposta curta ou média.
 - Evite soar robótica.
 `.trim();
@@ -451,6 +478,7 @@ export default async function handler(req, res) {
   }
 
   const intent = detectIntent(query);
+  const userStyle = detectUserStyle(query);
   const budget = extractBudget(query);
   const wantsNew = wantsNewProduct(query);
   const period = getTimePeriod();
@@ -465,14 +493,15 @@ export default async function handler(req, res) {
         },
         {
           role: "user",
-         content: buildUserPrompt({
+  content: buildUserPrompt({
   query,
   intent,
   budget,
   wantsNew,
   period,
   products: [],
-  productLimit: 0
+  productLimit: 0,
+  userStyle
 })
         }
       ];
@@ -560,7 +589,8 @@ const topProductsForAI = rankedProducts.slice(0, productLimit);
   wantsNew,
   period,
   products: topProductsForAI,
-  productLimit
+  productLimit,
+  userStyle
 })
       }
     ];
