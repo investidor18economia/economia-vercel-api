@@ -186,7 +186,7 @@ function scoreRelevanceToQuery(title, query) {
 
   return score;
   }
-}
+
 
 function scoreTitleQuality(title) {
   const t = (title || "").toLowerCase();
