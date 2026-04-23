@@ -872,10 +872,7 @@ export default async function handler(req, res) {
       reply = reply.slice(0, 900).trim();
     }
 
-   return res.status(200).json({
-  reply: aiResponse,
-  products: bestProduct ? [bestProduct] : []
-});
+  return res.status(200).json({
       reply,
       prices: rankedProducts.map((p) => ({
         product_name: cleanTitle(p.product_name),
