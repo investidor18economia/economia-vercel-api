@@ -13,7 +13,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   auth: { persistSession: false },
 });
 
-// 🔥 FUNÇÃO COM AXIOS (resolve fetch failed)
+// 🔥 SERPAPI COM AXIOS
 async function fetchFromSerpApi(query) {
   try {
     const response = await axios.get("https://serpapi.com/search.json", {
@@ -28,7 +28,6 @@ async function fetchFromSerpApi(query) {
     });
 
     return response.data;
-
   } catch (err) {
     console.error("❌ ERRO AXIOS SERPAPI:", err?.message || err);
     return null;
@@ -37,7 +36,7 @@ async function fetchFromSerpApi(query) {
 
 export default async function handler(req, res) {
 
-  // 🔥 liberar teste via navegador
+  // 🔥 permitir teste via navegador
   if (req.query.test !== "1") {
     const auth = req.headers.authorization || "";
 
@@ -49,18 +48,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "invalid_api_key" });
     }
   }
-  // 🔥 TESTE DIRETO DE EMAIL (apagar depois)
-const mod = await import("../../lib/email.js").catch(() => null);
-if (mod && mod.sendPriceDropEmail) {
-  await mod.sendPriceDropEmail(
-    "SEUEMAIL@gmail.com",
-    { product_name: "Teste iPhone", product_url: "https://example.com" },
-    5000,
-    3000
-  );
-}
-
-return res.status(200).json({ success: true, message: "email test disparado" });
 
   try {
     const { data: wishes, error: fetchErr } = await supabase
@@ -75,7 +62,6 @@ return res.status(200).json({ success: true, message: "email test disparado" });
       return res.status(200).json({ success: true, message: "No wishes to check" });
     }
 
-    // carregar função de email
     let sendPriceDropEmail = null;
     try {
       const mod = await import("../../lib/email.js").catch(() => null);
@@ -88,16 +74,13 @@ return res.status(200).json({ success: true, message: "email test disparado" });
     const now = new Date().toISOString();
 
     for (const wish of wishes) {
-      const identifier =
-        wish.product_name || wish.query || wish.product_url || "";
+      const identifier = wish.product_name || wish.query || wish.product_url || "";
 
       try {
         let json = await fetchFromSerpApi(identifier);
 
-        // 🔥 fallback (caso API falhe)
+        // fallback se API falhar
         if (!json) {
-          console.warn("⚠️ fallback ativado");
-
           json = {
             shopping_results: [
               {
@@ -118,9 +101,7 @@ return res.status(200).json({ success: true, message: "email test disparado" });
 
           let priceNum = null;
           if (raw != null) {
-            const s = String(raw)
-              .replace(/[^\d,.\-]/g, "")
-              .replace(",", ".");
+            const s = String(raw).replace(/[^\d,.\-]/g, "").replace(",", ".");
             priceNum = parseFloat(s);
           }
 
@@ -141,12 +122,9 @@ return res.status(200).json({ success: true, message: "email test disparado" });
           continue;
         }
 
-        const oldPrice =
-          wish.last_price != null ? parseFloat(wish.last_price) : null;
-
+        const oldPrice = wish.last_price != null ? parseFloat(wish.last_price) : null;
         const newPrice = best.price;
 
-        // atualizar banco
         await supabase
           .from("wishes")
           .update({
@@ -156,7 +134,6 @@ return res.status(200).json({ success: true, message: "email test disparado" });
           })
           .eq("id", wish.id);
 
-        // detectar queda
         if (oldPrice != null && newPrice < oldPrice) {
           if (sendPriceDropEmail) {
             try {
