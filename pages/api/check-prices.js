@@ -32,7 +32,9 @@ async function fetchFromSerpApi(query) {
 
 export default async function handler(req, res) {
   // allow only POST
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET" && req.method !== "POST") {
+  return res.status(405).json({ error: "Method not allowed" });
+}
 
   // cron secret check
   const auth = req.headers.authorization || "";
