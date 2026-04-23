@@ -24,7 +24,14 @@ export default async function handler(req, res) {
     for (const wish of wishes) {
       const query = wish.product_name || wish.query;
 
-      const products = await fetchSerpPrices(query, 5);
+      // 🔥 usar preço simulado (sem API externa)
+const products = [
+  {
+    product_name: query,
+    price: Math.random() * 3000 + 1000,
+    link: "https://example.com"
+  }
+];
 
       if (!products.length) {
         results.push({ id: wish.id, status: "not_found" });
