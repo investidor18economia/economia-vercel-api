@@ -77,7 +77,16 @@ export default async function handler(req, res) {
       const identifier = wish.product_name || wish.query || wish.product_url || "";
 
       try {
-        let json = await fetchFromSerpApi(identifier);
+        let json = {
+  shopping_results: [
+    {
+      title: identifier,
+      extracted_price: 2500,
+      link: "https://example.com",
+      source: "mock",
+    },
+  ],
+};
 
         // fallback se API falhar
         if (!json) {
