@@ -12,37 +12,55 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   auth: { persistSession: false },
 });
 
+// 🔥 FETCH CORRIGIDO COM TIMEOUT
 async function fetchFromSerpApi(query) {
-  const base = "https://serpapi.com/search.json";
-  const params = new URLSearchParams({
-    engine: "google_shopping",
-    q: query,
-    gl: "br",
-    hl: "pt",
-    api_key: SERPAPI_KEY,
-  });
-  const url = `${base}?${params.toString()}`;
-  const r = await fetch(url);
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error(`SerpApi error ${r.status} ${txt}`);
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const params = new URLSearchParams({
+      engine: "google_shopping",
+      q: query,
+      gl: "br",
+      hl: "pt",
+      api_key: SERPAPI_KEY,
+    });
+
+    const url = `https://serpapi.com/search.json?${params.toString()}`;
+
+    const r = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (!r.ok) {
+      const txt = await r.text().catch(() => "");
+      throw new Error(`SerpApi error ${r.status} ${txt}`);
+    }
+
+    return await r.json();
+
+  } catch (err) {
+    console.error("❌ ERRO FETCH SERPAPI:", err);
+    return null; // 👈 importante: não quebrar o sistema
   }
-  return r.json();
 }
 
 export default async function handler(req, res) {
-  // allow only POST
-  if (req.method !== "GET" && req.method !== "POST") {
-  return res.status(405).json({ error: "Method not allowed" });
-}
 
-  // cron secret check
-  const auth = req.headers.authorization || "";
-  if (!auth || auth !== `Bearer ${CRON_SECRET}`) return res.status(401).json({ error: "Unauthorized (cron)" });
+  // 🔥 permitir teste via navegador
+  if (req.query.test !== "1") {
+    const auth = req.headers.authorization || "";
+    if (!auth || auth !== `Bearer ${CRON_SECRET}`) {
+      return res.status(401).json({ error: "Unauthorized (cron)" });
+    }
 
-  // internal api key check
-  if (process.env.API_SHARED_KEY && req.headers["x-api-key"] !== API_SHARED_KEY) {
-    return res.status(401).json({ error: "invalid_api_key" });
+    if (process.env.API_SHARED_KEY && req.headers["x-api-key"] !== API_SHARED_KEY) {
+      return res.status(401).json({ error: "invalid_api_key" });
+    }
   }
 
   try {
@@ -53,11 +71,11 @@ export default async function handler(req, res) {
       .limit(BATCH_SIZE);
 
     if (fetchErr) throw fetchErr;
+
     if (!wishes || wishes.length === 0) {
       return res.status(200).json({ success: true, message: "No wishes to check" });
     }
 
-    // try to load email sender (optional)
     let sendPriceDropEmail = null;
     try {
       const mod = await import("../../lib/email.js").catch(() => null);
@@ -69,38 +87,40 @@ export default async function handler(req, res) {
 
     for (const wish of wishes) {
       const identifier = wish.product_name || wish.query || wish.product_url || "";
-      try {
-        const q = wish.product_url ? wish.product_url : identifier;
-        const json = await fetchFromSerpApi(q);
 
-        // try different fields for shopping results
-        const items = json.shopping_results || json.organic_results || json.inline_shopping || [];
+      try {
+        const json = await fetchFromSerpApi(identifier);
+
+        if (!json) {
+          results.push({ id: wish.id, status: "fetch_failed" });
+          continue;
+        }
+
+        const items = json.shopping_results || [];
         let best = null;
 
         for (const it of items) {
-          // price extraction
-          const raw = it.price || it.extracted_price || it.price_string || it.offers?.[0]?.price || null;
+          const raw = it.price || it.extracted_price || null;
+
           let priceNum = null;
           if (raw != null) {
             const s = String(raw).replace(/[^\d,.\-]/g, "").replace(",", ".");
             priceNum = parseFloat(s);
-            if (Number.isNaN(priceNum)) priceNum = null;
           }
 
           if (priceNum != null) {
             if (!best || priceNum < best.price) {
               best = {
                 price: priceNum,
-                title: it.title || it.product_title || it.name || (it.offers && it.offers[0] && it.offers[0].title) || "",
-                link: it.product_link || it.serpapi_product_link || it.link || (it.offers && it.offers[0] && it.offers[0].link) || "",
-                source: it.source || it.store || (it.offers && it.offers[0] && it.offers[0].seller) || "google_shopping"
+                title: it.title || "",
+                link: it.link || "",
+                source: it.source || "google_shopping"
               };
             }
           }
         }
 
         if (!best) {
-          await supabase.from("wishes").update({ last_checked: now }).eq("id", wish.id);
           results.push({ id: wish.id, status: "not_found" });
           continue;
         }
@@ -108,61 +128,46 @@ export default async function handler(req, res) {
         const oldPrice = wish.last_price != null ? parseFloat(wish.last_price) : null;
         const newPrice = best.price;
 
-        // record history
-        await supabase.from("price_history").insert([{
-          wish_id: wish.id,
-          price: newPrice,
-          source: best.source || "google_shopping",
-          product_url: best.link || null
-        }]);
-
-        // update wish
-        const updatePayload = {
+        await supabase.from("wishes").update({
           last_price: newPrice,
           price: newPrice,
-          last_checked: now,
-          product_name: wish.product_name || best.title,
-          product_url: best.product_url || best.link
-        };
+          last_checked: now
+        }).eq("id", wish.id);
 
-        await supabase.from("wishes").update(updatePayload).eq("id", wish.id);
-
-        // detect drop
         if (oldPrice != null && newPrice < oldPrice) {
-          // send email if module is available
           if (sendPriceDropEmail) {
-            try {
-              const { data: u } = await supabase.from("users").select("email").eq("id", wish.user_id).limit(1);
-              const email = u?.[0]?.email;
-              if (email) {
-                await sendPriceDropEmail(
-                  email,
-                  { product_name: updatePayload.product_name, product_url: updatePayload.product_url },
-                  oldPrice,
-                  newPrice
-                );
-              }
-            } catch (e) {
-              console.warn("Failed to send drop email:", e);
+            const { data: u } = await supabase
+              .from("users")
+              .select("email")
+              .eq("id", wish.user_id)
+              .limit(1);
+
+            const email = u?.[0]?.email;
+
+            if (email) {
+              await sendPriceDropEmail(email, best.title, oldPrice, newPrice, best.link);
             }
           }
 
-          results.push({ id: wish.id, status: "price_drop", oldPrice, newPrice, link: updatePayload.product_url });
+          results.push({ id: wish.id, status: "price_drop", oldPrice, newPrice });
         } else {
-          results.push({ id: wish.id, status: "no_change", price: newPrice, link: updatePayload.product_url });
+          results.push({ id: wish.id, status: "no_change", price: newPrice });
         }
+
       } catch (err) {
-        console.error("Error checking wish", wish.id, err);
-        results.push({ id: wish.id, status: "error", error: String(err) });
+        console.error("Erro no loop:", err);
+        results.push({ id: wish.id, status: "error", error: err?.message });
       }
     }
 
     return res.status(200).json({ success: true, checked: wishes.length, results });
+
   } catch (err) {
-    console.error("CRITICAL ERROR /api/check-prices:", err);
+    console.error("CRITICAL ERROR:", err);
+
     return res.status(500).json({
-  success: false,
-  error: err?.message || JSON.stringify(err)
-});
+      success: false,
+      error: err?.message || JSON.stringify(err)
+    });
   }
 }
