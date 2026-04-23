@@ -49,6 +49,18 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "invalid_api_key" });
     }
   }
+  // 🔥 TESTE DIRETO DE EMAIL (apagar depois)
+const mod = await import("../../lib/email.js").catch(() => null);
+if (mod && mod.sendPriceDropEmail) {
+  await mod.sendPriceDropEmail(
+    "SEUEMAIL@gmail.com",
+    { product_name: "Teste iPhone", product_url: "https://example.com" },
+    5000,
+    3000
+  );
+}
+
+return res.status(200).json({ success: true, message: "email test disparado" });
 
   try {
     const { data: wishes, error: fetchErr } = await supabase
