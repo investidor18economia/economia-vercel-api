@@ -160,6 +160,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, checked: wishes.length, results });
   } catch (err) {
     console.error("CRITICAL ERROR /api/check-prices:", err);
-    return res.status(500).json({ success: false, error: String(err) });
+    return res.status(500).json({
+  success: false,
+  error: err?.message || JSON.stringify(err)
+});
   }
 }
