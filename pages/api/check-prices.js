@@ -35,11 +35,6 @@ async function fetchFromSerpApi(query) {
 }
 
 export default async function handler(req, res) {
-  return res.status(200).json({
-    success: true,
-    message: "API funcionando sem fetch";
-  });
-}
 
   // 🔥 permitir teste via navegador
   if (req.query.test !== "1") {
