@@ -1,6 +1,11 @@
-export default async function handler(req, res) {
-  return res.status(200).json({
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    keyExists: !!process.env.SUPABASE_SERVICE_ROLE_KEY
-  });
-}
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    auth: {
+      persistSession: false
+    }
+  }
+);
