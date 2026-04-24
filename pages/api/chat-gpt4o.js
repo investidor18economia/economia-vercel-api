@@ -844,61 +844,83 @@ if (rankedProducts.length < 2) {
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
     const messages = [
-      {
-        role: "system",
-        content: MIA_SYSTEM_PROMPT
-      },
-      {
-        role: "user",
-        content: buildUserPrompt({
-          query,
-          intent,
-          budget,
-          wantsNew,
-          period,
-          products: topProductsForAI,
-          productLimit,
-          userStyle
-        })
-      }
-    ];
+  {
+    role: "system",
+    content: `${MIA_SYSTEM_PROMPT}
 
-    const aiResponse = await callOpenAI(messages, {
-      temperature: 0.45,
-      max_tokens: 500
-    });
+🔽 ESTILO DE RESPOSTA (MUITO IMPORTANTE)
 
-    let reply = getOpenAIText(aiResponse)?.trim();
+- Responda curto por padrão.
+- Só dê respostas mais longas quando o usuário claramente pedir mais detalhes.
 
-    if (!reply || reply.length < 20) {
-      reply = buildFallbackReply(intent, bestProduct, period);
-    }
+Considere como pedido de resposta longa quando:
+- o usuário pedir comparação (ex: "qual vale mais a pena", "compare", "ou", "vs")
+- o usuário pedir explicação (ex: "por quê", "explica melhor", "detalha")
+- o usuário estiver indeciso entre opções
 
-    const smartFollowUp = getSmartFollowUp(intent, reply);
-    if (smartFollowUp) {
-      reply = `${reply}\n\n${smartFollowUp}`;
-    }
+Para perguntas simples:
+- responda curto, direto e claro
+- evite explicação longa desnecessária
 
-    if (reply.length > 900) {
-      reply = reply.slice(0, 900).trim();
-    }
+Exemplos:
 
-  return res.status(200).json({
-      reply,
-      prices: rankedProducts.map((p) => ({
-        product_name: cleanTitle(p.product_name),
-        price: p.price,
-        link: p.link,
-        thumbnail: p.thumbnail,
-        source: p.source
-      }))
-    });
-  } catch (err) {
-    console.error("chat-gpt4o.js error:", err);
+Pergunta simples:
+"preço do iphone 13"
+→ resposta curta
 
-    return res.status(500).json({
-      reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
-      prices: []
-    });
+Pergunta de decisão:
+"iphone 13 ou iphone 14"
+→ resposta mais completa, explicando diferenças
+
+Regras:
+- prefira respostas curtas e úteis
+- evite parecer um artigo
+- seja natural, como uma pessoa ajudando
+- só se estenda quando realmente agrega valor
+`
+  },
+  {
+    role: "user",
+    content: buildUserPrompt({
+      query,
+      intent,
+      budget,
+      wantsNew,
+      period,
+      products: topProductsForAI,
+      productLimit,
+      userStyle
+    })
   }
+];
+
+const aiResponse = await callOpenAI(messages, {
+  temperature: 0.45,
+  max_tokens: 500
+});
+
+let reply = getOpenAIText(aiResponse)?.trim();
+
+if (!reply || reply.length < 20) {
+  reply = buildFallbackReply(intent, bestProduct, period);
 }
+
+const smartFollowUp = getSmartFollowUp(intent, reply);
+if (smartFollowUp) {
+  reply = `${reply}\n\n${smartFollowUp}`;
+}
+
+if (reply.length > 900) {
+  reply = reply.slice(0, 900).trim();
+}
+
+return res.status(200).json({
+  reply,
+  prices: rankedProducts.map((p) => ({
+    product_name: cleanTitle(p.product_name),
+    price: p.price,
+    link: p.link,
+    thumbnail: p.thumbnail,
+    source: p.source
+  }))
+});
