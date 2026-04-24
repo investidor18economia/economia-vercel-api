@@ -821,12 +821,23 @@ export default async function handler(req, res) {
     const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, query));
     const rankingBase = goodProducts.length ? goodProducts : validProducts;
 
-    const rankedProducts = rankingBase
-      .map((p) => ({
-        ...p,
-        score: scoreProduct(p, query)
-      }))
-      .sort((a, b) => b.score - a.score);
+   let rankedProducts = rankingBase
+  .map((p) => ({
+    ...p,
+    score: scoreProduct(p, query)
+  }))
+  .sort((a, b) => b.score - a.score);
+
+// 🔥 fallback: evita ficar sem produtos
+if (!rankedProducts || rankedProducts.length === 0) {
+  console.warn("⚠️ fallback ativado - usando produtos brutos");
+  rankedProducts = rankingBase.slice(0, 5);
+}
+
+// 🔥 fallback extra: evita resposta fraca
+if (rankedProducts.length < 2) {
+  rankedProducts = rankingBase.slice(0, 5);
+}
 
     const bestProduct = rankedProducts[0];
     const productLimit = getProductLimitForAI(intent);
