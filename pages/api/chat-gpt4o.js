@@ -924,3 +924,13 @@ return res.status(200).json({
     source: p.source
   }))
 });
+
+} catch (err) {
+  console.error("chat-gpt4o.js error:", err);
+
+  return res.status(500).json({
+    reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
+    prices: []
+  });
+}
+}
