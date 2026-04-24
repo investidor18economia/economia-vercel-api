@@ -829,9 +829,24 @@ export default async function handler(req, res) {
   .sort((a, b) => b.score - a.score);
 
 // 🔥 fallback: evita ficar sem produtos
+// 🔥 fallback inteligente para comparação
 if (!rankedProducts || rankedProducts.length === 0) {
-  console.warn("⚠️ fallback ativado - usando produtos brutos");
-  rankedProducts = rankingBase.slice(0, 5);
+  console.warn("⚠️ fallback ativado");
+
+  const parts = query.split(/ ou | vs | versus /i);
+
+  if (parts.length >= 2) {
+    const fallbackProducts = [];
+
+    for (const part of parts) {
+      const results = await fetchSerpPrices(part.trim(), 3);
+      fallbackProducts.push(...results);
+    }
+
+    rankedProducts = fallbackProducts;
+  } else {
+    rankedProducts = rankingBase.slice(0, 5);
+  }
 }
 
 // 🔥 fallback extra: evita resposta fraca
