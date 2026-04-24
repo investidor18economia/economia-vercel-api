@@ -900,6 +900,19 @@ const aiResponse = await callOpenAI(messages, {
 });
 
 let reply = getOpenAIText(aiResponse)?.trim();
+    // 🔥 força respostas curtas quando não for comparação
+const isComparison =
+  intent === "comparison" ||
+  / ou | vs | versus | comparar | vale mais a pena/i.test(query);
+
+if (!isComparison && reply.length > 250) {
+  reply = reply.slice(0, 250).trim();
+
+  // evita cortar frase no meio
+  if (!reply.endsWith(".") && reply.includes(".")) {
+    reply = reply.substring(0, reply.lastIndexOf(".") + 1);
+  }
+}
 
 if (!reply || reply.length < 20) {
   reply = buildFallbackReply(intent, bestProduct, period);
