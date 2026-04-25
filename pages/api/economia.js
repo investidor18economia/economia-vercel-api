@@ -59,28 +59,41 @@ export default async function handler(req, res) {
     const host = req.headers["x-forwarded-host"] || req.headers.host;
     const apiUrl = `${protocol}://${host}`;
 
-    const response = await fetch(`${apiUrl}/api/chat-gpt4o`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.API_SHARED_KEY
-      },
-      body: JSON.stringify({
-        text,
-        user_id: userId,
-        conversation_id: null
-      })
+    let data;
+
+try {
+  const response = await fetch(`${apiUrl}/api/chat-gpt4o`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.API_SHARED_KEY
+    },
+    body: JSON.stringify({
+      text,
+      user_id: userId,
+      conversation_id: null
+    })
+  });
+
+  data = await response.json();
+
+  if (!response.ok) {
+    console.error("Erro chat-gpt4o:", response.status, data);
+
+    return res.status(200).json({
+      reply: data?.reply || "Tive um problema ao processar, tenta de novo 😊",
+      prices: []
     });
+  }
 
-    const data = await response.json();
+} catch (fetchError) {
+  console.error("Erro no fetch chat-gpt4o:", fetchError);
 
-    if (!response.ok) {
-      console.error("Erro chat-gpt4o:", response.status, data);
-      return res.status(500).json({
-        reply: data.reply || "Desculpe, tive um problema. Tente novamente!",
-        prices: []
-      });
-    }
+  return res.status(200).json({
+    reply: "⚠️ Não consegui conectar agora, tenta novamente em instantes 😊",
+    prices: []
+  });
+}
 
     if (userId !== "guest") {
       const currentMessages = user?.monthly_messages || 0;
