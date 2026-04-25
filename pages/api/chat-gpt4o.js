@@ -688,7 +688,67 @@ function buildFallbackReply(intent, bestProduct, period) {
 
   return "Encontrei algumas opções, mas quero refinar melhor pra te ajudar de verdade. Me fala um pouco mais do que você procura.";
 }
+function normalizeText(s = "") {
+  return String(s)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
 
+function isContextDependentMessage(text = "") {
+  const t = normalizeText(text);
+
+  // Mensagens curtas que dependem de contexto anterior
+  if (t.length <= 2) return true; // ex: "ok", "ss"
+  if (/^(sim|nao|não|ok|blz|beleza|pode|vai|esse|essa|isso|aquele|aquela)$/.test(t)) return true;
+  if (/^(mais barato|mais caro|melhor|pior|compensa|vale a pena)$/.test(t)) return true;
+  if (/^(e\?|e ai\?|e agora\?)$/.test(t)) return true;
+
+  // Frases que geralmente precisam da referência anterior
+  if (/^(e com|e sem|e se|e pra|e para)\b/.test(t)) return true;
+  if (/^(esse|essa|isso|aquele|aquela)\b/.test(t)) return true;
+
+  return false;
+}
+
+function getLastUsefulUserMessage(messages = [], currentQuery = "") {
+  const currentNorm = normalizeText(currentQuery);
+
+  // Busca de trás pra frente a última mensagem útil do usuário
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m) continue;
+
+    const role = String(m.role || "").toLowerCase();
+    const content = String(m.content || "").trim();
+    if (role !== "user" || !content) continue;
+
+    const cNorm = normalizeText(content);
+    if (!cNorm) continue;
+    if (cNorm === currentNorm) continue; // ignora a atual
+
+    // Evita pegar saudação pura como contexto
+    if (/^(oi|ola|olá|e ai|eae|fala|bom dia|boa tarde|boa noite)$/.test(cNorm)) continue;
+
+    return content;
+  }
+
+  return "";
+}
+
+function buildContextualQuery(query = "", messages = []) {
+  const q = String(query || "").trim();
+  if (!q) return q;
+
+  if (!isContextDependentMessage(q)) return q;
+
+  const lastUser = getLastUsefulUserMessage(messages, q);
+  if (!lastUser) return q;
+
+  // Junta de forma simples e explícita
+  return `${lastUser}. Follow-up do usuário: ${q}`;
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -701,6 +761,9 @@ export default async function handler(req, res) {
 
   const { text } = req.body || {};
   const query = (text || "").trim();
+  const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+const contextualQuery = buildContextualQuery(query, messages);
+  
 
   if (!query) {
     return res.status(400).json({
