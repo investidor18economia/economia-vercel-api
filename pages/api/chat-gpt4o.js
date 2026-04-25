@@ -676,18 +676,23 @@ function buildFallbackReply(intent, bestProduct, period) {
 
   if (productTitle && productPrice) {
     if (intent === "generic") {
-      return `🧠 Uma opção inicial que parece interessante é ${productTitle}, por ${productPrice}.\n\nSe eu refinar melhor pra você: qual é a principal necessidade nesse produto?`;
+      return `🧠 Uma opção inicial que parece interessante é ${productTitle}, por ${productPrice}.
+
+Se eu refinar melhor pra você: qual é a principal necessidade nesse produto?`;
     }
 
     if (intent === "comparison") {
       return "⚖️ Consigo te ajudar a comparar isso melhor. Me diz o que pesa mais pra você nessa decisão: preço, desempenho, durabilidade ou custo-benefício?";
     }
 
-    return `🧠 Entre as opções encontradas, ${productTitle} por ${productPrice} parece uma escolha interessante pelo equilíbrio geral.\n\nSe quiser, posso ver se tem uma opção melhor ou mais barata nessa faixa.`;
+    return `🧠 Entre as opções encontradas, ${productTitle} por ${productPrice} parece uma escolha interessante pelo equilíbrio geral.
+
+Se quiser, posso ver se tem uma opção melhor ou mais barata nessa faixa.`;
   }
 
   return "Encontrei algumas opções, mas quero refinar melhor pra te ajudar de verdade. Me fala um pouco mais do que você procura.";
 }
+
 function normalizeText(s = "") {
   return String(s)
     .toLowerCase()
@@ -699,13 +704,11 @@ function normalizeText(s = "") {
 function isContextDependentMessage(text = "") {
   const t = normalizeText(text);
 
-  // Mensagens curtas que dependem de contexto anterior
-  if (t.length <= 2) return true; // ex: "ok", "ss"
+  if (t.length <= 2) return true;
   if (/^(sim|nao|não|ok|blz|beleza|pode|vai|esse|essa|isso|aquele|aquela)$/.test(t)) return true;
   if (/^(mais barato|mais caro|melhor|pior|compensa|vale a pena)$/.test(t)) return true;
   if (/^(e\?|e ai\?|e agora\?)$/.test(t)) return true;
 
-  // Frases que geralmente precisam da referência anterior
   if (/^(e com|e sem|e se|e pra|e para)\b/.test(t)) return true;
   if (/^(esse|essa|isso|aquele|aquela)\b/.test(t)) return true;
 
@@ -715,7 +718,6 @@ function isContextDependentMessage(text = "") {
 function getLastUsefulUserMessage(messages = [], currentQuery = "") {
   const currentNorm = normalizeText(currentQuery);
 
-  // Busca de trás pra frente a última mensagem útil do usuário
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
     if (!m) continue;
@@ -726,9 +728,8 @@ function getLastUsefulUserMessage(messages = [], currentQuery = "") {
 
     const cNorm = normalizeText(content);
     if (!cNorm) continue;
-    if (cNorm === currentNorm) continue; // ignora a atual
+    if (cNorm === currentNorm) continue;
 
-    // Evita pegar saudação pura como contexto
     if (/^(oi|ola|olá|e ai|eae|fala|bom dia|boa tarde|boa noite)$/.test(cNorm)) continue;
 
     return content;
@@ -746,9 +747,9 @@ function buildContextualQuery(query = "", messages = []) {
   const lastUser = getLastUsefulUserMessage(messages, q);
   if (!lastUser) return q;
 
-  // Junta de forma simples e explícita
   return `${lastUser}. Follow-up do usuário: ${q}`;
 }
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -761,9 +762,9 @@ export default async function handler(req, res) {
 
   const { text } = req.body || {};
   const query = (text || "").trim();
-  const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
-const contextualQuery = buildContextualQuery(query, messages);
-  
+
+  const conversationMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
+  const contextualQuery = buildContextualQuery(query, conversationMessages);
 
   if (!query) {
     return res.status(400).json({
@@ -772,10 +773,10 @@ const contextualQuery = buildContextualQuery(query, messages);
     });
   }
 
-  const intent = detectIntent(query);
-  const userStyle = detectUserStyle(query);
-  const budget = extractBudget(query);
-  const wantsNew = wantsNewProduct(query);
+  const intent = detectIntent(contextualQuery);
+  const userStyle = detectUserStyle(contextualQuery);
+  const budget = extractBudget(contextualQuery);
+  const wantsNew = wantsNewProduct(contextualQuery);
   const period = getTimePeriod();
 
   try {
@@ -788,7 +789,7 @@ const contextualQuery = buildContextualQuery(query, messages);
         {
           role: "user",
           content: buildUserPrompt({
-            query,
+            query: contextualQuery,
             intent,
             budget,
             wantsNew,
@@ -813,10 +814,10 @@ const contextualQuery = buildContextualQuery(query, messages);
       });
     }
 
-    let products = await fetchSerpPrices(query, 10);
+    let products = await fetchSerpPrices(contextualQuery, 10);
     console.log("Produtos encontrados:", products.length);
 
-    products = products.filter((p) => !isBadProduct(p.product_name, query));
+    products = products.filter((p) => !isBadProduct(p.product_name, contextualQuery));
 
     if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
@@ -851,7 +852,7 @@ const contextualQuery = buildContextualQuery(query, messages);
       }))
       .filter((p) => !Number.isNaN(p.numericPrice));
 
-    const useIntent = getDetectedUseIntent(query);
+    const useIntent = getDetectedUseIntent(contextualQuery);
 
     if (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy") {
       const gamingValidProducts = validProducts.filter((p) => {
@@ -881,50 +882,47 @@ const contextualQuery = buildContextualQuery(query, messages);
       });
     }
 
-    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, query));
+    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, contextualQuery));
     const rankingBase = goodProducts.length ? goodProducts : validProducts;
 
-   let rankedProducts = rankingBase
-  .map((p) => ({
-    ...p,
-    score: scoreProduct(p, query)
-  }))
-  .sort((a, b) => b.score - a.score);
+    let rankedProducts = rankingBase
+      .map((p) => ({
+        ...p,
+        score: scoreProduct(p, contextualQuery)
+      }))
+      .sort((a, b) => b.score - a.score);
 
-// 🔥 fallback: evita ficar sem produtos
-// 🔥 fallback inteligente para comparação
-if (!rankedProducts || rankedProducts.length === 0) {
-  console.warn("⚠️ fallback ativado");
+    if (!rankedProducts || rankedProducts.length === 0) {
+      console.warn("⚠️ fallback ativado");
 
-  const parts = query.split(/ ou | vs | versus /i);
+      const parts = contextualQuery.split(/ ou | vs | versus /i);
 
-  if (parts.length >= 2) {
-    const fallbackProducts = [];
+      if (parts.length >= 2) {
+        const fallbackProducts = [];
 
-    for (const part of parts) {
-      const results = await fetchSerpPrices(part.trim(), 3);
-      fallbackProducts.push(...results);
+        for (const part of parts) {
+          const results = await fetchSerpPrices(part.trim(), 3);
+          fallbackProducts.push(...results);
+        }
+
+        rankedProducts = fallbackProducts;
+      } else {
+        rankedProducts = rankingBase.slice(0, 5);
+      }
     }
 
-    rankedProducts = fallbackProducts;
-  } else {
-    rankedProducts = rankingBase.slice(0, 5);
-  }
-}
-
-// 🔥 fallback extra: evita resposta fraca
-if (rankedProducts.length < 2) {
-  rankedProducts = rankingBase.slice(0, 5);
-}
+    if (rankedProducts.length < 2) {
+      rankedProducts = rankingBase.slice(0, 5);
+    }
 
     const bestProduct = rankedProducts[0];
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
-    const messages = [
-  {
-    role: "system",
-    content: `${MIA_SYSTEM_PROMPT}
+    const openAIMessages = [
+      {
+        role: "system",
+        content: `${MIA_SYSTEM_PROMPT}
 
 🔽 ESTILO DE RESPOSTA (MUITO IMPORTANTE)
 
@@ -956,72 +954,72 @@ Regras:
 - seja natural, como uma pessoa ajudando
 - só se estenda quando realmente agrega valor
 `
-  },
-  {
-    role: "user",
-    content: buildUserPrompt({
-      query,
-      intent,
-      budget,
-      wantsNew,
-      period,
-      products: topProductsForAI,
-      productLimit,
-      userStyle
-    })
+      },
+      {
+        role: "user",
+        content: buildUserPrompt({
+          query: contextualQuery,
+          intent,
+          budget,
+          wantsNew,
+          period,
+          products: topProductsForAI,
+          productLimit,
+          userStyle
+        })
+      }
+    ];
+
+    const aiResponse = await callOpenAI(openAIMessages, {
+      temperature: 0.45,
+      max_tokens: 500
+    });
+
+    let reply = getOpenAIText(aiResponse)?.trim();
+
+    const isComparison =
+      intent === "comparison" ||
+      / ou | vs | versus | comparar | vale mais a pena/i.test(contextualQuery);
+
+    if (!isComparison && reply && reply.length > 250) {
+      reply = reply.slice(0, 250).trim();
+
+      if (!reply.endsWith(".") && reply.includes(".")) {
+        reply = reply.substring(0, reply.lastIndexOf(".") + 1);
+      }
+    }
+
+    if (!reply || reply.length < 20) {
+      reply = buildFallbackReply(intent, bestProduct, period);
+    }
+
+    const smartFollowUp = getSmartFollowUp(intent, reply);
+    if (smartFollowUp) {
+      reply = `${reply}
+
+${smartFollowUp}`;
+    }
+
+    if (reply.length > 900) {
+      reply = reply.slice(0, 900).trim();
+    }
+
+    return res.status(200).json({
+      reply,
+      prices: rankedProducts.map((p) => ({
+        product_name: cleanTitle(p.product_name),
+        price: p.price,
+        link: p.link,
+        thumbnail: p.thumbnail,
+        source: p.source
+      }))
+    });
+  } catch (err) {
+    console.error("chat-gpt4o.js error:", err);
+
+    return res.status(500).json({
+      reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
+      prices: []
+    });
   }
-];
-
-const aiResponse = await callOpenAI(messages, {
-  temperature: 0.45,
-  max_tokens: 500
-});
-
-let reply = getOpenAIText(aiResponse)?.trim();
-    // 🔥 força respostas curtas quando não for comparação
-const isComparison =
-  intent === "comparison" ||
-  / ou | vs | versus | comparar | vale mais a pena/i.test(query);
-
-if (!isComparison && reply.length > 250) {
-  reply = reply.slice(0, 250).trim();
-
-  // evita cortar frase no meio
-  if (!reply.endsWith(".") && reply.includes(".")) {
-    reply = reply.substring(0, reply.lastIndexOf(".") + 1);
-  }
-}
-
-if (!reply || reply.length < 20) {
-  reply = buildFallbackReply(intent, bestProduct, period);
-}
-
-const smartFollowUp = getSmartFollowUp(intent, reply);
-if (smartFollowUp) {
-  reply = `${reply}\n\n${smartFollowUp}`;
-}
-
-if (reply.length > 900) {
-  reply = reply.slice(0, 900).trim();
-}
-
-return res.status(200).json({
-  reply,
-  prices: rankedProducts.map((p) => ({
-    product_name: cleanTitle(p.product_name),
-    price: p.price,
-    link: p.link,
-    thumbnail: p.thumbnail,
-    source: p.source
-  }))
-});
-
-} catch (err) {
-  console.error("chat-gpt4o.js error:", err);
-
-  return res.status(500).json({
-    reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
-    prices: []
-  });
-}
 }
