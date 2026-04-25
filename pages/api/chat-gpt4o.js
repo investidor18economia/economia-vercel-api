@@ -530,6 +530,7 @@ function formatProductsForPrompt(products, limit = 2) {
 
 function buildUserPrompt({
   query,
+  originalQuery,
   intent,
   budget,
   wantsNew,
@@ -540,7 +541,8 @@ function buildUserPrompt({
 }) {
   return `
 Contexto da solicitação do usuário:
-- Mensagem do usuário: "${query}"
+- Mensagem original do usuário: "${originalQuery || query}"
+- Query interpretada com contexto: "${query}"
 - Tipo de situação detectada: ${intent}
 - Período do dia do usuário: ${period}
 - Orçamento detectado: ${budget ? `R$ ${budget}` : "não informado"}
@@ -601,12 +603,8 @@ Instruções para esta resposta:
   4. Diga de forma simples qual tende a ser melhor em cada caso.
   5. Só depois faça uma pergunta para entender a prioridade do usuário.
 
-  Exemplo de comportamento esperado:
-  - "O PS5 é mais forte e melhor pra quem quer desempenho máximo..."
-  - "O Xbox Series S é mais barato e faz sentido pra quem quer economizar..."
-
 - Em perguntas que não sejam saudação pura, não comece a resposta com cumprimento como bom dia, boa tarde, boa noite, olá ou oi.
-- Ao citar opções, trate sempre o primeiro produto da lista como a recomendação principal. Se mencionar outra opção, cite no máximo 1 alternativa e deixe claro que ela é apenas uma alternativa. Não transforme a resposta em listão.
+- Ao citar opções, trate sempre o primeiro produto da lista como a recomendação principal.
 - Mantenha a resposta curta ou média.
 - Evite soar robótica.
 `.trim();
@@ -693,30 +691,50 @@ Se quiser, posso ver se tem uma opção melhor ou mais barata nessa faixa.`;
   return "Encontrei algumas opções, mas quero refinar melhor pra te ajudar de verdade. Me fala um pouco mais do que você procura.";
 }
 
-function normalizeText(s = "") {
-  return String(s)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
+/** ================================
+ *  CONTEXTO (BLOCO 1)
+ *  ================================
+ */
+
+function hasStrongShoppingSignal(text = "") {
+  const q = normalizeQuery(text);
+
+  if (!q) return false;
+
+  const hasCategory =
+    /celular|smartphone|iphone|samsung|xiaomi|motorola|galaxy|notebook|laptop|pc|computador|tv|monitor|geladeira|fogao|fogão|maquina de lavar|cadeira|fone|headset|ps5|playstation|xbox|console|tablet|ipad|roda|pneu/.test(q);
+
+  const hasBudget = !!extractBudget(q) || /\br\$?\s*\d+/.test(q);
+
+  const hasModelLikeToken =
+    /\b[a-z]{1,4}\d{2,4}\b/i.test(text) || // ex: a55, g56, rtx4060
+    /\b(128gb|256gb|512gb|1tb|8gb|16gb|32gb)\b/i.test(q);
+
+  const hasComparisonShape = /\bou\b|\bvs\b|versus|entre/.test(q);
+
+  const hasUseConstraint = /pra|para|trabalho|estudo|jogo|gamer|camera|câmera|bateria|custo beneficio|custo-beneficio/.test(q);
+
+  return hasCategory || hasBudget || hasModelLikeToken || hasComparisonShape || hasUseConstraint;
 }
 
-function isContextDependentMessage(text = "") {
-  const t = normalizeText(text);
+function looksLikeAmbiguousFollowUp(text = "") {
+  const q = normalizeQuery(text);
+  if (!q) return true;
 
-  if (t.length <= 2) return true;
-  if (/^(sim|nao|não|ok|blz|beleza|pode|vai|esse|essa|isso|aquele|aquela)$/.test(t)) return true;
-  if (/^(mais barato|mais caro|melhor|pior|compensa|vale a pena)$/.test(t)) return true;
-  if (/^(e\?|e ai\?|e agora\?)$/.test(t)) return true;
+  // ambiguidade estrutural (curto e sem sinal forte)
+  if (q.length <= 14 && !hasStrongShoppingSignal(q)) return true;
 
-  if (/^(e com|e sem|e se|e pra|e para)\b/.test(t)) return true;
-  if (/^(esse|essa|isso|aquele|aquela)\b/.test(t)) return true;
+  // pronomes de referência
+  if (/^(esse|essa|isso|aquele|aquela|ele|ela)\b/.test(q)) return true;
+
+  // respostas curtas típicas
+  if (/^(sim|nao|não|ok|blz|beleza|pode|vai)$/.test(q)) return true;
 
   return false;
 }
 
-function getLastUsefulUserMessage(messages = [], currentQuery = "") {
-  const currentNorm = normalizeText(currentQuery);
+function getLastStrongUserQuery(messages = [], currentQuery = "") {
+  const currentNorm = normalizeQuery(currentQuery);
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
@@ -726,28 +744,61 @@ function getLastUsefulUserMessage(messages = [], currentQuery = "") {
     const content = String(m.content || "").trim();
     if (role !== "user" || !content) continue;
 
-    const cNorm = normalizeText(content);
-    if (!cNorm) continue;
-    if (cNorm === currentNorm) continue;
+    const cNorm = normalizeQuery(content);
+    if (!cNorm || cNorm === currentNorm) continue;
 
-    if (/^(oi|ola|olá|e ai|eae|fala|bom dia|boa tarde|boa noite)$/.test(cNorm)) continue;
+    // ignora saudação pura
+    if (/^(oi|ola|olá|opa|eai|e ai|eae|fala|salve|bom dia|boa tarde|boa noite)$/.test(cNorm)) {
+      continue;
+    }
 
-    return content;
+    if (hasStrongShoppingSignal(cNorm)) {
+      return content;
+    }
   }
 
   return "";
 }
 
-function buildContextualQuery(query = "", messages = []) {
+function resolveContextQuery(query = "", messages = []) {
   const q = String(query || "").trim();
-  if (!q) return q;
+  const qNorm = normalizeQuery(q);
 
-  if (!isContextDependentMessage(q)) return q;
+  if (!q) {
+    return {
+      standaloneQuery: "",
+      needsClarification: true,
+      clarificationMessage: "Me fala o produto que você quer procurar que eu já te ajudo. 👀"
+    };
+  }
 
-  const lastUser = getLastUsefulUserMessage(messages, q);
-  if (!lastUser) return q;
+  // se já é uma query forte, usa como está
+  if (hasStrongShoppingSignal(qNorm) && !looksLikeAmbiguousFollowUp(qNorm)) {
+    return {
+      standaloneQuery: q,
+      needsClarification: false
+    };
+  }
 
-  return `${lastUser}. Follow-up do usuário: ${q}`;
+  const lastStrong = getLastStrongUserQuery(messages, q);
+
+  // follow-up sem referência confiável -> não busca aleatório
+  if (!lastStrong) {
+    return {
+      standaloneQuery: q,
+      needsClarification: true,
+      clarificationMessage:
+        "Entendi 👍 Me diz rapidinho de qual produto você está falando (ex: celular, notebook, PS5...), que eu já refino pra você."
+    };
+  }
+
+  // combina de forma explícita para virar consulta completa
+  const standaloneQuery = `${lastStrong}. Refinamento do usuário: ${q}`;
+
+  return {
+    standaloneQuery,
+    needsClarification: false
+  };
 }
 
 export default async function handler(req, res) {
@@ -762,9 +813,7 @@ export default async function handler(req, res) {
 
   const { text } = req.body || {};
   const query = (text || "").trim();
-
   const conversationMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
-  const contextualQuery = buildContextualQuery(query, conversationMessages);
 
   if (!query) {
     return res.status(400).json({
@@ -773,10 +822,21 @@ export default async function handler(req, res) {
     });
   }
 
-  const intent = detectIntent(contextualQuery);
-  const userStyle = detectUserStyle(contextualQuery);
-  const budget = extractBudget(contextualQuery);
-  const wantsNew = wantsNewProduct(contextualQuery);
+  const contextResolution = resolveContextQuery(query, conversationMessages);
+
+  if (contextResolution.needsClarification) {
+    return res.status(200).json({
+      reply: contextResolution.clarificationMessage,
+      prices: []
+    });
+  }
+
+  const resolvedQuery = contextResolution.standaloneQuery || query;
+
+  const intent = detectIntent(resolvedQuery);
+  const userStyle = detectUserStyle(resolvedQuery);
+  const budget = extractBudget(resolvedQuery);
+  const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
 
   try {
@@ -789,7 +849,8 @@ export default async function handler(req, res) {
         {
           role: "user",
           content: buildUserPrompt({
-            query: contextualQuery,
+            query: resolvedQuery,
+            originalQuery: query,
             intent,
             budget,
             wantsNew,
@@ -814,10 +875,10 @@ export default async function handler(req, res) {
       });
     }
 
-    let products = await fetchSerpPrices(contextualQuery, 10);
+    let products = await fetchSerpPrices(resolvedQuery, 10);
     console.log("Produtos encontrados:", products.length);
 
-    products = products.filter((p) => !isBadProduct(p.product_name, contextualQuery));
+    products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
 
     if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
@@ -852,7 +913,7 @@ export default async function handler(req, res) {
       }))
       .filter((p) => !Number.isNaN(p.numericPrice));
 
-    const useIntent = getDetectedUseIntent(contextualQuery);
+    const useIntent = getDetectedUseIntent(resolvedQuery);
 
     if (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy") {
       const gamingValidProducts = validProducts.filter((p) => {
@@ -882,20 +943,20 @@ export default async function handler(req, res) {
       });
     }
 
-    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, contextualQuery));
+    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
     const rankingBase = goodProducts.length ? goodProducts : validProducts;
 
     let rankedProducts = rankingBase
       .map((p) => ({
         ...p,
-        score: scoreProduct(p, contextualQuery)
+        score: scoreProduct(p, resolvedQuery)
       }))
       .sort((a, b) => b.score - a.score);
 
     if (!rankedProducts || rankedProducts.length === 0) {
       console.warn("⚠️ fallback ativado");
 
-      const parts = contextualQuery.split(/ ou | vs | versus /i);
+      const parts = resolvedQuery.split(/ ou | vs | versus /i);
 
       if (parts.length >= 2) {
         const fallbackProducts = [];
@@ -938,16 +999,6 @@ Para perguntas simples:
 - responda curto, direto e claro
 - evite explicação longa desnecessária
 
-Exemplos:
-
-Pergunta simples:
-"preço do iphone 13"
-→ resposta curta
-
-Pergunta de decisão:
-"iphone 13 ou iphone 14"
-→ resposta mais completa, explicando diferenças
-
 Regras:
 - prefira respostas curtas e úteis
 - evite parecer um artigo
@@ -958,7 +1009,8 @@ Regras:
       {
         role: "user",
         content: buildUserPrompt({
-          query: contextualQuery,
+          query: resolvedQuery,
+          originalQuery: query,
           intent,
           budget,
           wantsNew,
@@ -979,7 +1031,7 @@ Regras:
 
     const isComparison =
       intent === "comparison" ||
-      / ou | vs | versus | comparar | vale mais a pena/i.test(contextualQuery);
+      / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
 
     if (!isComparison && reply && reply.length > 250) {
       reply = reply.slice(0, 250).trim();
@@ -995,9 +1047,7 @@ Regras:
 
     const smartFollowUp = getSmartFollowUp(intent, reply);
     if (smartFollowUp) {
-      reply = `${reply}
-
-${smartFollowUp}`;
+      reply = `${reply}\n\n${smartFollowUp}`;
     }
 
     if (reply.length > 900) {
