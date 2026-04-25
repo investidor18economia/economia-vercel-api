@@ -1268,6 +1268,18 @@ Regras:
   ? rankedProducts.slice(0, 3)
   : [];
 
+let finalProducts = rankedProducts;
+
+if (!finalProducts || finalProducts.length === 0) {
+  console.warn("⚠️ fallback de produto ativado");
+
+  const fallbackResults = await fetchSerpPrices(query, 3);
+
+  if (fallbackResults && fallbackResults.length > 0) {
+    finalProducts = fallbackResults;
+  }
+}
+
 return res.status(200).json({
   reply,
   prices: finalProducts.map((p) => ({
