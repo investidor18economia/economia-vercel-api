@@ -68,11 +68,12 @@ try {
       "Content-Type": "application/json",
       "x-api-key": process.env.API_SHARED_KEY
     },
-    body: JSON.stringify({
-      text,
-      user_id: userId,
-      conversation_id: null
-    })
+   body: JSON.stringify({
+  text,
+  user_id: userId,
+  conversation_id: null,
+  messages: req.body.messages || []
+})
   });
 
   data = await response.json();
