@@ -1208,11 +1208,17 @@ Você deve:
   });
 }
     
-    const openAIMessages = [
-      {
-        role: "system",
-        content: `${MIA_SYSTEM_PROMPT}
-        🧠 INTERPRETAÇÃO DE CONTEXTO (NÍVEL AVANÇADO)
+   const isDecisionOrComparison =
+  intent === "comparison" ||
+  intent === "decision" ||
+  /vale mais a pena|compensa|qual escolher|qual é melhor/i.test(query);
+
+// 🔥 Se for decisão → NÃO usa produtos
+const openAIMessages = [
+  {
+    role: "system",
+    content: `${MIA_SYSTEM_PROMPT}
+🧠 INTERPRETAÇÃO DE CONTEXTO (NÍVEL AVANÇADO)
 
 Você deve analisar a conversa como um todo, não apenas a última frase.
 
@@ -1239,11 +1245,7 @@ Antes de responder, determine:
 - priorize custo-benefício
 
 5. Se a mensagem estiver confusa ou misturar intenções:
-- não responda de forma robótica
 - peça clarificação de forma natural e humana
-
-Exemplo de comportamento:
-"Não entendi muito bem 😅 você quer ver celular ou notebook?"
 
 6. Se for uma nova intenção:
 - ignore o contexto anterior
@@ -1253,56 +1255,57 @@ Exemplo de comportamento:
 Nunca dependa de palavras específicas.
 Interprete a intenção com base no contexto completo da conversa.
 `
-      },
-      {
-        role: "user",
-        content: buildUserPrompt({
-          query: resolvedQuery,
-          originalQuery: query,
-          intent,
-          budget,
-          wantsNew,
-          period,
-          products: topProductsForAI,
-          productLimit,
-          userStyle
-        })
-      }
-    ];
+  },
+  {
+    role: "user",
+    content: buildUserPrompt({
+      query: resolvedQuery,
+      originalQuery: query,
+      intent,
+      budget,
+      wantsNew,
+      period,
+      // 🔥 aqui está a chave
+      products: isDecisionOrComparison ? [] : topProductsForAI,
+      productLimit,
+      userStyle
+    })
+  }
+];
 
-    const aiResponse = await callOpenAI(openAIMessages, {
-      temperature: 0.45,
-      max_tokens: 500
-    });
+const aiResponse = await callOpenAI(openAIMessages, {
+  temperature: 0.45,
+  max_tokens: 500
+});
 
-    let reply = getOpenAIText(aiResponse)?.trim();
+let reply = getOpenAIText(aiResponse)?.trim();
 
-    const isComparison =
-      intent === "comparison" ||
-      / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
+const isComparison =
+  intent === "comparison" ||
+  / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
 
-    if (!isComparison && reply && reply.length > 250) {
-      reply = reply.slice(0, 250).trim();
+if (!isComparison && reply && reply.length > 250) {
+  reply = reply.slice(0, 250).trim();
 
-      if (!reply.endsWith(".") && reply.includes(".")) {
-        reply = reply.substring(0, reply.lastIndexOf(".") + 1);
-      }
-    }
+  if (!reply.endsWith(".") && reply.includes(".")) {
+    reply = reply.substring(0, reply.lastIndexOf(".") + 1);
+  }
+}
 
-    if (!reply || reply.length < 20) {
-      reply = buildFallbackReply(intent, bestProduct, period);
-    }
+if (!reply || reply.length < 20) {
+  reply = buildFallbackReply(intent, bestProduct, period);
+}
 
-    const smartFollowUp = getSmartFollowUp(intent, reply);
-    if (smartFollowUp) {
-      reply = `${reply}\n\n${smartFollowUp}`;
-    }
+const smartFollowUp = getSmartFollowUp(intent, reply);
+if (smartFollowUp) {
+  reply = `${reply}\n\n${smartFollowUp}`;
+}
 
-    if (reply.length > 900) {
-      reply = reply.slice(0, 900).trim();
-    }
+if (reply.length > 900) {
+  reply = reply.slice(0, 900).trim();
+}
 
- let finalProducts = (rankedProducts && rankedProducts.length > 0)
+let finalProducts = (rankedProducts && rankedProducts.length > 0)
   ? rankedProducts.slice(0, 3)
   : [];
 
@@ -1319,21 +1322,12 @@ if (!finalProducts || finalProducts.length === 0) {
 return res.status(200).json({
   reply,
   prices: isDecisionOrComparison
-  ? []
-  : finalProducts.map((p) => ({
-      product_name: cleanTitle(p.product_name),
-      price: p.price,
-      link: p.link,
-      thumbnail: p.thumbnail,
-      source: p.source
-    }))
+    ? []
+    : finalProducts.map((p) => ({
+        product_name: cleanTitle(p.product_name),
+        price: p.price,
+        link: p.link,
+        thumbnail: p.thumbnail,
+        source: p.source
+      }))
 });
-  } catch (err) {
-    console.error("chat-gpt4o.js error:", err);
-
-    return res.status(500).json({
-      reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
-      prices: []
-    });
-  }
-}
