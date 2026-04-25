@@ -1264,11 +1264,9 @@ Regras:
       reply = reply.slice(0, 900).trim();
     }
 
-   const finalProducts = (rankedProducts && rankedProducts.length > 0)
+ let finalProducts = (rankedProducts && rankedProducts.length > 0)
   ? rankedProducts.slice(0, 3)
   : [];
-
-let finalProducts = rankedProducts;
 
 if (!finalProducts || finalProducts.length === 0) {
   console.warn("⚠️ fallback de produto ativado");
