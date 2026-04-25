@@ -967,13 +967,21 @@ export default async function handler(req, res) {
         prices: []
       });
     }
+const contextSourceText = conversationMessages
+  .map(m => m.content)
+  .join(" ")
+  .toLowerCase();
 
+const categoryFromContext =
+  detectProductCategory(contextSourceText) ||
+  detectProductCategory(query);
    let products = await fetchSerpPrices(resolvedQuery, 10);
 console.log("Produtos encontrados:", products.length);
 
 products = filterProductsByLockedCategory(products, resolvedQuery);
 
 products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+    products = products.filter(p => productMatchesCategory(p, categoryFromContext));
 
 if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
@@ -1059,7 +1067,8 @@ if (!Array.isArray(products) || !products.length) {
         for (const part of parts) {
   const results = await fetchSerpPrices(part.trim(), 3);
   const categorySafeResults = filterProductsByLockedCategory(results, resolvedQuery);
-  fallbackProducts.push(...categorySafeResults);
+  const safeResults = results.filter(p => productMatchesCategory(p, categoryFromContext));
+fallbackProducts.push(...safeResults);
 }
 
 rankedProducts = fallbackProducts;
