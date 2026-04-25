@@ -983,9 +983,9 @@ const contextSourceText = conversationMessages
   .toLowerCase();
     const isNewSearchIntent = isNewIntent(query, contextSourceText);
 
-const categoryFromContext = isNewSearchIntent
-  ? detectProductCategory(query)
-  : detectProductCategory(contextSourceText) || detectProductCategory(query);
+const categoryFromContext =
+  detectProductCategory(contextSourceText) ||
+  detectProductCategory(query);
    let products = await fetchSerpPrices(resolvedQuery, 10);
 console.log("Produtos encontrados:", products.length);
 
