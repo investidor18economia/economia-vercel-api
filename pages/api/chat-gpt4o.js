@@ -941,6 +941,9 @@ export default async function handler(req, res) {
   const resolvedQuery = contextResolution.standaloneQuery || query;
 
   const intent = detectIntent(resolvedQuery);
+  const shouldSkipProductSearch =
+  intent === "comparison" ||
+  intent === "decision";
   const userStyle = detectUserStyle(resolvedQuery);
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
@@ -1119,6 +1122,87 @@ rankedProducts = rankedProducts.filter(p => {
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
+    const isDecisionOrComparison =
+  intent === "comparison" ||
+  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+
+if (isDecisionOrComparison) {
+  const openAIMessagesDecision = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO DECISÃO
+
+O usuário está comparando ou pedindo ajuda para decidir.
+
+Você NÃO deve buscar produtos.
+Você NÃO deve depender de preços.
+
+Você deve:
+- comparar as opções citadas anteriormente
+- explicar qual vale mais a pena dependendo do uso
+- ser direto, claro e útil
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(openAIMessagesDecision, {
+    temperature: 0.5,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply,
+    prices: []
+  });
+}
+    if (isDecisionOrComparison) {
+  const openAIMessagesDecision = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO DECISÃO
+
+O usuário está comparando ou pedindo ajuda para decidir.
+
+Você NÃO deve buscar produtos.
+Você NÃO deve depender de preços.
+
+Você deve:
+- comparar as opções citadas anteriormente
+- explicar qual vale mais a pena dependendo do uso
+- ser direto, claro e útil
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(openAIMessagesDecision, {
+    temperature: 0.5,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply,
+    prices: []
+  });
+}
+    
     const openAIMessages = [
       {
         role: "system",
@@ -1229,13 +1313,15 @@ if (!finalProducts || finalProducts.length === 0) {
 
 return res.status(200).json({
   reply,
-  prices: finalProducts.map((p) => ({
-    product_name: cleanTitle(p.product_name),
-    price: p.price,
-    link: p.link,
-    thumbnail: p.thumbnail,
-    source: p.source
-  }))
+  prices: isDecisionOrComparison
+  ? []
+  : finalProducts.map((p) => ({
+      product_name: cleanTitle(p.product_name),
+      price: p.price,
+      link: p.link,
+      thumbnail: p.thumbnail,
+      source: p.source
+    }))
 });
   } catch (err) {
     console.error("chat-gpt4o.js error:", err);
