@@ -568,6 +568,16 @@ function detectProductCategory(text = "") {
   return null;
 }
 
+function isNewIntent(query, contextText) {
+  const currentCategory = detectProductCategory(query);
+  const previousCategory = detectProductCategory(contextText);
+
+  if (!previousCategory) return false;
+  if (!currentCategory) return false;
+
+  return currentCategory !== previousCategory;
+}
+
 function productMatchesCategory(product, query) {
   const category = detectProductCategory(query);
 
@@ -971,6 +981,7 @@ const contextSourceText = conversationMessages
   .map(m => m.content)
   .join(" ")
   .toLowerCase();
+    const isNewSearchIntent = isNewIntent(query, contextSourceText);
 
 const categoryFromContext =
   detectProductCategory(contextSourceText) ||
@@ -1080,7 +1091,23 @@ rankedProducts = fallbackProducts;
     if (rankedProducts.length < 2) {
       rankedProducts = rankingBase.slice(0, 5);
     }
+rankedProducts = rankedProducts.filter(p => {
+  const title = normalizeQuery(p?.product_name || "");
 
+  // Se NÃO for nova intenção → aplicar trava
+  if (!isNewSearchIntent) {
+    if (
+      /ssd|hd externo|pendrive|pen drive|cartao de memoria|micro sd|chip|esim|adaptador/.test(title)
+    ) {
+      return false;
+    }
+
+    return productMatchesCategory(p, categoryFromContext);
+  }
+
+  // Se for nova intenção → liberar tudo
+  return true;
+});
     const bestProduct = rankedProducts[0];
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
