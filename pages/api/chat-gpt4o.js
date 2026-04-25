@@ -510,6 +510,99 @@ function getCategoryContextHint(query) {
 
   return "Se precisar refinar, faça uma pergunta final contextual baseada no tipo de produto e no que mais influencia a decisão de compra.";
 }
+function detectProductCategory(text = "") {
+  const q = normalizeQuery(text);
+
+  if (/celular|smartphone|iphone|samsung|xiaomi|motorola|galaxy|redmi|realme/.test(q)) {
+    return "phone";
+  }
+
+  if (/notebook|laptop|macbook|chromebook/.test(q)) {
+    return "notebook";
+  }
+
+  if (/pc gamer|computador|desktop|cpu gamer/.test(q)) {
+    return "computer";
+  }
+
+  if (/ps5|playstation|xbox|console|series s|series x/.test(q)) {
+    return "console";
+  }
+
+  if (/tv|televis|smart tv/.test(q)) {
+    return "tv";
+  }
+
+  if (/monitor/.test(q)) {
+    return "monitor";
+  }
+
+  if (/fone|headset|earbud|airpods/.test(q)) {
+    return "audio";
+  }
+
+  if (/cadeira|cadeira gamer|cadeira ergonomica|cadeira ergonômica/.test(q)) {
+    return "chair";
+  }
+
+  if (/geladeira|frigerador|freezer/.test(q)) {
+    return "fridge";
+  }
+
+  if (/maquina de lavar|máquina de lavar|lavadora|lava e seca/.test(q)) {
+    return "washer";
+  }
+
+  if (/tablet|ipad/.test(q)) {
+    return "tablet";
+  }
+
+  if (/roda|pneu/.test(q)) {
+    return "car_part";
+  }
+
+  if (/fogao|fogão|cooktop|forno/.test(q)) {
+    return "kitchen";
+  }
+
+  return null;
+}
+
+function productMatchesCategory(product, query) {
+  const category = detectProductCategory(query);
+
+  if (!category) return true;
+
+  const title = normalizeQuery(product?.product_name || "");
+
+  const rules = {
+    phone: /celular|smartphone|iphone|samsung|xiaomi|motorola|moto|galaxy|redmi|realme|poco/,
+    notebook: /notebook|laptop|macbook|chromebook/,
+    computer: /pc gamer|computador|desktop|cpu gamer|ryzen|intel|i5|i7|rtx|gtx|radeon/,
+    console: /ps5|playstation|xbox|series s|series x|console/,
+    tv: /tv|smart tv|televis|uhd|4k/,
+    monitor: /monitor/,
+    audio: /fone|headset|earbud|airpods|bluetooth/,
+    chair: /cadeira|ergonomica|ergonômica|gamer|reclinavel|reclinável/,
+    fridge: /geladeira|frigerador|freezer|frost free/,
+    washer: /maquina de lavar|máquina de lavar|lavadora|lava e seca/,
+    tablet: /tablet|ipad/,
+    car_part: /roda|pneu|aro/,
+    kitchen: /fogao|fogão|cooktop|forno/
+  };
+
+  return rules[category] ? rules[category].test(title) : true;
+}
+
+function filterProductsByLockedCategory(products = [], query = "") {
+  const category = detectProductCategory(query);
+
+  if (!category || !Array.isArray(products)) {
+    return products;
+  }
+
+  return products.filter((product) => productMatchesCategory(product, query));
+}
 
 function getProductLimitForAI(intent) {
   if (intent === "comparison") return 3;
@@ -875,12 +968,14 @@ export default async function handler(req, res) {
       });
     }
 
-    let products = await fetchSerpPrices(resolvedQuery, 10);
-    console.log("Produtos encontrados:", products.length);
+   let products = await fetchSerpPrices(resolvedQuery, 10);
+console.log("Produtos encontrados:", products.length);
 
-    products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+products = filterProductsByLockedCategory(products, resolvedQuery);
 
-    if (!Array.isArray(products) || !products.length) {
+products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+
+if (!Array.isArray(products) || !products.length) {
       return res.status(200).json({
         reply: "⚠️ Não encontrei resultados suficientes por enquanto. Se quiser, eu posso refinar por tipo de uso, faixa de preço ou modelo.",
         prices: []
@@ -962,11 +1057,12 @@ export default async function handler(req, res) {
         const fallbackProducts = [];
 
         for (const part of parts) {
-          const results = await fetchSerpPrices(part.trim(), 3);
-          fallbackProducts.push(...results);
-        }
+  const results = await fetchSerpPrices(part.trim(), 3);
+  const categorySafeResults = filterProductsByLockedCategory(results, resolvedQuery);
+  fallbackProducts.push(...categorySafeResults);
+}
 
-        rankedProducts = fallbackProducts;
+rankedProducts = fallbackProducts;
       } else {
         rankedProducts = rankingBase.slice(0, 5);
       }
