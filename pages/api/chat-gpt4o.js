@@ -1109,6 +1109,9 @@ rankedProducts = rankedProducts.filter(p => {
   return true;
 });
     const bestProduct = rankedProducts[0];
+    if (!bestProduct && rankedProducts.length > 0) {
+  console.warn("⚠️ corrigindo ausência de bestProduct");
+}
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
@@ -1257,16 +1260,20 @@ Regras:
       reply = reply.slice(0, 900).trim();
     }
 
-    return res.status(200).json({
-      reply,
-      prices: rankedProducts.map((p) => ({
-        product_name: cleanTitle(p.product_name),
-        price: p.price,
-        link: p.link,
-        thumbnail: p.thumbnail,
-        source: p.source
-      }))
-    });
+   const finalProducts = (rankedProducts && rankedProducts.length > 0)
+  ? rankedProducts.slice(0, 3)
+  : [];
+
+return res.status(200).json({
+  reply,
+  prices: finalProducts.map((p) => ({
+    product_name: cleanTitle(p.product_name),
+    price: p.price,
+    link: p.link,
+    thumbnail: p.thumbnail,
+    source: p.source
+  }))
+});
   } catch (err) {
     console.error("chat-gpt4o.js error:", err);
 
