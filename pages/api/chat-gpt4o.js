@@ -525,6 +525,10 @@ function detectProductCategory(text = "") {
     return "computer";
   }
 
+  if (/ssd|hd|hd externo|armazenamento/.test(q)) {
+  return "storage";
+}
+
   if (/ps5|playstation|xbox|console|series s|series x/.test(q)) {
     return "console";
   }
