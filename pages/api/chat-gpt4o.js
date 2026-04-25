@@ -993,7 +993,11 @@ const contextSourceText = conversationMessages
 const categoryFromContext =
   detectProductCategory(contextSourceText) ||
   detectProductCategory(query);
-   let products = await fetchSerpPrices(resolvedQuery, 10);
+   let products = [];
+
+if (!isDecisionOrComparison) {
+  products = await fetchSerpPrices(resolvedQuery, 10);
+}
 console.log("Produtos encontrados:", products.length);
 
 products = filterProductsByLockedCategory(products, resolvedQuery);
@@ -1124,7 +1128,8 @@ rankedProducts = rankedProducts.filter(p => {
 
     const isDecisionOrComparison =
   intent === "comparison" ||
-  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+  intent === "decision" ||
+  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(query);
 
 if (isDecisionOrComparison) {
   const openAIMessagesDecision = [
@@ -1164,7 +1169,7 @@ Você deve:
     prices: []
   });
 }
-    if (isDecisionOrComparison) {
+    
   const openAIMessagesDecision = [
     {
       role: "system",
