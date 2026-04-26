@@ -1126,7 +1126,14 @@ rankedProducts = rankedProducts.filter(p => {
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
-    if (isDecisionOrComparison) {
+    // 🔥 DETECÇÃO DE DECISÃO
+const isDecisionOrComparison =
+  intent === "comparison" ||
+  intent === "decision" ||
+  /vale mais a pena|compensa|qual escolher|qual é melhor/i.test(query);
+
+// 🔥 MODO DECISÃO (INTERCEPTA ANTES DE TUDO)
+if (isDecisionOrComparison) {
   const openAIMessagesDecision = [
     {
       role: "system",
@@ -1134,7 +1141,7 @@ rankedProducts = rankedProducts.filter(p => {
 
 🧠 MODO DECISÃO
 
-O usuário está pedindo ajuda para decidir ou comparar.
+O usuário está comparando ou pedindo ajuda para decidir.
 
 Você NÃO deve sugerir produtos.
 Você NÃO deve depender de preços.
@@ -1165,135 +1172,23 @@ Você deve:
     prices: []
   });
 }
-    
-    const isDecisionOrComparison =
-  intent === "comparison" ||
-  intent === "decision" ||
-  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(query);
 
-if (isDecisionOrComparison) {
-  const openAIMessagesDecision = [
-    {
-      role: "system",
-      content: `${MIA_SYSTEM_PROMPT}
-
-🧠 MODO DECISÃO
-
-O usuário está comparando ou pedindo ajuda para decidir.
-
-Você NÃO deve buscar produtos.
-Você NÃO deve depender de preços.
-
-Você deve:
-- comparar as opções citadas anteriormente
-- explicar qual vale mais a pena dependendo do uso
-- ser direto, claro e útil
-`
-    },
-    ...conversationMessages,
-    {
-      role: "user",
-      content: resolvedQuery
-    }
-  ];
-
-  const aiResponse = await callOpenAI(openAIMessagesDecision, {
-    temperature: 0.5,
-    max_tokens: 400
-  });
-
-  const reply = getOpenAIText(aiResponse)?.trim();
-
-  return res.status(200).json({
-    reply,
-    prices: []
-  });
-}
-    
-  const openAIMessagesDecision = [
-    {
-      role: "system",
-      content: `${MIA_SYSTEM_PROMPT}
-
-🧠 MODO DECISÃO
-
-O usuário está comparando ou pedindo ajuda para decidir.
-
-Você NÃO deve buscar produtos.
-Você NÃO deve depender de preços.
-
-Você deve:
-- comparar as opções citadas anteriormente
-- explicar qual vale mais a pena dependendo do uso
-- ser direto, claro e útil
-`
-    },
-    ...conversationMessages,
-    {
-      role: "user",
-      content: resolvedQuery
-    }
-  ];
-
-  const aiResponse = await callOpenAI(openAIMessagesDecision, {
-    temperature: 0.5,
-    max_tokens: 400
-  });
-
-  const reply = getOpenAIText(aiResponse)?.trim();
-
-  return res.status(200).json({
-    reply,
-    prices: []
-  });
-}
-    
-   const isDecisionOrComparison =
-  intent === "comparison" ||
-  intent === "decision" ||
-  /vale mais a pena|compensa|qual escolher|qual é melhor/i.test(query);
-
-// 🔥 Se for decisão → NÃO usa produtos
+// 🔥 FLUXO NORMAL (BUSCA + IA)
 const openAIMessages = [
   {
     role: "system",
     content: `${MIA_SYSTEM_PROMPT}
+
 🧠 INTERPRETAÇÃO DE CONTEXTO (NÍVEL AVANÇADO)
 
-Você deve analisar a conversa como um todo, não apenas a última frase.
+Você deve analisar a conversa como um todo.
 
-Antes de responder, determine:
+- refinamento → mantém produto
+- comparação → explica
+- decisão → ajuda a escolher
+- nova busca → reinicia
 
-1. O usuário está:
-- refinando a busca anterior?
-- pedindo uma comparação?
-- tomando uma decisão?
-- iniciando uma nova busca?
-
-2. Se for refinamento:
-- mantenha o mesmo tipo de produto
-- ajuste apenas atributos (preço, memória, desempenho, etc)
-
-3. Se for comparação:
-- compare as opções mencionadas anteriormente
-- não faça uma nova busca desnecessária
-- explique de forma simples qual vale mais a pena dependendo do uso
-
-4. Se for decisão:
-- ajude o usuário a escolher
-- seja direto, claro e útil
-- priorize custo-benefício
-
-5. Se a mensagem estiver confusa ou misturar intenções:
-- peça clarificação de forma natural e humana
-
-6. Se for uma nova intenção:
-- ignore o contexto anterior
-- inicie uma nova busca normalmente
-
-⚠️ IMPORTANTE:
 Nunca dependa de palavras específicas.
-Interprete a intenção com base no contexto completo da conversa.
 `
   },
   {
@@ -1305,8 +1200,7 @@ Interprete a intenção com base no contexto completo da conversa.
       budget,
       wantsNew,
       period,
-      // 🔥 aqui está a chave
-      products: isDecisionOrComparison ? [] : topProductsForAI,
+      products: topProductsForAI,
       productLimit,
       userStyle
     })
@@ -1345,6 +1239,7 @@ if (reply.length > 900) {
   reply = reply.slice(0, 900).trim();
 }
 
+// 🔥 PRODUTOS
 let finalProducts = (rankedProducts && rankedProducts.length > 0)
   ? rankedProducts.slice(0, 3)
   : [];
@@ -1361,13 +1256,11 @@ if (!finalProducts || finalProducts.length === 0) {
 
 return res.status(200).json({
   reply,
-  prices: isDecisionOrComparison
-    ? []
-    : finalProducts.map((p) => ({
-        product_name: cleanTitle(p.product_name),
-        price: p.price,
-        link: p.link,
-        thumbnail: p.thumbnail,
-        source: p.source
-      }))
+  prices: finalProducts.map((p) => ({
+    product_name: cleanTitle(p.product_name),
+    price: p.price,
+    link: p.link,
+    thumbnail: p.thumbnail,
+    source: p.source
+  }))
 });
