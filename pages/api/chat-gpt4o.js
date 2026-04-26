@@ -952,7 +952,6 @@ const isDecisionOrComparison =
   intent === "decision" ||
   /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
 
-// 🔥 INTERCEPTAÇÃO (ANTES DA IA PRINCIPAL)
 if (isDecisionOrComparison) {
   const openAIMessagesDecision = [
     {
@@ -967,10 +966,8 @@ Você NÃO deve sugerir produtos.
 Você NÃO deve depender de preços.
 
 Você deve:
-- analisar o contexto da conversa
 - comparar as opções mencionadas
 - explicar qual vale mais a pena dependendo do uso
-- ser direto e útil
 `
     },
     ...conversationMessages,
@@ -1057,7 +1054,10 @@ const topProductsForAI = rankedProducts.slice(0, productLimit);
   const intent = detectIntent(resolvedQuery);
 
 // 🔥 COLE AQUI
-const isDecisionOrComparison = ...
+const isDecisionOrComparison =
+  intent === "comparison" ||
+  intent === "decision" ||
+  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
 
 if (isDecisionOrComparison) {
   ...
