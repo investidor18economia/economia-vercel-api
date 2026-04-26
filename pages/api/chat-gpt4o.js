@@ -1054,16 +1054,52 @@ const topProductsForAI = rankedProducts.slice(0, productLimit);
   const intent = detectIntent(resolvedQuery);
 
 // 🔥 COLE AQUI
+// 🔥 DETECÇÃO DE DECISÃO
 const isDecisionOrComparison =
   intent === "comparison" ||
   intent === "decision" ||
   /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
 
+// 🔥 BLOCO DECISÃO (CORRETO)
 if (isDecisionOrComparison) {
-  ...
-  return res.status(...);
+  const openAIMessagesDecision = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO DECISÃO
+
+O usuário está comparando ou pedindo ajuda para decidir.
+
+Você NÃO deve sugerir produtos.
+Você NÃO deve depender de preços.
+
+Você deve:
+- comparar as opções mencionadas
+- explicar qual vale mais a pena dependendo do uso
+- ser direto e útil
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(openAIMessagesDecision, {
+    temperature: 0.5,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply,
+    prices: []
+  });
 }
-  
+
 // 🔥 IA NORMAL
 const openAIMessages = [
   {
