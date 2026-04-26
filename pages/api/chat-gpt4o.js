@@ -1126,6 +1126,46 @@ rankedProducts = rankedProducts.filter(p => {
     const productLimit = getProductLimitForAI(intent);
     const topProductsForAI = rankedProducts.slice(0, productLimit);
 
+    if (isDecisionOrComparison) {
+  const openAIMessagesDecision = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO DECISÃO
+
+O usuário está pedindo ajuda para decidir ou comparar.
+
+Você NÃO deve sugerir produtos.
+Você NÃO deve depender de preços.
+
+Você deve:
+- analisar o contexto da conversa
+- comparar as opções mencionadas
+- explicar qual vale mais a pena dependendo do uso
+- ser direto, claro e útil
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(openAIMessagesDecision, {
+    temperature: 0.5,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply,
+    prices: []
+  });
+}
+    
     const isDecisionOrComparison =
   intent === "comparison" ||
   intent === "decision" ||
