@@ -946,13 +946,13 @@ const budget = extractBudget(resolvedQuery);
 const wantsNew = wantsNewProduct(resolvedQuery);
 const period = getTimePeriod();
 
-// 🔥 DETECÇÃO DE DECISÃO (ANTES DE TUDO)
+// 🔥 DETECÇÃO DE DECISÃO
 const isDecisionOrComparison =
   intent === "comparison" ||
   intent === "decision" ||
   /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
 
-// 🔥 MODO DECISÃO (NÃO BUSCA PRODUTO)
+// 🔥 INTERCEPTAÇÃO (ANTES DA IA PRINCIPAL)
 if (isDecisionOrComparison) {
   const openAIMessagesDecision = [
     {
@@ -970,7 +970,7 @@ Você deve:
 - analisar o contexto da conversa
 - comparar as opções mencionadas
 - explicar qual vale mais a pena dependendo do uso
-- ser direto, claro e útil
+- ser direto e útil
 `
     },
     ...conversationMessages,
@@ -992,7 +992,6 @@ Você deve:
     prices: []
   });
 }
-
 // 🔥 CONTEXTO
 const contextSourceText = conversationMessages
   .map(m => m.content)
@@ -1055,6 +1054,16 @@ const bestProduct = rankedProducts[0];
 const productLimit = getProductLimitForAI(intent);
 const topProductsForAI = rankedProducts.slice(0, productLimit);
 
+  const intent = detectIntent(resolvedQuery);
+
+// 🔥 COLE AQUI
+const isDecisionOrComparison = ...
+
+if (isDecisionOrComparison) {
+  ...
+  return res.status(...);
+}
+  
 // 🔥 IA NORMAL
 const openAIMessages = [
   {
