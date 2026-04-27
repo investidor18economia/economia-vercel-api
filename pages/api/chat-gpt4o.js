@@ -946,6 +946,27 @@ function resolveContextQuery(query = "", messages = []) {
 }
 
 export default async function handler(req, res) {
+
+  try {
+
+  const { text } = req.body || {};
+  const query = (text || "").trim();
+
+  // 🔥 TESTE DIRETO DO FETCH
+  const products = await fetchSerpPrices(query, 5);
+
+  return res.status(200).json({
+    reply: `DEBUG DIRETO → ${products?.length} produtos`,
+    prices: products || []
+  });
+
+} catch (err) {
+  return res.status(200).json({
+    reply: `ERRO RAIZ → ${err.message}`,
+    prices: []
+  });
+}
+  
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
