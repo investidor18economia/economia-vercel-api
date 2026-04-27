@@ -1077,16 +1077,7 @@ const categoryFromContext =
   detectProductCategory(contextSourceText) ||
   detectProductCategory(query);
     // 🔥 DETECTAR SE DEVE PULAR BUSCA DE PRODUTO
-const shouldSkipProductSearch =
-  !isDecisionIntent && 
-  // perguntas de conselho / opinião
-  /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
-
-  // perguntas genéricas
-  || /(o que você acha|sua opinião|vale a pena comprar agora)/i.test(resolvedQuery)
-
-  // frases sem produto claro
-  || resolvedQuery.split(" ").length <= 4;
+const shouldSkipProductSearch = false;
 
 // 🔥 SE NÃO PRECISA DE PRODUTO → RESPONDE SÓ COM IA
 if (shouldSkipProductSearch) {
