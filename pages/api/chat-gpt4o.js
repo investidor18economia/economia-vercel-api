@@ -990,55 +990,48 @@ const isDecisionIntent =
   /(vale mais a pena|compensa|qual escolher|qual é melhor| ou | vs | versus )/i.test(resolvedQuery);
 
 if (isDecisionIntent) {
-  const decisionMessages = [
-    {
-      role: "system",
-      content: `${MIA_SYSTEM_PROMPT}
+
+  const lastProducts = sessionContext.lastProducts || [];
+
+  if (lastProducts.length > 0) {
+
+    const decisionMessages = [
+      {
+        role: "system",
+        content: `${MIA_SYSTEM_PROMPT}
 
 🧠 MODO DECISÃO
 
-O usuário quer ajuda para decidir entre opções.
+Use APENAS os produtos abaixo para ajudar o usuário:
+
+${JSON.stringify(lastProducts).slice(0, 2000)}
 
 REGRAS:
-- NÃO buscar produtos
-- NÃO inventar preços
-- NÃO responder com fallback
-- usar o contexto da conversa
-- explicar de forma simples qual opção faz mais sentido
-- ser direto, útil e humano
+- NÃO buscar novos produtos
+- NÃO inventar produtos
+- escolher baseado nesses produtos
+- ser direto e útil
 `
-    },
-    ...conversationMessages,
-    {
-      role: "user",
-      content: resolvedQuery
-    }
-  ];
+      },
+      {
+        role: "user",
+        content: resolvedQuery
+      }
+    ];
 
-  const aiResponse = await callOpenAI(decisionMessages, {
-    temperature: 0.5,
-    max_tokens: 400
-  });
+    const aiResponse = await callOpenAI(decisionMessages, {
+      temperature: 0.5,
+      max_tokens: 300
+    });
 
-  const reply = getOpenAIText(aiResponse)?.trim();
+    const reply = getOpenAIText(aiResponse)?.trim();
 
-  // 🔥 usa produtos do contexto (sem nova busca)
-const decisionProducts = sessionContext.lastProducts || [];
-
-return res.status(200).json({
-  reply,
-  prices: decisionProducts.length > 0
-    ? decisionProducts.map((p) => ({
-        product_name: cleanTitle(p.product_name),
-        price: p.price,
-        link: p.link,
-        thumbnail: p.thumbnail,
-        source: p.source
-      }))
-    : []
-});
+    return res.status(200).json({
+      reply,
+      prices: lastProducts
+    });
   }
-
+}
   try {
     if (intent === "greeting") {
       const greetingMessages = [
