@@ -1053,6 +1053,54 @@ const contextSourceText = conversationMessages
 const categoryFromContext =
   detectProductCategory(contextSourceText) ||
   detectProductCategory(query);
+    // 🔥 DETECTAR SE DEVE PULAR BUSCA DE PRODUTO
+const shouldSkipProductSearch =
+  // perguntas de conselho / opinião
+  /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
+
+  // perguntas genéricas
+  || /(o que você acha|sua opinião|vale a pena comprar agora)/i.test(resolvedQuery)
+
+  // frases sem produto claro
+  || resolvedQuery.split(" ").length <= 4;
+
+// 🔥 SE NÃO PRECISA DE PRODUTO → RESPONDE SÓ COM IA
+if (shouldSkipProductSearch) {
+  const generalMessages = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO CONVERSA
+
+O usuário está pedindo conselho ou opinião.
+
+REGRAS:
+- NÃO buscar produtos
+- NÃO inventar preços
+- responder de forma natural, útil e direta
+- usar contexto da conversa
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(generalMessages, {
+    temperature: 0.6,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply,
+    prices: []
+  });
+}
    let products = await fetchSerpPrices(resolvedQuery, 10);
 console.log("Produtos encontrados:", products.length);
 
