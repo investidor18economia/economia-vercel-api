@@ -945,6 +945,49 @@ export default async function handler(req, res) {
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
+  // 🔥 MODO DECISÃO (ANTES DA BUSCA)
+const isDecisionIntent =
+  intent === "decision" ||
+  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+
+if (isDecisionIntent) {
+  const decisionMessages = [
+    {
+      role: "system",
+      content: `${MIA_SYSTEM_PROMPT}
+
+🧠 MODO DECISÃO
+
+O usuário quer ajuda para decidir entre opções.
+
+REGRAS:
+- NÃO buscar produtos
+- NÃO inventar preços
+- NÃO responder com fallback
+- usar o contexto da conversa
+- explicar de forma simples qual opção faz mais sentido
+- ser direto, útil e humano
+`
+    },
+    ...conversationMessages,
+    {
+      role: "user",
+      content: resolvedQuery
+    }
+  ];
+
+  const aiResponse = await callOpenAI(decisionMessages, {
+    temperature: 0.5,
+    max_tokens: 400
+  });
+
+  const reply = getOpenAIText(aiResponse)?.trim();
+
+  return res.status(200).json({
+    reply: reply || "Posso te ajudar a decidir — me conta melhor o que você prioriza 👀",
+    prices: []
+  });
+}
 
   try {
     if (intent === "greeting") {
