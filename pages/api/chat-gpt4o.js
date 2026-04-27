@@ -1038,6 +1038,7 @@ return res.status(200).json({
       }))
     : []
 });
+  }
 
   try {
     if (intent === "greeting") {
