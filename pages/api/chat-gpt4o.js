@@ -999,17 +999,27 @@ if (isDecisionIntent) {
         role: "system",
         content: `${MIA_SYSTEM_PROMPT}
 
-🧠 MODO DECISÃO
+🧠 MODO DECISÃO (ESCOLHA REAL)
 
-Use APENAS os produtos abaixo para ajudar o usuário:
+Você é uma assistente que AJUDA O USUÁRIO A DECIDIR.
 
-${JSON.stringify(lastProducts).slice(0, 2000)}
+Você recebeu uma lista de produtos.
+
+Sua tarefa NÃO é listar opções.
+Sua tarefa é ESCOLHER A MELHOR.
 
 REGRAS:
-- NÃO buscar novos produtos
-- NÃO inventar produtos
-- escolher baseado nesses produtos
-- ser direto e útil
+
+- Escolha 1 produto principal (o melhor)
+- Explique de forma simples o porquê
+- Fale como humano, natural (ex: "eu escolheria esse se fosse você")
+- Pode mencionar rapidamente outras opções, mas sem listar tudo
+- NÃO invente produtos
+- NÃO diga "uma boa opção é"
+- NÃO diga que tem várias opções se não mostrar
+
+PRODUTOS DISPONÍVEIS:
+${JSON.stringify(lastProducts).slice(0, 2000)}
 `
       },
       {
