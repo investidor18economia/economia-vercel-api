@@ -990,9 +990,6 @@ const isDecisionIntent =
   intent === "decision" ||
   /(qual.*escolheria|qual.*melhor|vale.*pena|compensa)/i.test(resolvedQuery);
 
-const isContextComparison =
-  /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(resolvedQuery);
-
 if (isDecisionIntent || isContextComparison) {
 
   const lastProducts = sessionContext.lastProducts || [];
