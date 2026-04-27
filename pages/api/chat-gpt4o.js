@@ -948,7 +948,8 @@ export default async function handler(req, res) {
   // 🔥 MODO DECISÃO (ANTES DA BUSCA)
 const isDecisionIntent =
   intent === "decision" ||
-  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+  intent === "comparison" ||
+  /(vale mais a pena|compensa|qual escolher|qual é melhor| ou | vs | versus )/i.test(resolvedQuery);
 
 if (isDecisionIntent) {
   const decisionMessages = [
