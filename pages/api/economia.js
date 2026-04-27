@@ -52,7 +52,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const apiUrl = "https://economia-ai.vercel.app";
+    const protocol =
+      req.headers["x-forwarded-proto"] ||
+      (req.headers.host?.includes("localhost") ? "http" : "https");
+
+    const host = req.headers["x-forwarded-host"] || req.headers.host;
+    const apiUrl = `${protocol}://${host}`;
 
     let data;
 
@@ -71,18 +76,7 @@ try {
 })
   });
 
-  const textResponse = await response.text();
-console.log("RAW RESPONSE:", textResponse);
-
-try {
-  data = JSON.parse(textResponse);
-} catch (e) {
-  console.error("ERRO PARSE JSON:", e);
-  return res.status(200).json({
-    reply: "Erro ao interpretar resposta da API interna",
-    prices: []
-  });
-}
+  data = await response.json();
 
   if (!response.ok) {
     console.error("Erro chat-gpt4o:", response.status, data);
