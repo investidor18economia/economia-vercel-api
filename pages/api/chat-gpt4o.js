@@ -984,7 +984,9 @@ export default async function handler(req, res) {
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
   // 🔥 MODO DECISÃO (ANTES DA BUSCA)
-const isDecisionIntent =
+  const isContextComparison =
+  /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(resolvedQuery);
+if (isDecisionIntent || isContextComparison) {
   intent === "decision" ||
   /(qual.*escolheria|qual.*melhor|vale.*pena|compensa)/i.test(resolvedQuery);
 
