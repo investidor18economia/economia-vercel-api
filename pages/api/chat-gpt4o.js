@@ -1138,10 +1138,6 @@ try {
   console.log("QUERY FINAL:", resolvedQuery);
 
   products = await fetchSerpPrices(resolvedQuery, 10);
-  return res.status(200).json({
-  reply: `DEBUG → Query: ${resolvedQuery} | Produtos: ${products?.length}`,
-  prices: products || []
-});
 
   console.log("FETCH OK:", products);
   console.log("TOTAL PRODUTOS:", products?.length);
