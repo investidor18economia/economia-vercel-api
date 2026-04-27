@@ -52,12 +52,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const protocol =
-      req.headers["x-forwarded-proto"] ||
-      (req.headers.host?.includes("localhost") ? "http" : "https");
-
-    const host = req.headers["x-forwarded-host"] || req.headers.host;
-    const apiUrl = `${protocol}://${host}`;
+    const apiUrl = "https://economia-ai.vercel.app";
 
     let data;
 
