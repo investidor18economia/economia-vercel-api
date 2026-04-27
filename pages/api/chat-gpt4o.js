@@ -984,10 +984,29 @@ REGRAS:
 
   const reply = getOpenAIText(aiResponse)?.trim();
 
-  return res.status(200).json({
-    reply: reply || "Posso te ajudar a decidir — me conta melhor o que você prioriza 👀",
-    prices: []
-  });
+  // 🔥 busca leve só pra UI (botões + imagem)
+let decisionProducts = [];
+
+try {
+  const results = await fetchSerpPrices(resolvedQuery, 3);
+
+  if (results && results.length > 0) {
+    decisionProducts = results;
+  }
+} catch (e) {
+  console.warn("erro ao buscar produtos para decisão");
+}
+
+return res.status(200).json({
+  reply,
+  prices: decisionProducts.map(p => ({
+    product_name: cleanTitle(p.product_name),
+    price: p.price,
+    link: p.link,
+    thumbnail: p.thumbnail,
+    source: p.source
+  }))
+});
 }
 
   try {
