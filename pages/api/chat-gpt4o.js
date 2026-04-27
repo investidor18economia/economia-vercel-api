@@ -1023,7 +1023,7 @@ REGRAS:
 
   const reply = getOpenAIText(aiResponse)?.trim();
 
-  // 🔥 busca leve só pra UI (botões + imagem)
+  // 🔥 usa produtos do contexto (sem nova busca)
 const decisionProducts = sessionContext.lastProducts || [];
 
 return res.status(200).json({
@@ -1086,6 +1086,11 @@ const categoryFromContext =
   detectProductCategory(query);
     // 🔥 DETECTAR SE DEVE PULAR BUSCA DE PRODUTO
 const shouldSkipProductSearch =
+  !isDecisionIntent && (
+    /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
+    || /(o que você acha|sua opinião|vale a pena comprar agora)/i.test(resolvedQuery)
+    || resolvedQuery.split(" ").length <= 4
+  );
   // perguntas de conselho / opinião
   /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
 
