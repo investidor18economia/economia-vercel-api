@@ -1128,6 +1128,8 @@ ${JSON.stringify(lastProducts).slice(0, 2500)}
 Mensagem do usuário:
 "${resolvedQuery}"
 `
+      },
+      {
         role: "user",
         content: resolvedQuery
       }
