@@ -1029,22 +1029,15 @@ const decisionProducts = sessionContext.lastProducts || [];
 return res.status(200).json({
   reply,
   prices: decisionProducts.length > 0
-  ? decisionProducts.map(p => ({
-      product_name: cleanTitle(p.product_name),
-      price: p.price,
-      link: p.link,
-      thumbnail: p.thumbnail,
-      source: p.source
-    }))
-  : []
-    product_name: cleanTitle(p.product_name),
-    price: p.price,
-    link: p.link,
-    thumbnail: p.thumbnail,
-    source: p.source
-  }))
+    ? decisionProducts.map((p) => ({
+        product_name: cleanTitle(p.product_name),
+        price: p.price,
+        link: p.link,
+        thumbnail: p.thumbnail,
+        source: p.source
+      }))
+    : []
 });
-}
 
   try {
     if (intent === "greeting") {
