@@ -900,7 +900,7 @@ function resolveContextQuery(query = "", messages = []) {
   }
 
   // combina de forma explícita para virar consulta completa
-  const standaloneQuery = `${lastStrong}. Refinamento do usuário: ${q}`;
+  const standaloneQuery = `${lastStrong} ${q}`;
 
   return {
     standaloneQuery,
