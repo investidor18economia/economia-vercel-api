@@ -984,7 +984,12 @@ export default async function handler(req, res) {
 try {
   products = await fetchSerpPrices(resolvedQuery, 10);
 } catch (err) {
-  console.error("erro fetch", err);
+  console.error("ERRO DETALHADO SERP:", err);
+
+  return res.status(200).json({
+    reply: `ERRO FETCH → ${err.message}`,
+    prices: []
+  });
 }
 
 // 🔥 DEBUG FORÇADO (ANTES DE QUALQUER RETURN)
