@@ -1,6 +1,28 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
 import { MIA_SYSTEM_PROMPT } from "../../lib/miaPrompt";
+function buildSessionContext(messages = [], sessionContext = {}) {
+  const context = {
+    lastQuery: sessionContext?.lastQuery || "",
+    lastCategory: sessionContext?.lastCategory || "",
+    lastProducts: sessionContext?.lastProducts || [],
+    lastBestProduct: sessionContext?.lastBestProduct || null,
+    lastIntent: sessionContext?.lastIntent || "",
+    lastInteractionType: sessionContext?.lastInteractionType || ""
+  };
+
+  if (!context.lastQuery && messages.length > 0) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "user" && msg.content.length > 5) {
+        context.lastQuery = msg.content;
+        break;
+      }
+    }
+  }
+
+  return context;
+}
 
 const API_SHARED_KEY = process.env.API_SHARED_KEY;
 
@@ -381,30 +403,7 @@ function detectIntent(query) {
   if (/^(oi|ola|olá|opa|eai|e ai|eae|iae|fala|salve|bom dia|boa tarde|boa noite)$/.test(normalized)) {
     return "greeting";
   }
-
-  function buildSessionContext(messages = [], sessionContext = {}) {
-  const context = {
-    lastQuery: sessionContext?.lastQuery || "",
-    lastCategory: sessionContext?.lastCategory || "",
-    lastProducts: sessionContext?.lastProducts || [],
-    lastBestProduct: sessionContext?.lastBestProduct || null,
-    lastIntent: sessionContext?.lastIntent || "",
-    lastInteractionType: sessionContext?.lastInteractionType || ""
-  };
-
-  // fallback: tentar extrair última query do histórico
-  if (!context.lastQuery && messages.length > 0) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role === "user" && msg.content.length > 5) {
-        context.lastQuery = msg.content;
-        break;
-      }
-    }
-  }
-
-  return context;
-}
+  
   function isContextDecision(query) {
   const q = query.toLowerCase();
 
