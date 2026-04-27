@@ -986,11 +986,14 @@ export default async function handler(req, res) {
   // 🔥 MODO DECISÃO (ANTES DA BUSCA)
   const isContextComparison =
   /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(resolvedQuery);
-if (isDecisionIntent || isContextComparison) {
+const isDecisionIntent =
   intent === "decision" ||
   /(qual.*escolheria|qual.*melhor|vale.*pena|compensa)/i.test(resolvedQuery);
 
-if (isDecisionIntent) {
+const isContextComparison =
+  /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(resolvedQuery);
+
+if (isDecisionIntent || isContextComparison) {
 
   const lastProducts = sessionContext.lastProducts || [];
 
