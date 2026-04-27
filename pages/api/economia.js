@@ -68,11 +68,12 @@ try {
       "Content-Type": "application/json",
       "x-api-key": process.env.API_SHARED_KEY
     },
-   body: JSON.stringify({
+  body: JSON.stringify({
   text,
   user_id: userId,
   conversation_id: null,
-  messages: req.body.messages || []
+  messages: req.body.messages || [],
+  session_context: req.body.session_context || {}
 })
   });
 
