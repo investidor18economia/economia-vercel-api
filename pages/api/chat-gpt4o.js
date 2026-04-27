@@ -1,28 +1,6 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
 import { MIA_SYSTEM_PROMPT } from "../../lib/miaPrompt";
-function buildSessionContext(messages = [], sessionContext = {}) {
-  const context = {
-    lastQuery: sessionContext?.lastQuery || "",
-    lastCategory: sessionContext?.lastCategory || "",
-    lastProducts: sessionContext?.lastProducts || [],
-    lastBestProduct: sessionContext?.lastBestProduct || null,
-    lastIntent: sessionContext?.lastIntent || "",
-    lastInteractionType: sessionContext?.lastInteractionType || ""
-  };
-
-  if (!context.lastQuery && messages.length > 0) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role === "user" && msg.content.length > 5) {
-        context.lastQuery = msg.content;
-        break;
-      }
-    }
-  }
-
-  return context;
-}
 
 const API_SHARED_KEY = process.env.API_SHARED_KEY;
 
@@ -403,7 +381,30 @@ function detectIntent(query) {
   if (/^(oi|ola|olá|opa|eai|e ai|eae|iae|fala|salve|bom dia|boa tarde|boa noite)$/.test(normalized)) {
     return "greeting";
   }
-  
+
+  function buildSessionContext(messages = [], sessionContext = {}) {
+  const context = {
+    lastQuery: sessionContext?.lastQuery || "",
+    lastCategory: sessionContext?.lastCategory || "",
+    lastProducts: sessionContext?.lastProducts || [],
+    lastBestProduct: sessionContext?.lastBestProduct || null,
+    lastIntent: sessionContext?.lastIntent || "",
+    lastInteractionType: sessionContext?.lastInteractionType || ""
+  };
+
+  // fallback: tentar extrair última query do histórico
+  if (!context.lastQuery && messages.length > 0) {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.role === "user" && msg.content.length > 5) {
+        context.lastQuery = msg.content;
+        break;
+      }
+    }
+  }
+
+  return context;
+}
   function isContextDecision(query) {
   const q = query.toLowerCase();
 
@@ -946,27 +947,6 @@ function resolveContextQuery(query = "", messages = []) {
 }
 
 export default async function handler(req, res) {
-
-  try {
-
-  const { text } = req.body || {};
-  const query = (text || "").trim();
-
-  // 🔥 TESTE DIRETO DO FETCH
-  const products = await fetchSerpPrices(query, 5);
-
-  return res.status(200).json({
-    reply: `DEBUG DIRETO → ${products?.length} produtos`,
-    prices: products || []
-  });
-
-} catch (err) {
-  return res.status(200).json({
-    reply: `ERRO RAIZ → ${err.message}`,
-    prices: []
-  });
-}
-  
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -1000,24 +980,6 @@ export default async function handler(req, res) {
   const sessionContext = buildSessionContext(conversationMessages, req.body?.session_context);
 
   const intent = detectIntent(resolvedQuery);
-  let products = [];
-
-try {
-  products = await fetchSerpPrices(resolvedQuery, 10);
-} catch (err) {
-  console.error("ERRO DETALHADO SERP:", err);
-
-  return res.status(200).json({
-    reply: `ERRO FETCH → ${err.message}`,
-    prices: []
-  });
-}
-
-// 🔥 DEBUG FORÇADO (ANTES DE QUALQUER RETURN)
-return res.status(200).json({
-  reply: `DEBUG → Query: ${resolvedQuery} | Produtos: ${products?.length}`,
-  prices: products || []
-});
   const userStyle = detectUserStyle(resolvedQuery);
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
@@ -1171,19 +1133,7 @@ REGRAS:
     prices: []
   });
 }
-   let products = [];
-
-try {
-  console.log("QUERY FINAL:", resolvedQuery);
-
-  products = await fetchSerpPrices(resolvedQuery, 10);
-
-  console.log("FETCH OK:", products);
-  console.log("TOTAL PRODUTOS:", products?.length);
-
-} catch (err) {
-  console.error("ERRO NO FETCH SERP:", err);
-}
+   let products = await fetchSerpPrices(resolvedQuery, 10);
 console.log("Produtos encontrados:", products.length);
 
 products = filterProductsByLockedCategory(products, resolvedQuery);
