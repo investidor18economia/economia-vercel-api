@@ -1389,9 +1389,36 @@ if (!finalProducts || finalProducts.length === 0) {
   }
 }
 
+// 🔥 CONTROLE INTELIGENTE DE EXIBIÇÃO
+
+const isComparisonQuery =
+  intent === "comparison" ||
+  /( ou | vs | versus )/i.test(resolvedQuery);
+
+const isDecisionQuery =
+  intent === "decision" ||
+  /(vale a pena|compensa|devo|qual escolher|qual é melhor)/i.test(resolvedQuery);
+
+const isGeneralQuery =
+  /(esperar promoção|o que você acha|vale a pena comprar agora)/i.test(resolvedQuery);
+
+// 🎯 regra final
+let productsToShow = [];
+
+if (!isDecisionQuery && !isGeneralQuery) {
+  // 🟢 busca normal → mostra produtos
+  productsToShow = finalProducts;
+
+  // 🟡 comparação → mostra só 1 produto
+  if (isComparisonQuery) {
+    productsToShow = finalProducts.slice(0, 1);
+  }
+}
+
+// 🔥 AGORA SIM O RETURN CORRETO
 return res.status(200).json({
   reply,
-  prices: finalProducts.map((p) => ({
+  prices: productsToShow.map((p) => ({
     product_name: cleanTitle(p.product_name),
     price: p.price,
     link: p.link,
