@@ -979,6 +979,19 @@ export default async function handler(req, res) {
   const sessionContext = buildSessionContext(conversationMessages, req.body?.session_context);
 
   const intent = detectIntent(resolvedQuery);
+  let products = [];
+
+try {
+  products = await fetchSerpPrices(resolvedQuery, 10);
+} catch (err) {
+  console.error("erro fetch", err);
+}
+
+// 🔥 DEBUG FORÇADO (ANTES DE QUALQUER RETURN)
+return res.status(200).json({
+  reply: `DEBUG → Query: ${resolvedQuery} | Produtos: ${products?.length}`,
+  prices: products || []
+});
   const userStyle = detectUserStyle(resolvedQuery);
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
