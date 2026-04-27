@@ -1087,9 +1087,7 @@ const categoryFromContext =
     // 🔥 DETECTAR SE DEVE PULAR BUSCA DE PRODUTO
 const shouldSkipProductSearch =
   !isDecisionIntent && (
-    /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
-    || /(o que você acha|sua opinião|vale a pena comprar agora)/i.test(resolvedQuery)
-    || resolvedQuery.split(" ").length <= 4
+    
   );
   // perguntas de conselho / opinião
   /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
