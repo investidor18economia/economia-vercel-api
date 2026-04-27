@@ -1086,9 +1086,7 @@ const categoryFromContext =
   detectProductCategory(query);
     // 🔥 DETECTAR SE DEVE PULAR BUSCA DE PRODUTO
 const shouldSkipProductSearch =
-  !isDecisionIntent && (
-    
-  );
+  !isDecisionIntent && 
   // perguntas de conselho / opinião
   /(vale a pena|compensa|devo|é melhor esperar|esperar promoção|agora ou depois)/i.test(resolvedQuery)
 
