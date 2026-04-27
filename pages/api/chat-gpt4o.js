@@ -1132,7 +1132,19 @@ REGRAS:
     prices: []
   });
 }
-   let products = await fetchSerpPrices(resolvedQuery, 10);
+   let products = [];
+
+try {
+  console.log("QUERY FINAL:", resolvedQuery);
+
+  products = await fetchSerpPrices(resolvedQuery, 10);
+
+  console.log("FETCH OK:", products);
+  console.log("TOTAL PRODUTOS:", products?.length);
+
+} catch (err) {
+  console.error("ERRO NO FETCH SERP:", err);
+}
 console.log("Produtos encontrados:", products.length);
 
 products = filterProductsByLockedCategory(products, resolvedQuery);
