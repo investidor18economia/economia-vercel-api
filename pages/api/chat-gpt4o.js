@@ -1227,10 +1227,12 @@ if (!Array.isArray(products) || !products.length) {
         const fallbackProducts = [];
 
         for (const part of parts) {
+  if (isDecisionIntent) continue; // 🔥 trava
+
   const results = await fetchSerpPrices(part.trim(), 3);
   const categorySafeResults = filterProductsByLockedCategory(results, resolvedQuery);
   const safeResults = results.filter(p => productMatchesCategory(p, categoryFromContext));
-fallbackProducts.push(...safeResults);
+  fallbackProducts.push(...safeResults);
 }
 
 rankedProducts = fallbackProducts;
@@ -1415,13 +1417,16 @@ Regras:
   ? rankedProducts.slice(0, 3)
   : [];
 
+// 🔥 NÃO buscar fallback se for decisão
 if (!finalProducts || finalProducts.length === 0) {
   console.warn("⚠️ fallback de produto ativado");
 
-  const fallbackResults = await fetchSerpPrices(query, 3);
+  if (!isDecisionIntent) {
+    const fallbackResults = await fetchSerpPrices(query, 3);
 
-  if (fallbackResults && fallbackResults.length > 0) {
-    finalProducts = fallbackResults;
+    if (fallbackResults && fallbackResults.length > 0) {
+      finalProducts = fallbackResults;
+    }
   }
 }
 
