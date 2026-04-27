@@ -940,227 +940,347 @@ export default async function handler(req, res) {
 
   const resolvedQuery = contextResolution.standaloneQuery || query;
 
-const intent = detectIntent(resolvedQuery);
-const userStyle = detectUserStyle(resolvedQuery);
-const budget = extractBudget(resolvedQuery);
-const wantsNew = wantsNewProduct(resolvedQuery);
-const period = getTimePeriod();
+  const intent = detectIntent(resolvedQuery);
+  const userStyle = detectUserStyle(resolvedQuery);
+  const budget = extractBudget(resolvedQuery);
+  const wantsNew = wantsNewProduct(resolvedQuery);
+  const period = getTimePeriod();
 
-// 🔥 DETECÇÃO DE DECISÃO
-const isDecisionOrComparison =
-  intent === "comparison" ||
-  intent === "decision" ||
-  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+  try {
+    if (intent === "greeting") {
+      const greetingMessages = [
+        {
+          role: "system",
+          content: MIA_SYSTEM_PROMPT
+        },
+        {
+          role: "user",
+          content: buildUserPrompt({
+            query: resolvedQuery,
+            originalQuery: query,
+            intent,
+            budget,
+            wantsNew,
+            period,
+            products: [],
+            productLimit: 0,
+            userStyle
+          })
+        }
+      ];
 
-if (isDecisionOrComparison) {
-  const openAIMessagesDecision = [
-    {
-      role: "system",
-      content: `${MIA_SYSTEM_PROMPT}
+      const aiResponse = await callOpenAI(greetingMessages, {
+        temperature: 0.6,
+        max_tokens: 180
+      });
 
-🧠 MODO DECISÃO
+      const reply = getOpenAIText(aiResponse) || buildFallbackReply(intent, null, period);
 
-O usuário está comparando ou pedindo ajuda para decidir.
-
-Você NÃO deve sugerir produtos.
-Você NÃO deve depender de preços.
-
-Você deve:
-- comparar as opções mencionadas
-- explicar qual vale mais a pena dependendo do uso
-`
-    },
-    ...conversationMessages,
-    {
-      role: "user",
-      content: resolvedQuery
+      return res.status(200).json({
+        reply,
+        prices: []
+      });
     }
-  ];
-
-  const aiResponse = await callOpenAI(openAIMessagesDecision, {
-    temperature: 0.5,
-    max_tokens: 400
-  });
-
-  const reply = getOpenAIText(aiResponse)?.trim();
-
-  return res.status(200).json({
-    reply,
-    prices: []
-  });
-}
-// 🔥 CONTEXTO
 const contextSourceText = conversationMessages
   .map(m => m.content)
   .join(" ")
   .toLowerCase();
-
-const isNewSearchIntent = isNewIntent(query, contextSourceText);
+    const isNewSearchIntent = isNewIntent(query, contextSourceText);
 
 const categoryFromContext =
   detectProductCategory(contextSourceText) ||
   detectProductCategory(query);
-
-// 🔥 BUSCA PRODUTOS (SÓ SE NÃO FOR DECISÃO)
-let products = await fetchSerpPrices(resolvedQuery, 10);
+   let products = await fetchSerpPrices(resolvedQuery, 10);
+console.log("Produtos encontrados:", products.length);
 
 products = filterProductsByLockedCategory(products, resolvedQuery);
 
-products = products
-  .filter(p => !isBadProduct(p.product_name, resolvedQuery))
-  .filter(p => productMatchesCategory(p, categoryFromContext));
+products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+    products = products.filter(p => productMatchesCategory(p, categoryFromContext));
 
-if (!products.length) {
-  return res.status(200).json({
-    reply: "⚠️ Não encontrei resultados suficientes por enquanto. Se quiser, eu posso refinar melhor pra você.",
-    prices: []
-  });
+if (!Array.isArray(products) || !products.length) {
+      return res.status(200).json({
+        reply: "⚠️ Não encontrei resultados suficientes por enquanto. Se quiser, eu posso refinar por tipo de uso, faixa de preço ou modelo.",
+        prices: []
+      });
+    }
+
+    if (budget) {
+      const filteredByBudget = products.filter((p) => {
+        const numeric = parsePrice(p.price);
+        return !Number.isNaN(numeric) && numeric <= budget;
+      });
+
+      if (filteredByBudget.length) {
+        products = filteredByBudget;
+      }
+    }
+
+    if (wantsNew) {
+      const filteredNew = products.filter((p) => !isUsedLikeProduct(p.product_name));
+      if (filteredNew.length) {
+        products = filteredNew;
+      }
+    }
+
+    let validProducts = products
+      .map((p) => ({
+        ...p,
+        product_name: cleanTitle(p.product_name),
+        numericPrice: parsePrice(p.price)
+      }))
+      .filter((p) => !Number.isNaN(p.numericPrice));
+
+    const useIntent = getDetectedUseIntent(resolvedQuery);
+
+    if (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy") {
+      const gamingValidProducts = validProducts.filter((p) => {
+        const title = p.product_name || "";
+
+        if (isTooOldGpu(title)) return false;
+        if (!hasDedicatedGpu(title)) return false;
+        if (!hasAcceptableGpuForUse(title, useIntent)) return false;
+
+        return true;
+      });
+
+      if (gamingValidProducts.length > 0) {
+        validProducts = gamingValidProducts;
+      } else {
+        return res.status(200).json({
+          reply: "⚠️ Nessa faixa de preço, não encontrei um PC realmente confiável para esse tipo de jogo. Se quiser, eu posso tentar achar a opção menos arriscada ou te dizer a faixa mais realista.",
+          prices: []
+        });
+      }
+    }
+
+    if (!validProducts.length) {
+      return res.status(200).json({
+        reply: "⚠️ Encontrei resultados, mas nenhum veio com preço válido o bastante pra eu te recomendar com segurança.",
+        prices: []
+      });
+    }
+
+    const goodProducts = validProducts.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+    const rankingBase = goodProducts.length ? goodProducts : validProducts;
+
+    let rankedProducts = rankingBase
+      .map((p) => ({
+        ...p,
+        score: scoreProduct(p, resolvedQuery)
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    if (!rankedProducts || rankedProducts.length === 0) {
+      console.warn("⚠️ fallback ativado");
+
+      const parts = resolvedQuery.split(/ ou | vs | versus /i);
+
+      if (parts.length >= 2) {
+        const fallbackProducts = [];
+
+        for (const part of parts) {
+  const results = await fetchSerpPrices(part.trim(), 3);
+  const categorySafeResults = filterProductsByLockedCategory(results, resolvedQuery);
+  const safeResults = results.filter(p => productMatchesCategory(p, categoryFromContext));
+fallbackProducts.push(...safeResults);
 }
 
-// 🔥 FILTRO
-let validProducts = products
-  .map(p => ({
-    ...p,
-    product_name: cleanTitle(p.product_name),
-    numericPrice: parsePrice(p.price)
-  }))
-  .filter(p => !Number.isNaN(p.numericPrice));
+rankedProducts = fallbackProducts;
+      } else {
+        rankedProducts = rankingBase.slice(0, 5);
+      }
+    }
 
-// 🔥 RANKING
-let rankedProducts = validProducts
-  .map(p => ({
-    ...p,
-    score: scoreProduct(p, resolvedQuery)
-  }))
-  .sort((a, b) => b.score - a.score);
-
-// 🔥 GARANTIA DE PRODUTOS
-if (!rankedProducts.length) {
-  rankedProducts = validProducts.slice(0, 5);
-}
-
-// 🔥 TRAVA DE CATEGORIA
+    if (rankedProducts.length < 2) {
+      rankedProducts = rankingBase.slice(0, 5);
+    }
 rankedProducts = rankedProducts.filter(p => {
+  const title = normalizeQuery(p?.product_name || "");
+
+  // Se NÃO for nova intenção → aplicar trava
   if (!isNewSearchIntent) {
+    if (
+      /ssd|hd externo|pendrive|pen drive|cartao de memoria|micro sd|chip|esim|adaptador/.test(title)
+    ) {
+      return false;
+    }
+
     return productMatchesCategory(p, categoryFromContext);
   }
+
+  // Se for nova intenção → liberar tudo
   return true;
 });
+    const bestProduct = rankedProducts[0];
+    if (!bestProduct && rankedProducts.length > 0) {
+  console.warn("⚠️ corrigindo ausência de bestProduct");
+}
+    const productLimit = getProductLimitForAI(intent);
+    const topProductsForAI = rankedProducts.slice(0, productLimit);
 
-const bestProduct = rankedProducts[0];
-const productLimit = getProductLimitForAI(intent);
-const topProductsForAI = rankedProducts.slice(0, productLimit);
+    const openAIMessages = [
+      {
+        role: "system",
+        content: `${MIA_SYSTEM_PROMPT}
+        COMPORTAMENTO INTELIGENTE DE CONTEXTO (CRÍTICO):
 
-  const intent = detectIntent(resolvedQuery);
+Você deve interpretar cada nova mensagem do usuário analisando o contexto da conversa.
 
-// 🔥 COLE AQUI
-// 🔥 DETECÇÃO DE DECISÃO
-const isDecisionOrComparison =
-  intent === "comparison" ||
-  intent === "decision" ||
-  /(vale mais a pena|compensa|qual escolher|qual é melhor)/i.test(resolvedQuery);
+Antes de responder, decida:
 
-// 🔥 BLOCO DECISÃO (CORRETO)
-if (isDecisionOrComparison) {
-  const openAIMessagesDecision = [
-    {
-      role: "system",
-      content: `${MIA_SYSTEM_PROMPT}
+A mensagem é:
+1) Continuação/refinamento da busca anterior
+OU
+2) Uma nova intenção diferente
 
-🧠 MODO DECISÃO
+---
 
-O usuário está comparando ou pedindo ajuda para decidir.
+REGRAS:
 
-Você NÃO deve sugerir produtos.
-Você NÃO deve depender de preços.
+1. Se a mensagem parecer um refinamento:
+- mantenha a mesma categoria de produto
+- ajuste apenas atributos (preço, armazenamento, desempenho, etc)
+- NÃO inicie uma nova busca do zero
 
-Você deve:
-- comparar as opções mencionadas
-- explicar qual vale mais a pena dependendo do uso
-- ser direto e útil
+Exemplos de refinamento (sem depender de palavras específicas):
+- mudanças pequenas na intenção
+- perguntas curtas relacionadas ao produto anterior
+- ajustes de preço, qualidade ou características
+- perguntas sobre o produto sugerido
+
+2. Se a mensagem parecer uma nova intenção:
+- inicie uma nova busca normalmente
+- ignore o contexto anterior
+
+3. Se houver ambiguidade:
+- peça uma confirmação simples antes de mudar de direção
+
+---
+
+REGRA DE CATEGORIA (MUITO IMPORTANTE):
+
+Se estiver claro que o usuário está falando do mesmo tipo de produto:
+- NUNCA mude a categoria
+
+Exemplo:
+Se a conversa é sobre celular:
+- nunca sugerir pen drive, chip, acessório ou item diferente
+
+---
+
+REGRA DE COERÊNCIA:
+
+Se o usuário pedir algo mais barato:
+- a nova sugestão deve ser mais barata que a anterior
+
+Se pedir melhoria:
+- a nova opção deve ser melhor
+
+---
+
+REGRA DE INTERPRETAÇÃO:
+
+Não dependa de palavras específicas.
+Interprete a intenção do usuário com base no contexto completo da conversa.
+
+---
+
+REGRA FINAL:
+
+Sempre priorize:
+- coerência
+- continuidade lógica
+- contexto da conversa
+
+Evite respostas aleatórias ou fora do fluxo.
+
+🔽 ESTILO DE RESPOSTA (MUITO IMPORTANTE)
+
+- Responda curto por padrão.
+- Só dê respostas mais longas quando o usuário claramente pedir mais detalhes.
+
+Considere como pedido de resposta longa quando:
+- o usuário pedir comparação (ex: "qual vale mais a pena", "compare", "ou", "vs")
+- o usuário pedir explicação (ex: "por quê", "explica melhor", "detalha")
+- o usuário estiver indeciso entre opções
+
+Para perguntas simples:
+- responda curto, direto e claro
+- evite explicação longa desnecessária
+
+Regras:
+- prefira respostas curtas e úteis
+- evite parecer um artigo
+- seja natural, como uma pessoa ajudando
+- só se estenda quando realmente agrega valor
 `
-    },
-    ...conversationMessages,
-    {
-      role: "user",
-      content: resolvedQuery
+      },
+      {
+        role: "user",
+        content: buildUserPrompt({
+          query: resolvedQuery,
+          originalQuery: query,
+          intent,
+          budget,
+          wantsNew,
+          period,
+          products: topProductsForAI,
+          productLimit,
+          userStyle
+        })
+      }
+    ];
+
+    const aiResponse = await callOpenAI(openAIMessages, {
+      temperature: 0.45,
+      max_tokens: 500
+    });
+
+    let reply = getOpenAIText(aiResponse)?.trim();
+
+    const isComparison =
+      intent === "comparison" ||
+      / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
+
+    if (!isComparison && reply && reply.length > 250) {
+      reply = reply.slice(0, 250).trim();
+
+      if (!reply.endsWith(".") && reply.includes(".")) {
+        reply = reply.substring(0, reply.lastIndexOf(".") + 1);
+      }
     }
-  ];
 
-  const aiResponse = await callOpenAI(openAIMessagesDecision, {
-    temperature: 0.5,
-    max_tokens: 400
-  });
+    if (!reply || reply.length < 20) {
+      reply = buildFallbackReply(intent, bestProduct, period);
+    }
 
-  const reply = getOpenAIText(aiResponse)?.trim();
+    const smartFollowUp = getSmartFollowUp(intent, reply);
+    if (smartFollowUp) {
+      reply = `${reply}\n\n${smartFollowUp}`;
+    }
 
-  return res.status(200).json({
-    reply,
-    prices: []
-  });
-}
+    if (reply.length > 900) {
+      reply = reply.slice(0, 900).trim();
+    }
 
-// 🔥 IA NORMAL
-const openAIMessages = [
-  {
-    role: "system",
-    content: `${MIA_SYSTEM_PROMPT}
+ let finalProducts = (rankedProducts && rankedProducts.length > 0)
+  ? rankedProducts.slice(0, 3)
+  : [];
 
-🧠 INTERPRETAÇÃO DE CONTEXTO
+if (!finalProducts || finalProducts.length === 0) {
+  console.warn("⚠️ fallback de produto ativado");
 
-- refinamento → mantém produto
-- nova busca → muda categoria
-- comparação → explica
-- decisão → ajuda a escolher
-
-Nunca dependa de palavras específicas.
-`
-  },
-  {
-    role: "user",
-    content: buildUserPrompt({
-      query: resolvedQuery,
-      originalQuery: query,
-      intent,
-      budget,
-      wantsNew,
-      period,
-      products: topProductsForAI,
-      productLimit,
-      userStyle
-    })
-  }
-];
-
-const aiResponse = await callOpenAI(openAIMessages, {
-  temperature: 0.45,
-  max_tokens: 500
-});
-
-let reply = getOpenAIText(aiResponse)?.trim();
-
-if (!reply || reply.length < 20) {
-  reply = buildFallbackReply(intent, bestProduct, period);
-}
-
-const smartFollowUp = getSmartFollowUp(intent, reply);
-if (smartFollowUp) {
-  reply = `${reply}\n\n${smartFollowUp}`;
-}
-
-// 🔥 PRODUTOS FINAIS
-let finalProducts = rankedProducts.slice(0, 3);
-
-if (!finalProducts.length) {
   const fallbackResults = await fetchSerpPrices(query, 3);
-  if (fallbackResults.length) {
+
+  if (fallbackResults && fallbackResults.length > 0) {
     finalProducts = fallbackResults;
   }
 }
 
 return res.status(200).json({
   reply,
-  prices: finalProducts.map(p => ({
+  prices: finalProducts.map((p) => ({
     product_name: cleanTitle(p.product_name),
     price: p.price,
     link: p.link,
@@ -1168,3 +1288,12 @@ return res.status(200).json({
     source: p.source
   }))
 });
+  } catch (err) {
+    console.error("chat-gpt4o.js error:", err);
+
+    return res.status(500).json({
+      reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
+      prices: []
+    });
+  }
+}
