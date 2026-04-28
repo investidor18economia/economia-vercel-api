@@ -386,7 +386,35 @@ function scoreProduct(product, query) {
   if (/pc gamer barato|cpu gamer barato/.test(title)) {
     score -= 120;
   }
+const productTitle = normalizeQuery(product.product_name || "");
 
+if (/lacrado|original|garantia/.test(productTitle)) {
+  score += 25;
+}
+
+if (/256gb/.test(productTitle)) {
+  score += 20;
+}
+
+if (/8gb/.test(productTitle)) {
+  score += 15;
+}
+
+if (/5g/.test(productTitle)) {
+  score += 15;
+}
+
+if (/realme|motorola|samsung|xiaomi|iphone/.test(productTitle)) {
+  score += 10;
+}
+
+if (/recondicionado|usado|seminovo|vitrine|certificado|excelente/.test(productTitle)) {
+  score -= 200;
+}
+
+if (/frete gratis de 2 dias nos eua|frete grátis de 2 dias nos eua/.test(productTitle)) {
+  score -= 250;
+}
   return score;
 }
 
