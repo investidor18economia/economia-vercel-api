@@ -1753,7 +1753,29 @@ return res.status(200).json({
     link: p.link,
     thumbnail: p.thumbnail,
     source: p.source
-  }))
+  })),
+  session_context: {
+    lastQuery: resolvedQuery,
+    lastCategory: detectProductCategory(resolvedQuery) || "",
+    lastProducts: finalProducts.slice(0, 5).map((p) => ({
+      product_name: cleanTitle(p.product_name),
+      price: p.price,
+      link: p.link,
+      thumbnail: p.thumbnail,
+      source: p.source
+    })),
+    lastBestProduct: finalProducts[0]
+      ? {
+          product_name: cleanTitle(finalProducts[0].product_name),
+          price: finalProducts[0].price,
+          link: finalProducts[0].link,
+          thumbnail: finalProducts[0].thumbnail,
+          source: finalProducts[0].source
+        }
+      : null,
+    lastIntent: intent,
+    lastInteractionType: "search"
+  }
 });
   } catch (err) {
     console.error("chat-gpt4o.js error:", err);
