@@ -1418,6 +1418,12 @@ MENSAGEM ATUAL DO USUÁRIO:
       .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
       .replace(/\n?\s*Se precisar de mais alguma ajuda.*$/i, "")
       .trim();
+      // 🔥 VALIDAÇÃO FINAL — NÃO DEIXA IA INVENTAR PRODUTO
+if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
+  console.warn("🚫 IA tentou inventar produto. Corrigindo...");
+
+  reply = buildSafeDecisionReply(rememberedProducts);
+}
 
     return res.status(200).json({
       reply,
