@@ -1547,7 +1547,17 @@ ${contextModeInstructions}
 if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
   console.warn("🚫 IA tentou inventar produto. Corrigindo...");
 
-  reply = buildSafeDecisionReply(rememberedProducts);
+  if (contextAction === "decision") {
+    reply = buildSafeDecisionReply(rememberedProducts);
+  } else {
+    const lastProduct =
+      rememberedProducts[rememberedProducts.length - 1] ||
+      rememberedProducts[0];
+
+    reply = lastProduct
+      ? `Sobre o **${cleanTitle(lastProduct.product_name)}**, eu analisaria com cautela pelo que apareceu na conversa. Ele parece fazer sentido para uso leve ou intermediário, mas eu não vou citar outro modelo fora do contexto só para completar a resposta.`
+      : "Pelo contexto, eu consigo analisar a opção anterior, mas não vou citar outro produto sem base.";
+  }
 }
 
     return res.status(200).json({
