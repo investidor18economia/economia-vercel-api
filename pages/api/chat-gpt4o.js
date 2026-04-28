@@ -909,32 +909,75 @@ function hasStrongShoppingSignal(text = "") {
   if (!q) return false;
 
   const hasCategory =
-    /celular|smartphone|iphone|samsung|xiaomi|motorola|galaxy|notebook|laptop|pc|computador|tv|monitor|geladeira|fogao|fogão|maquina de lavar|cadeira|fone|headset|ps5|playstation|xbox|console|tablet|ipad|roda|pneu/.test(q);
+    /celular|smartphone|iphone|samsung|xiaomi|motorola|galaxy|redmi|realme|notebook|laptop|pc gamer|computador|tv|monitor|geladeira|fogao|fogão|maquina de lavar|cadeira|fone|headset|ps5|playstation|xbox|console|tablet|ipad|roda|pneu/.test(q);
 
   const hasBudget = !!extractBudget(q) || /\br\$?\s*\d+/.test(q);
 
   const hasModelLikeToken =
-    /\b[a-z]{1,4}\d{2,4}\b/i.test(text) || // ex: a55, g56, rtx4060
+    /\b[a-z]{1,4}\d{2,4}\b/i.test(text) ||
     /\b(128gb|256gb|512gb|1tb|8gb|16gb|32gb)\b/i.test(q);
 
   const hasComparisonShape = /\bou\b|\bvs\b|versus|entre/.test(q);
 
-  const hasUseConstraint = /pra|para|trabalho|estudo|jogo|gamer|camera|câmera|bateria|custo beneficio|custo-beneficio/.test(q);
+  const hasUseConstraint =
+    /pra|para|trabalho|estudo|jogo|jogar|gamer|camera|câmera|bateria|custo beneficio|custo-beneficio|mais forte|mais barato/.test(q);
 
   return hasCategory || hasBudget || hasModelLikeToken || hasComparisonShape || hasUseConstraint;
+}
+
+function isContextDecision(query = "") {
+  const q = normalizeQuery(query);
+
+  return (
+    /qual.*(vc|voce|você).*escolheria/.test(q) ||
+    /qual.*vale.*mais.*pena/.test(q) ||
+    /qual.*eu.*compro/.test(q) ||
+    /no fim das contas/.test(q) ||
+    /esse.*compensa/.test(q) ||
+    /essa.*compensa/.test(q) ||
+    /vale.*a.*pena/.test(q) ||
+    /vale.*esperar/.test(q) ||
+    /compro.*agora/.test(q) ||
+    /pego.*agora/.test(q) ||
+    /melhor.*opcao/.test(q) ||
+    /melhor.*opção/.test(q)
+  );
+}
+
+function isProductReferenceQuestion(query = "") {
+  const q = normalizeQuery(query);
+
+  return (
+    /^(esse|essa|isso|ele|ela)\b/.test(q) ||
+    /esse.*roda.*jogo/.test(q) ||
+    /essa.*roda.*jogo/.test(q) ||
+    /roda.*jogo/.test(q) ||
+    /serve.*pra.*jogo/.test(q) ||
+    /aguenta.*jogo/.test(q)
+  );
+}
+
+function isContextRefinement(query = "") {
+  const q = normalizeQuery(query);
+
+  return (
+    /^(mais barato|mais barata|mais forte|melhor|e pra bateria|pra bateria|com bateria|bateria|com 128gb|de 128gb|com 256gb|de 256gb|só samsung|so samsung|quero só samsung|quero so samsung|samsung|xiaomi|motorola|iphone)$/i.test(q) ||
+    /^(e pra|e para|com|de)\b/.test(q)
+  );
 }
 
 function looksLikeAmbiguousFollowUp(text = "") {
   const q = normalizeQuery(text);
   if (!q) return true;
 
-  // ambiguidade estrutural (curto e sem sinal forte)
+  if (isContextDecision(q)) return true;
+  if (isProductReferenceQuestion(q)) return true;
+  if (isContextRefinement(q)) return true;
+
   if (q.length <= 14 && !hasStrongShoppingSignal(q)) return true;
 
-  // pronomes de referência
   if (/^(esse|essa|isso|aquele|aquela|ele|ela)\b/.test(q)) return true;
 
-  // respostas curtas típicas
   if (/^(sim|nao|não|ok|blz|beleza|pode|vai)$/.test(q)) return true;
 
   return false;
@@ -954,17 +997,61 @@ function getLastStrongUserQuery(messages = [], currentQuery = "") {
     const cNorm = normalizeQuery(content);
     if (!cNorm || cNorm === currentNorm) continue;
 
-    // ignora saudação pura
     if (/^(oi|ola|olá|opa|eai|e ai|eae|fala|salve|bom dia|boa tarde|boa noite)$/.test(cNorm)) {
       continue;
     }
 
-    if (hasStrongShoppingSignal(cNorm)) {
+    if (hasStrongShoppingSignal(cNorm) && !isContextDecision(cNorm) && !isProductReferenceQuestion(cNorm)) {
       return content;
     }
   }
 
   return "";
+}
+
+function buildRefinedQuery(query = "", lastStrong = "") {
+  const q = normalizeQuery(query);
+  const base = String(lastStrong || "").trim();
+
+  if (!base) return query;
+
+  if (/bateria/.test(q)) {
+    return `${base} com boa bateria`;
+  }
+
+  if (/mais forte|melhor desempenho|potente/.test(q)) {
+    return `${base} mais forte melhor desempenho`;
+  }
+
+  if (/mais barato|mais barata/.test(q)) {
+    return `${base} mais barato`;
+  }
+
+  if (/samsung/.test(q)) {
+    return `${base} samsung`;
+  }
+
+  if (/xiaomi/.test(q)) {
+    return `${base} xiaomi`;
+  }
+
+  if (/motorola/.test(q)) {
+    return `${base} motorola`;
+  }
+
+  if (/iphone/.test(q)) {
+    return `${base} iphone`;
+  }
+
+  if (/128gb/.test(q)) {
+    return `${base} 128gb`;
+  }
+
+  if (/256gb/.test(q)) {
+    return `${base} 256gb`;
+  }
+
+  return `${base} ${query}`.trim();
 }
 
 function resolveContextQuery(query = "", messages = []) {
@@ -975,36 +1062,77 @@ function resolveContextQuery(query = "", messages = []) {
     return {
       standaloneQuery: "",
       needsClarification: true,
+      shouldSkipProductSearch: false,
       clarificationMessage: "Me fala o produto que você quer procurar que eu já te ajudo. 👀"
     };
   }
 
-  // se já é uma query forte, usa como está
-  if (hasStrongShoppingSignal(qNorm) && !looksLikeAmbiguousFollowUp(qNorm)) {
+  const lastStrong = getLastStrongUserQuery(messages, q);
+  const explicitCategory = detectProductCategory(q);
+  const previousCategory = detectProductCategory(lastStrong);
+
+  if (isContextDecision(qNorm) || isProductReferenceQuestion(qNorm)) {
     return {
-      standaloneQuery: q,
-      needsClarification: false
+      standaloneQuery: lastStrong ? `${lastStrong} ${q}` : q,
+      needsClarification: !lastStrong,
+      shouldSkipProductSearch: !!lastStrong,
+      mode: "context_answer",
+      clarificationMessage:
+        "Entendi 👍 Me diz rapidinho de qual produto você está falando, que eu te respondo com segurança."
     };
   }
 
-  const lastStrong = getLastStrongUserQuery(messages, q);
+  if (isContextRefinement(qNorm) && lastStrong) {
+    return {
+      standaloneQuery: buildRefinedQuery(q, lastStrong),
+      needsClarification: false,
+      shouldSkipProductSearch: false,
+      mode: "refinement"
+    };
+  }
 
-  // follow-up sem referência confiável -> não busca aleatório
+  if (explicitCategory) {
+    return {
+      standaloneQuery: q,
+      needsClarification: false,
+      shouldSkipProductSearch: false,
+      mode: "new_or_direct"
+    };
+  }
+
+  if (!explicitCategory && previousCategory && looksLikeAmbiguousFollowUp(qNorm)) {
+    return {
+      standaloneQuery: buildRefinedQuery(q, lastStrong),
+      needsClarification: false,
+      shouldSkipProductSearch: false,
+      mode: "refinement"
+    };
+  }
+
+  if (hasStrongShoppingSignal(qNorm) && !looksLikeAmbiguousFollowUp(qNorm)) {
+    return {
+      standaloneQuery: q,
+      needsClarification: false,
+      shouldSkipProductSearch: false,
+      mode: "direct"
+    };
+  }
+
   if (!lastStrong) {
     return {
       standaloneQuery: q,
       needsClarification: true,
+      shouldSkipProductSearch: false,
       clarificationMessage:
         "Entendi 👍 Me diz rapidinho de qual produto você está falando (ex: celular, notebook, PS5...), que eu já refino pra você."
     };
   }
 
-  // combina de forma explícita para virar consulta completa
-  const standaloneQuery = `${lastStrong} ${q}`;
-
   return {
-    standaloneQuery,
-    needsClarification: false
+    standaloneQuery: buildRefinedQuery(q, lastStrong),
+    needsClarification: false,
+    shouldSkipProductSearch: false,
+    mode: "refinement"
   };
 }
 
