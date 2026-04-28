@@ -1428,15 +1428,16 @@ export default async function handler(req, res) {
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
-    // 🔥 MODO CONTEXTO / DECISÃO / PERGUNTA SOBRE PRODUTO ANTERIOR
-  const isContextComparison =
-    /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(query);
+    // 🔥 MODO CONTEXTO / DECISÃO / ANÁLISE DE PRODUTO ANTERIOR
+const contextAction = detectContextAction(query, intent, contextResolution);
 
-  const isDecisionIntent =
-    intent === "decision" ||
-    isContextDecision(query) ||
-    isProductReferenceQuestion(query) ||
-    isContextComparison;
+const isContextComparison =
+  /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(query);
+
+const isDecisionIntent =
+  contextAction === "decision" ||
+  intent === "decision" ||
+  isContextComparison;
 
     if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
     const rememberedProducts = Array.isArray(sessionContext.lastProducts)
