@@ -94,7 +94,7 @@ function extractProductsFromText(text = "") {
 
 function extractProductsFromMessages(messages = []) {
   const found = [];
-  const seen = new Set();
+  const seen = new Map();
 
   for (const msg of messages) {
     const role = String(msg?.role || "").toLowerCase();
@@ -105,11 +105,28 @@ function extractProductsFromMessages(messages = []) {
     const products = extractProductsFromText(content);
 
     for (const product of products) {
-      const key = normalizeProductKey(product.product_name);
-      if (!key || seen.has(key)) continue;
+      const familyKey = getProductFamilyKey(product.product_name);
+      if (!familyKey) continue;
 
-      seen.add(key);
-      found.push(product);
+      const currentIndex = seen.get(familyKey);
+
+      if (currentIndex === undefined) {
+        seen.set(familyKey, found.length);
+        found.push(product);
+        continue;
+      }
+
+      const existing = found[currentIndex];
+
+      const existingScore =
+        String(existing.product_name || "").length + (existing.price ? 30 : 0);
+
+      const newScore =
+        String(product.product_name || "").length + (product.price ? 30 : 0);
+
+      if (newScore > existingScore) {
+        found[currentIndex] = product;
+      }
     }
   }
 
