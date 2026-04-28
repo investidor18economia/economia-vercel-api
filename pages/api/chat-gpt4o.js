@@ -1520,48 +1520,7 @@ MENSAGEM ATUAL DO USUÁRIO:
         role: "system",
         content: `${MIA_SYSTEM_PROMPT}
 
-🧠 MODO CONTEXTO / DECISÃO SEM BUSCA NOVA
-
-O usuário está tomando uma decisão com base na conversa anterior.
-
-REGRAS CRÍTICAS:
-- NÃO faça busca nova.
-- NÃO invente preço.
-- NÃO invente produto novo.
-- NÃO cite produto que não esteja na lista "PRODUTOS DISPONÍVEIS".
-- Use somente os produtos disponíveis abaixo.
-- Se houver mais de um produto, compare as opções antes de decidir.
-- NÃO escolha automaticamente o último produto citado.
-- Se a conversa anterior era sobre celular, NÃO fale de PC gamer.
-- Se o usuário perguntar "esse roda jogos?", responda sobre o produto anterior.
-- Se o usuário perguntar "no fim das contas, qual eu compro?", dê uma decisão final clara.
-- Seja direta, humana e útil.
-- Não termine com uma pergunta genérica.
-- Não use frases como "se precisar de mais alguma informação".
-- Dê veredito.
-
-🚨 REGRA ABSOLUTA:
-Você SÓ pode recomendar ou citar os produtos listados em "PRODUTOS DISPONÍVEIS".
-Se quiser falar de alternativa, ela também precisa estar nessa lista.
-Nunca crie versão Pro, Plus, Ultra, outro modelo ou produto parecido se ele não estiver listado.
-
-FORMATO OBRIGATÓRIO:
-1. Comece com: "Eu compraria X."
-2. Explique o motivo principal.
-3. Compare rapidamente as opções disponíveis.
-4. Termine com um veredito prático:
-   - "Jogos: X"
-   - "Bateria: Y"
-   - "Equilíbrio geral: Z"
-
-PRODUTOS DISPONÍVEIS:
-${rememberedProductsText}
-
-CONTEXTO INFERIDO:
-${JSON.stringify(sessionContext, null, 2)}
-
-MENSAGEM ATUAL DO USUÁRIO:
-"${query}"
+${contextModeInstructions}
 `
       },
       ...conversationMessages,
