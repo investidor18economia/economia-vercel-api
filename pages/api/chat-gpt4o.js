@@ -8,17 +8,37 @@ function buildSessionContext(messages = [], sessionContext = {}) {
     lastProducts: sessionContext?.lastProducts || [],
     lastBestProduct: sessionContext?.lastBestProduct || null,
     lastIntent: sessionContext?.lastIntent || "",
+    lastTopic: sessionContext?.lastTopic || "",
+    lastProductMentioned: sessionContext?.lastProductMentioned || "",
     lastInteractionType: sessionContext?.lastInteractionType || ""
   };
 
-  if (!context.lastQuery && messages.length > 0) {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
-      if (msg.role === "user" && msg.content.length > 5) {
-        context.lastQuery = msg.content;
-        break;
-      }
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    const role = String(msg?.role || "").toLowerCase();
+    const content = String(msg?.content || "").trim();
+
+    if (role !== "user" || !content) continue;
+
+    const normalized = normalizeQuery(content);
+
+    if (/^(oi|ola|olá|opa|eai|e ai|eae|iae|fala|salve|bom dia|boa tarde|boa noite)$/.test(normalized)) {
+      continue;
     }
+
+    const category = detectProductCategory(content);
+
+    if (!context.lastQuery && hasStrongShoppingSignal(content)) {
+      context.lastQuery = content;
+      context.lastCategory = context.lastCategory || category || "";
+      context.lastIntent = context.lastIntent || detectIntent(content);
+      context.lastTopic = context.lastTopic || content;
+      break;
+    }
+  }
+
+  if (!context.lastCategory && context.lastQuery) {
+    context.lastCategory = detectProductCategory(context.lastQuery) || "";
   }
 
   return context;
