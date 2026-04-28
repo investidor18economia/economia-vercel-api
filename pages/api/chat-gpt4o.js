@@ -1162,6 +1162,54 @@ function isProductReferenceQuestion(query = "") {
     /aguenta.*jogo/.test(q)
   );
 }
+function detectContextAction(query = "", intent = "", contextResolution = {}) {
+  const q = normalizeQuery(query);
+
+  if (
+    /no fim das contas/.test(q) ||
+    /qual.*eu.*compro/.test(q) ||
+    /qual.*comprar/.test(q) ||
+    /qual.*escolher/.test(q) ||
+    /qual.*vale.*mais.*pena/.test(q) ||
+    /veredito/.test(q) ||
+    /decis[aã]o final/.test(q)
+  ) {
+    return "decision";
+  }
+
+  if (
+    /^(esse|essa|isso|ele|ela)\b/.test(q) ||
+    /roda/.test(q) ||
+    /serve/.test(q) ||
+    /aguenta/.test(q) ||
+    /presta/.test(q) ||
+    /é bom/.test(q) ||
+    /e bom/.test(q) ||
+    /d[aá] conta/.test(q)
+  ) {
+    return "analysis";
+  }
+
+  if (
+    intent === "comparison" ||
+    /\bou\b/.test(q) ||
+    /\bvs\b/.test(q) ||
+    /versus/.test(q) ||
+    /compar/.test(q)
+  ) {
+    return "comparison";
+  }
+
+  if (contextResolution?.mode === "refinement") {
+    return "refinement";
+  }
+
+  if (isContextDecision(q)) {
+    return "decision";
+  }
+
+  return "conversation";
+}
 
 function isContextRefinement(query = "") {
   const q = normalizeQuery(query);
