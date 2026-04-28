@@ -1277,8 +1277,9 @@ const contextSourceText = conversationMessages
     const isNewSearchIntent = isNewIntent(query, contextSourceText);
 
 const categoryFromContext =
-  detectProductCategory(contextSourceText) ||
-  detectProductCategory(query);
+  detectProductCategory(resolvedQuery) ||
+  detectProductCategory(query) ||
+  detectProductCategory(contextSourceText);
     
    let products = await fetchSerpPrices(resolvedQuery, 10);
 console.log("Produtos encontrados:", products.length);
