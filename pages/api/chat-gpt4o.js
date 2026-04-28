@@ -1174,171 +1174,67 @@ export default async function handler(req, res) {
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
-  // 🔥 MODO DECISÃO (ANTES DA BUSCA)
+    // 🔥 MODO CONTEXTO / DECISÃO / PERGUNTA SOBRE PRODUTO ANTERIOR
   const isContextComparison =
-  /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(resolvedQuery);
-const isDecisionIntent =
-  intent === "decision" ||
-  /(qual.*escolheria|qual.*melhor|vale.*pena|compensa)/i.test(resolvedQuery);
+    /(esse|essa|isso|ele|ela)\s+(ou|vs|versus)\s+/i.test(query);
 
-if (isDecisionIntent || isContextComparison) {
+  const isDecisionIntent =
+    intent === "decision" ||
+    isContextDecision(query) ||
+    isProductReferenceQuestion(query) ||
+    isContextComparison;
 
-  const lastProducts = sessionContext.lastProducts || [];
-
-  if (lastProducts.length > 0) {
-
-    const decisionMessages = [
+  if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
+    const contextMessages = [
       {
         role: "system",
         content: `${MIA_SYSTEM_PROMPT}
 
-🧠 MODO DECISÃO E COMPARAÇÃO REAL
+🧠 MODO CONTEXTO SEM BUSCA NOVA
 
-Você é a MIA, uma assistente de compras inteligente, humana e carismática.
+O usuário está fazendo uma pergunta de continuação sobre a conversa anterior.
 
-Sua função aqui é AJUDAR O USUÁRIO A DECIDIR com clareza.
+REGRAS CRÍTICAS:
+- NÃO faça busca nova.
+- NÃO invente preço.
+- NÃO invente produto novo.
+- Use apenas o histórico da conversa.
+- Se o usuário perguntar "esse roda jogos?", responda sobre o produto/celular citado anteriormente.
+- Se a conversa anterior era sobre celular, NÃO fale de PC gamer.
+- Se não houver informação suficiente, diga isso claramente e responda com cautela.
+- Seja direta, humana e útil.
+- Não termine só perguntando outra coisa.
+- Se for decisão, tome uma posição clara.
 
-O usuário pode estar:
-- pedindo uma escolha direta
-- comparando o produto anterior com outro produto citado agora
-- perguntando se vale a pena
-- usando frases como "esse ou iPhone 13?", "qual você escolheria?", "compensa?", "qual é melhor?"
+Contexto inferido:
+${JSON.stringify(sessionContext, null, 2)}
 
----
-
-🎯 OBJETIVO PRINCIPAL
-
-Você NÃO deve apenas listar produtos.
-Você deve tomar uma posição clara.
-
-Sempre que possível, responda no estilo:
-
-"Se eu fosse você, eu escolheria X..."
-
-Depois explique o motivo de forma simples.
-
----
-
-🧠 COMO COMPARAR DE VERDADE
-
-Quando houver comparação entre produtos:
-
-1. Identifique o produto anterior como "esse", "essa opção", "o primeiro", "o modelo anterior" quando o usuário usar esse tipo de referência.
-2. Compare de forma prática, não técnica demais.
-3. Explique o que muda na vida do usuário.
-
-Compare usando critérios como:
-- preço
-- desempenho
-- câmera
-- bateria
-- armazenamento
-- durabilidade
-- sistema Android vs iOS
-- custo-benefício
-- risco de produto usado/recondicionado quando aparecer no título
-- se vale pagar mais ou não
-
----
-
-🧭 REGRA DE DECISÃO FORTE
-
-Não fuja da decisão.
-
-Evite terminar com:
-"depende do seu uso"
-"o que você prefere?"
-"qual seu uso principal?"
-
-Você até pode mencionar uma condição, mas precisa decidir antes.
-
-Formato ideal:
-- "Eu escolheria X."
-- "Porque..."
-- "Só escolheria Y se..."
-
-Exemplo:
-"Eu escolheria o Moto G55 se a ideia é economizar e ter um celular forte no dia a dia. Só iria de iPhone 13 se você fizer questão de iOS, câmera melhor e aceitar pagar mais."
-
----
-
-🗣️ TOM E LINGUAGEM
-
-- Fale de forma humana, simples e carismática
-- Seja direta, mas explique o suficiente para educar o usuário
-- Adapte o tom ao usuário
-- Se o usuário fala informal, responda informal
-- Se o usuário fala formal, responda mais formal
-- Evite parecer robô
-- Evite texto longo demais
-
----
-
-👋 SAUDAÇÕES
-
-- Só cumprimente se o usuário tiver cumprimentado primeiro
-- NÃO use "bom dia", "boa tarde" ou "boa noite" no meio da conversa
-- Não comece resposta de decisão com saudação
-
----
-
-🚫 PROIBIDO
-
-- NÃO inventar produtos
-- NÃO inventar preços
-- NÃO dizer "separei duas opções" se não for explicar as duas
-- NÃO repetir o mesmo produto como se fossem opções diferentes
-- NÃO ser genérica com frases como "boa performance" sem explicar o motivo
-- NÃO terminar apenas fazendo pergunta
-- NÃO trocar de assunto
-- NÃO buscar novos produtos mentalmente; use o contexto disponível
-
----
-
-✅ ESTRUTURA RECOMENDADA DA RESPOSTA
-
-1. Decisão direta:
-"Se eu fosse você, eu escolheria..."
-
-2. Motivo principal:
-"Porque..."
-
-3. Comparação curta:
-"Em relação ao outro..."
-
-4. Condição opcional:
-"Só escolheria o outro se..."
-
-5. Fechamento curto e útil.
-
----
-
-📦 PRODUTOS DISPONÍVEIS DO CONTEXTO:
-${JSON.stringify(lastProducts).slice(0, 2500)}
-
-Mensagem do usuário:
-"${resolvedQuery}"
+Mensagem atual do usuário:
+"${query}"
 `
       },
+      ...conversationMessages,
       {
         role: "user",
-        content: resolvedQuery
+        content: query
       }
     ];
 
-    const aiResponse = await callOpenAI(decisionMessages, {
-      temperature: 0.5,
-      max_tokens: 300
+    const aiResponse = await callOpenAI(contextMessages, {
+      temperature: 0.45,
+      max_tokens: 320
     });
 
-    const reply = getOpenAIText(aiResponse)?.trim();
+    const reply =
+      getOpenAIText(aiResponse)?.trim() ||
+      "Pelo contexto anterior, eu iria na opção principal que te mostrei. Só evitaria se você quiser algo muito específico, como câmera melhor ou desempenho mais forte pra jogos.";
 
     return res.status(200).json({
       reply,
-      prices: lastProducts
+      prices: []
     });
   }
-}
+  
   try {
     if (intent === "greeting") {
       const greetingMessages = [
