@@ -1439,7 +1439,7 @@ const isDecisionIntent =
   intent === "decision" ||
   isContextComparison;
 
-    if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
+    if (contextResolution.shouldSkipProductSearch || isDecisionIntent || contextAction === "analysis") {
     const rememberedProducts = Array.isArray(sessionContext.lastProducts)
       ? sessionContext.lastProducts
       : [];
