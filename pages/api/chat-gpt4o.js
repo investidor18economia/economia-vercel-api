@@ -1,112 +1,15 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
 import { MIA_SYSTEM_PROMPT } from "../../lib/miaPrompt";
-function normalizeProductKey(title = "") {
-  return normalizeQuery(title)
-    .replace(/[^a-z0-9 ]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractProductsFromText(text = "") {
-  const products = [];
-  const content = String(text || "");
-
-  const priceMatch = content.match(/R\$\s*[\d.,]+/i);
-  const price = priceMatch ? priceMatch[0] : null;
-
-  const boldRegex = /\*\*([^*]{8,140})\*\*/g;
-  let match;
-
-  while ((match = boldRegex.exec(content)) !== null) {
-    const title = cleanTitle(match[1]);
-
-    if (
-      title &&
-      !/se quiser|porque|minha escolha|olhei aqui|só escolheria|em relação/i.test(title)
-    ) {
-      products.push({
-        product_name: title,
-        price,
-        source: "histórico",
-        link: null,
-        thumbnail: null
-      });
-    }
-  }
-
-  const directPatterns = [
-    /(?:eu iria nesse|eu iria nessa|eu escolheria|minha escolha principal seria|a melhor escolha.*?seria)\s+(?:o|a)?\s*([^.\n]{8,120})/i,
-    /(?:produto|opção)\s+(?:principal\s+)?(?:seria|é)\s+(?:o|a)?\s*([^.\n]{8,120})/i
-  ];
-
-  for (const pattern of directPatterns) {
-    const found = content.match(pattern);
-    if (found?.[1]) {
-      let title = cleanTitle(found[1])
-        .replace(/\s+por\s+R\$.*/i, "")
-        .replace(/\s+que\s+est[aá].*/i, "")
-        .trim();
-
-      if (title.length >= 8) {
-        products.push({
-          product_name: title,
-          price,
-          source: "histórico",
-          link: null,
-          thumbnail: null
-        });
-      }
-    }
-  }
-
-  return products;
-}
-
-function extractProductsFromMessages(messages = []) {
-  const found = [];
-  const seen = new Set();
-
-  for (const msg of messages) {
-    const role = String(msg?.role || "").toLowerCase();
-    const content = String(msg?.content || "");
-
-    if (role !== "assistant" || !content) continue;
-
-    const products = extractProductsFromText(content);
-
-    for (const product of products) {
-      const key = normalizeProductKey(product.product_name);
-      if (!key || seen.has(key)) continue;
-
-      seen.add(key);
-      found.push(product);
-    }
-  }
-
-  return found.slice(-5);
-}
-
 function buildSessionContext(messages = [], sessionContext = {}) {
-  const inferredProducts = extractProductsFromMessages(messages);
-
   const context = {
     lastQuery: sessionContext?.lastQuery || "",
     lastCategory: sessionContext?.lastCategory || "",
-    lastProducts:
-      Array.isArray(sessionContext?.lastProducts) && sessionContext.lastProducts.length
-        ? sessionContext.lastProducts
-        : inferredProducts,
-    lastBestProduct:
-      sessionContext?.lastBestProduct ||
-      inferredProducts[inferredProducts.length - 1] ||
-      null,
+    lastProducts: sessionContext?.lastProducts || [],
+    lastBestProduct: sessionContext?.lastBestProduct || null,
     lastIntent: sessionContext?.lastIntent || "",
     lastTopic: sessionContext?.lastTopic || "",
-    lastProductMentioned:
-      sessionContext?.lastProductMentioned ||
-      inferredProducts[inferredProducts.length - 1]?.product_name ||
-      "",
+    lastProductMentioned: sessionContext?.lastProductMentioned || "",
     lastInteractionType: sessionContext?.lastInteractionType || ""
   };
 
@@ -1281,25 +1184,13 @@ export default async function handler(req, res) {
     isProductReferenceQuestion(query) ||
     isContextComparison;
 
-    if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
-    const rememberedProducts = Array.isArray(sessionContext.lastProducts)
-      ? sessionContext.lastProducts
-      : [];
-
-    const rememberedProductsText = rememberedProducts.length
-      ? rememberedProducts
-          .map((p, index) => {
-            return `${index + 1}. ${cleanTitle(p.product_name)}${p.price ? ` | ${p.price}` : ""}`;
-          })
-          .join("\n")
-      : "Nenhum produto estruturado encontrado; usar apenas o histórico textual da conversa.";
-
+  if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
     const contextMessages = [
       {
         role: "system",
         content: `${MIA_SYSTEM_PROMPT}
 
-🧠 MODO CONTEXTO / DECISÃO SEM BUSCA NOVA
+🧠 MODO CONTEXTO SEM BUSCA NOVA
 
 O usuário está fazendo uma pergunta de continuação sobre a conversa anterior.
 
@@ -1307,29 +1198,18 @@ REGRAS CRÍTICAS:
 - NÃO faça busca nova.
 - NÃO invente preço.
 - NÃO invente produto novo.
-- Use o histórico da conversa e os produtos inferidos abaixo.
-- NÃO escolha automaticamente o último produto citado.
-- Compare as opções quando houver mais de uma.
+- Use apenas o histórico da conversa.
+- Se o usuário perguntar "esse roda jogos?", responda sobre o produto/celular citado anteriormente.
 - Se a conversa anterior era sobre celular, NÃO fale de PC gamer.
-- Se o usuário perguntar "esse roda jogos?", responda sobre o produto anterior.
-- Se o usuário perguntar "no fim das contas, qual eu compro?", dê uma decisão final clara.
+- Se não houver informação suficiente, diga isso claramente e responda com cautela.
 - Seja direta, humana e útil.
-- Não termine com uma pergunta genérica.
-- Não use frases como "se precisar de mais alguma informação".
-- Dê veredito.
+- Não termine só perguntando outra coisa.
+- Se for decisão, tome uma posição clara.
 
-ESTRUTURA IDEAL:
-1. "Eu compraria X."
-2. "Porque..."
-3. "Só escolheria Y se..."
-
-PRODUTOS/OPÇÕES INFERIDAS DO HISTÓRICO:
-${rememberedProductsText}
-
-CONTEXTO INFERIDO:
+Contexto inferido:
 ${JSON.stringify(sessionContext, null, 2)}
 
-MENSAGEM ATUAL DO USUÁRIO:
+Mensagem atual do usuário:
 "${query}"
 `
       },
@@ -1341,18 +1221,13 @@ MENSAGEM ATUAL DO USUÁRIO:
     ];
 
     const aiResponse = await callOpenAI(contextMessages, {
-      temperature: 0.35,
-      max_tokens: 420
+      temperature: 0.45,
+      max_tokens: 320
     });
 
-    let reply =
+    const reply =
       getOpenAIText(aiResponse)?.trim() ||
-      "Pelo contexto, eu iria na opção principal mais equilibrada. Só escolheria outra se sua prioridade for algo bem específico, como bateria ou jogos.";
-
-    reply = reply
-      .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
-      .replace(/\n?\s*Se precisar de mais alguma ajuda.*$/i, "")
-      .trim();
+      "Pelo contexto anterior, eu iria na opção principal que te mostrei. Só evitaria se você quiser algo muito específico, como câmera melhor ou desempenho mais forte pra jogos.";
 
     return res.status(200).json({
       reply,
@@ -1747,38 +1622,17 @@ if (!isDecisionQuery && !isGeneralQuery) {
 // 🔥 AGORA SIM O RETURN CORRETO
 return res.status(200).json({
   reply,
-  return res.status(200).json({
-  reply,
   prices: productsToShow.map((p) => ({
     product_name: cleanTitle(p.product_name),
     price: p.price,
     link: p.link,
     thumbnail: p.thumbnail,
     source: p.source
-  })),
-  session_context: {
-    lastQuery: resolvedQuery,
-    lastCategory: detectProductCategory(resolvedQuery) || "",
-    lastProducts: finalProducts.slice(0, 5).map((p) => ({
-      product_name: cleanTitle(p.product_name),
-      price: p.price,
-      link: p.link,
-      thumbnail: p.thumbnail,
-      source: p.source
-    })),
-    lastBestProduct: finalProducts[0]
-      ? {
-          product_name: cleanTitle(finalProducts[0].product_name),
-          price: finalProducts[0].price,
-          link: finalProducts[0].link,
-          thumbnail: finalProducts[0].thumbnail,
-          source: finalProducts[0].source
-        }
-      : null,
-    lastIntent: intent,
-    lastInteractionType: "search"
-  }
+  }))
 });
+  } catch (err) {
+    console.error("chat-gpt4o.js error:", err);
+
     return res.status(500).json({
       reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
       prices: []
