@@ -1281,13 +1281,25 @@ export default async function handler(req, res) {
     isProductReferenceQuestion(query) ||
     isContextComparison;
 
-  if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
+    if (contextResolution.shouldSkipProductSearch || isDecisionIntent) {
+    const rememberedProducts = Array.isArray(sessionContext.lastProducts)
+      ? sessionContext.lastProducts
+      : [];
+
+    const rememberedProductsText = rememberedProducts.length
+      ? rememberedProducts
+          .map((p, index) => {
+            return `${index + 1}. ${cleanTitle(p.product_name)}${p.price ? ` | ${p.price}` : ""}`;
+          })
+          .join("\n")
+      : "Nenhum produto estruturado encontrado; usar apenas o histórico textual da conversa.";
+
     const contextMessages = [
       {
         role: "system",
         content: `${MIA_SYSTEM_PROMPT}
 
-🧠 MODO CONTEXTO SEM BUSCA NOVA
+🧠 MODO CONTEXTO / DECISÃO SEM BUSCA NOVA
 
 O usuário está fazendo uma pergunta de continuação sobre a conversa anterior.
 
@@ -1295,18 +1307,29 @@ REGRAS CRÍTICAS:
 - NÃO faça busca nova.
 - NÃO invente preço.
 - NÃO invente produto novo.
-- Use apenas o histórico da conversa.
-- Se o usuário perguntar "esse roda jogos?", responda sobre o produto/celular citado anteriormente.
+- Use o histórico da conversa e os produtos inferidos abaixo.
+- NÃO escolha automaticamente o último produto citado.
+- Compare as opções quando houver mais de uma.
 - Se a conversa anterior era sobre celular, NÃO fale de PC gamer.
-- Se não houver informação suficiente, diga isso claramente e responda com cautela.
+- Se o usuário perguntar "esse roda jogos?", responda sobre o produto anterior.
+- Se o usuário perguntar "no fim das contas, qual eu compro?", dê uma decisão final clara.
 - Seja direta, humana e útil.
-- Não termine só perguntando outra coisa.
-- Se for decisão, tome uma posição clara.
+- Não termine com uma pergunta genérica.
+- Não use frases como "se precisar de mais alguma informação".
+- Dê veredito.
 
-Contexto inferido:
+ESTRUTURA IDEAL:
+1. "Eu compraria X."
+2. "Porque..."
+3. "Só escolheria Y se..."
+
+PRODUTOS/OPÇÕES INFERIDAS DO HISTÓRICO:
+${rememberedProductsText}
+
+CONTEXTO INFERIDO:
 ${JSON.stringify(sessionContext, null, 2)}
 
-Mensagem atual do usuário:
+MENSAGEM ATUAL DO USUÁRIO:
 "${query}"
 `
       },
@@ -1318,13 +1341,18 @@ Mensagem atual do usuário:
     ];
 
     const aiResponse = await callOpenAI(contextMessages, {
-      temperature: 0.45,
-      max_tokens: 320
+      temperature: 0.35,
+      max_tokens: 420
     });
 
-    const reply =
+    let reply =
       getOpenAIText(aiResponse)?.trim() ||
-      "Pelo contexto anterior, eu iria na opção principal que te mostrei. Só evitaria se você quiser algo muito específico, como câmera melhor ou desempenho mais forte pra jogos.";
+      "Pelo contexto, eu iria na opção principal mais equilibrada. Só escolheria outra se sua prioridade for algo bem específico, como bateria ou jogos.";
+
+    reply = reply
+      .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
+      .replace(/\n?\s*Se precisar de mais alguma ajuda.*$/i, "")
+      .trim();
 
     return res.status(200).json({
       reply,
