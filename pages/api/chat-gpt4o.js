@@ -1336,7 +1336,13 @@ if (!Array.isArray(products) || !products.length) {
 
     const useIntent = getDetectedUseIntent(resolvedQuery);
 
-    if (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy") {
+        const resolvedCategory = detectProductCategory(resolvedQuery);
+
+    if (
+      resolvedCategory !== "phone" &&
+      resolvedCategory !== "tablet" &&
+      (useIntent === "gaming_light" || useIntent === "gaming_medium" || useIntent === "gaming_heavy")
+    ) {
       const gamingValidProducts = validProducts.filter((p) => {
         const title = p.product_name || "";
 
@@ -1351,7 +1357,7 @@ if (!Array.isArray(products) || !products.length) {
         validProducts = gamingValidProducts;
       } else {
         return res.status(200).json({
-          reply: "⚠️ Nessa faixa de preço, não encontrei um PC realmente confiável para esse tipo de jogo. Se quiser, eu posso tentar achar a opção menos arriscada ou te dizer a faixa mais realista.",
+          reply: "⚠️ Nessa faixa de preço, não encontrei uma opção realmente confiável para esse tipo de jogo. Se quiser, eu posso tentar achar a opção menos arriscada ou te dizer uma faixa mais realista.",
           prices: []
         });
       }
