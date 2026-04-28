@@ -1248,6 +1248,19 @@ console.log("Produtos encontrados:", products.length);
 products = filterProductsByLockedCategory(products, resolvedQuery);
 
 products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
+    products = products.filter((p) => {
+  const title = normalizeQuery(p.product_name || "");
+
+  if (/certificado|recondicionado|vitrine|usado|seminovo|excelente|frete grátis de 2 dias nos eua/.test(title)) {
+    return false;
+  }
+
+  if (/iphone/.test(title) && /desbloqueado|certificado|excelente/.test(title)) {
+    return false;
+  }
+
+  return true;
+});
     products = products.filter(p => productMatchesCategory(p, categoryFromContext));
 
 if (!Array.isArray(products) || !products.length) {
