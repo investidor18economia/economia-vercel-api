@@ -143,26 +143,34 @@ function responseMentionsUnknownProduct(reply = "", allowedProducts = []) {
     .map((p) => normalizeProductKey(p.product_name || ""))
     .filter(Boolean);
 
+  const allowedFamilyKeys = allowedProducts
+    .map((p) => getProductFamilyKey(p.product_name || ""))
+    .filter(Boolean);
+
+  const suspiciousProductWords =
+    /(samsung|galaxy|redmi|realme|motorola|moto|iphone|infinix|xiaomi|poco|lg|philco|brastemp|electrolux|consul|notebook|monitor|ps5|xbox|playstation|macbook|\b[a-z]{1,5}\s?\d{1,4}\b)/i;
+
   const sentences = String(reply)
     .split(/[.\n]/)
     .map((s) => s.trim())
     .filter(Boolean);
 
   for (const sentence of sentences) {
+    if (!suspiciousProductWords.test(sentence)) continue;
+
     const sentenceKey = normalizeProductKey(sentence);
 
-    const mentionsAllowed = allowedKeys.some((key) => {
-      return key && (sentenceKey.includes(key) || key.includes(sentenceKey));
-    });
+    const mentionsAllowed =
+      allowedKeys.some((key) => sentenceKey.includes(key) || key.includes(sentenceKey)) ||
+      allowedFamilyKeys.some((key) => sentenceKey.includes(key));
 
-    if (!mentionsAllowed && sentenceKey.length > 10) {
+    if (!mentionsAllowed) {
       return true;
     }
   }
 
   return false;
 }
-
 function buildSafeDecisionReply(allowedProducts = []) {
   if (!Array.isArray(allowedProducts) || allowedProducts.length === 0) {
     return "Pelo contexto, eu escolheria a opção principal que apareceu antes, sem inventar modelo novo.";
