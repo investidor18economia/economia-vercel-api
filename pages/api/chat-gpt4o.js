@@ -3,9 +3,38 @@ import { callOpenAI, getOpenAIText } from "../../lib/openai";
 import { MIA_SYSTEM_PROMPT } from "../../lib/miaPrompt";
 function normalizeProductKey(title = "") {
   return normalizeQuery(title)
-    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function getProductFamilyKey(title = "") {
+  const t = normalizeProductKey(title)
+    .replace(/\b(4g|5g|128gb|256gb|512gb|1tb|2gb|3gb|4gb|6gb|8gb|12gb|16gb|32gb|ram|rom|tela|camera|câmera|bateria|mah|hz|android|dual|chip|cor|rosa|azul|preto|cinza|verde|branco|lacrado|novo|original)\b/g, " ")
+    .replace(/\b(de|da|do|com|sem|para|por|e|a|o|os|as)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const knownPatterns = [
+    /(motorola\s+)?moto\s+g\d+/,
+    /realme\s+note\s+\d+/,
+    /galaxy\s+a\d+/,
+    /samsung\s+galaxy\s+a\d+/,
+    /redmi\s+note\s+\d+/,
+    /infinix\s+hot\s+\d+\w*/,
+    /iphone\s+\d+/,
+    /poco\s+\w+\d*/,
+    /ps5/,
+    /xbox\s+series\s+[sx]/,
+    /macbook\s+\w+/
+  ];
+
+  for (const pattern of knownPatterns) {
+    const match = t.match(pattern);
+    if (match?.[0]) return match[0].trim();
+  }
+
+  return t.split(" ").slice(0, 5).join(" ").trim();
 }
 
 function extractProductsFromText(text = "") {
