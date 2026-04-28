@@ -86,7 +86,62 @@ function extractProductsFromMessages(messages = []) {
 
   return found.slice(-5);
 }
+function responseMentionsUnknownProduct(reply = "", allowedProducts = []) {
+  const text = normalizeQuery(reply);
 
+  if (!text || !Array.isArray(allowedProducts) || allowedProducts.length === 0) {
+    return false;
+  }
+
+  const allowedKeys = allowedProducts
+    .map((p) => normalizeProductKey(p.product_name || ""))
+    .filter(Boolean);
+
+  const sentences = String(reply)
+    .split(/[.\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  for (const sentence of sentences) {
+    const sentenceKey = normalizeProductKey(sentence);
+
+    const mentionsAllowed = allowedKeys.some((key) => {
+      return key && (sentenceKey.includes(key) || key.includes(sentenceKey));
+    });
+
+    if (!mentionsAllowed && sentenceKey.length > 10) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function buildSafeDecisionReply(allowedProducts = []) {
+  if (!Array.isArray(allowedProducts) || allowedProducts.length === 0) {
+    return "Pelo contexto, eu escolheria a opção principal que apareceu antes, sem inventar modelo novo.";
+  }
+
+  const first = allowedProducts[0];
+  const second = allowedProducts[1];
+  const third = allowedProducts[2];
+
+  let reply = `Eu compraria o **${cleanTitle(first.product_name)}**.`;
+
+  reply += `\n\nEle foi a melhor opção dentro do que apareceu na conversa.`;
+
+  if (second || third) {
+    reply += `\n\nComparando rápido:`;
+
+    if (first) reply += `\n- **${cleanTitle(first.product_name)}**: melhor escolha geral.`;
+    if (second) reply += `\n- **${cleanTitle(second.product_name)}**: alternativa dependendo do seu uso.`;
+    if (third) reply += `\n- **${cleanTitle(third.product_name)}**: outra opção dentro do contexto.`;
+  }
+
+  reply += `\n\nNão vou sugerir outro modelo fora dessas opções pra não te passar algo sem base.`;
+
+  return reply;
+}
 function buildSessionContext(messages = [], sessionContext = {}) {
   const inferredProducts = extractProductsFromMessages(messages);
 
