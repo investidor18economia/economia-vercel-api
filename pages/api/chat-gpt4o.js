@@ -1,15 +1,112 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
 import { MIA_SYSTEM_PROMPT } from "../../lib/miaPrompt";
+function normalizeProductKey(title = "") {
+  return normalizeQuery(title)
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractProductsFromText(text = "") {
+  const products = [];
+  const content = String(text || "");
+
+  const priceMatch = content.match(/R\$\s*[\d.,]+/i);
+  const price = priceMatch ? priceMatch[0] : null;
+
+  const boldRegex = /\*\*([^*]{8,140})\*\*/g;
+  let match;
+
+  while ((match = boldRegex.exec(content)) !== null) {
+    const title = cleanTitle(match[1]);
+
+    if (
+      title &&
+      !/se quiser|porque|minha escolha|olhei aqui|só escolheria|em relação/i.test(title)
+    ) {
+      products.push({
+        product_name: title,
+        price,
+        source: "histórico",
+        link: null,
+        thumbnail: null
+      });
+    }
+  }
+
+  const directPatterns = [
+    /(?:eu iria nesse|eu iria nessa|eu escolheria|minha escolha principal seria|a melhor escolha.*?seria)\s+(?:o|a)?\s*([^.\n]{8,120})/i,
+    /(?:produto|opção)\s+(?:principal\s+)?(?:seria|é)\s+(?:o|a)?\s*([^.\n]{8,120})/i
+  ];
+
+  for (const pattern of directPatterns) {
+    const found = content.match(pattern);
+    if (found?.[1]) {
+      let title = cleanTitle(found[1])
+        .replace(/\s+por\s+R\$.*/i, "")
+        .replace(/\s+que\s+est[aá].*/i, "")
+        .trim();
+
+      if (title.length >= 8) {
+        products.push({
+          product_name: title,
+          price,
+          source: "histórico",
+          link: null,
+          thumbnail: null
+        });
+      }
+    }
+  }
+
+  return products;
+}
+
+function extractProductsFromMessages(messages = []) {
+  const found = [];
+  const seen = new Set();
+
+  for (const msg of messages) {
+    const role = String(msg?.role || "").toLowerCase();
+    const content = String(msg?.content || "");
+
+    if (role !== "assistant" || !content) continue;
+
+    const products = extractProductsFromText(content);
+
+    for (const product of products) {
+      const key = normalizeProductKey(product.product_name);
+      if (!key || seen.has(key)) continue;
+
+      seen.add(key);
+      found.push(product);
+    }
+  }
+
+  return found.slice(-5);
+}
+
 function buildSessionContext(messages = [], sessionContext = {}) {
+  const inferredProducts = extractProductsFromMessages(messages);
+
   const context = {
     lastQuery: sessionContext?.lastQuery || "",
     lastCategory: sessionContext?.lastCategory || "",
-    lastProducts: sessionContext?.lastProducts || [],
-    lastBestProduct: sessionContext?.lastBestProduct || null,
+    lastProducts:
+      Array.isArray(sessionContext?.lastProducts) && sessionContext.lastProducts.length
+        ? sessionContext.lastProducts
+        : inferredProducts,
+    lastBestProduct:
+      sessionContext?.lastBestProduct ||
+      inferredProducts[inferredProducts.length - 1] ||
+      null,
     lastIntent: sessionContext?.lastIntent || "",
     lastTopic: sessionContext?.lastTopic || "",
-    lastProductMentioned: sessionContext?.lastProductMentioned || "",
+    lastProductMentioned:
+      sessionContext?.lastProductMentioned ||
+      inferredProducts[inferredProducts.length - 1]?.product_name ||
+      "",
     lastInteractionType: sessionContext?.lastInteractionType || ""
   };
 
