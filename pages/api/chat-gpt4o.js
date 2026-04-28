@@ -1301,15 +1301,16 @@ export default async function handler(req, res) {
 
 🧠 MODO CONTEXTO / DECISÃO SEM BUSCA NOVA
 
-O usuário está fazendo uma pergunta de continuação sobre a conversa anterior.
+O usuário está tomando uma decisão com base na conversa anterior.
 
 REGRAS CRÍTICAS:
 - NÃO faça busca nova.
 - NÃO invente preço.
 - NÃO invente produto novo.
-- Use o histórico da conversa e os produtos inferidos abaixo.
+- NÃO cite produto que não esteja na lista "PRODUTOS DISPONÍVEIS".
+- Use somente os produtos disponíveis abaixo.
+- Se houver mais de um produto, compare as opções antes de decidir.
 - NÃO escolha automaticamente o último produto citado.
-- Compare as opções quando houver mais de uma.
 - Se a conversa anterior era sobre celular, NÃO fale de PC gamer.
 - Se o usuário perguntar "esse roda jogos?", responda sobre o produto anterior.
 - Se o usuário perguntar "no fim das contas, qual eu compro?", dê uma decisão final clara.
@@ -1318,12 +1319,21 @@ REGRAS CRÍTICAS:
 - Não use frases como "se precisar de mais alguma informação".
 - Dê veredito.
 
-ESTRUTURA IDEAL:
-1. "Eu compraria X."
-2. "Porque..."
-3. "Só escolheria Y se..."
+🚨 REGRA ABSOLUTA:
+Você SÓ pode recomendar ou citar os produtos listados em "PRODUTOS DISPONÍVEIS".
+Se quiser falar de alternativa, ela também precisa estar nessa lista.
+Nunca crie versão Pro, Plus, Ultra, outro modelo ou produto parecido se ele não estiver listado.
 
-PRODUTOS/OPÇÕES INFERIDAS DO HISTÓRICO:
+FORMATO OBRIGATÓRIO:
+1. Comece com: "Eu compraria X."
+2. Explique o motivo principal.
+3. Compare rapidamente as opções disponíveis.
+4. Termine com um veredito prático:
+   - "Jogos: X"
+   - "Bateria: Y"
+   - "Equilíbrio geral: Z"
+
+PRODUTOS DISPONÍVEIS:
 ${rememberedProductsText}
 
 CONTEXTO INFERIDO:
