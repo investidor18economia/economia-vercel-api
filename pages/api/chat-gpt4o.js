@@ -1438,11 +1438,33 @@ products = products.filter((p) => !isBadProduct(p.product_name, resolvedQuery));
     products = products.filter(p => productMatchesCategory(p, categoryFromContext));
 
 if (!Array.isArray(products) || !products.length) {
-      return res.status(200).json({
-        reply: "⚠️ Não encontrei resultados suficientes por enquanto. Se quiser, eu posso refinar por tipo de uso, faixa de preço ou modelo.",
-        prices: []
-      });
+  console.warn("⚠️ busca refinada falhou, tentando fallback...");
+
+  // 🔁 fallback: tenta buscar usando a última query forte
+  const fallbackQuery = getLastStrongUserQuery(conversationMessages, query);
+
+  if (fallbackQuery && fallbackQuery !== resolvedQuery) {
+    console.warn("🔁 fallback usando:", fallbackQuery);
+
+    let fallbackProducts = await fetchSerpPrices(fallbackQuery, 10);
+
+    fallbackProducts = fallbackProducts.filter((p) =>
+      productMatchesCategory(p, fallbackQuery)
+    );
+
+    if (fallbackProducts.length > 0) {
+      products = fallbackProducts;
     }
+  }
+
+  // se ainda não tiver nada → aí sim retorna erro
+  if (!products || products.length === 0) {
+    return res.status(200).json({
+      reply: "⚠️ Não encontrei resultados suficientes por enquanto. Se quiser, eu posso refinar melhor pra você.",
+      prices: []
+    });
+  }
+}
 
     if (budget) {
       const filteredByBudget = products.filter((p) => {
