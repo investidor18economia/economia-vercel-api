@@ -1819,6 +1819,10 @@ const isDecisionIntent =
     const rememberedProducts = Array.isArray(sessionContext.lastProducts)
       ? sessionContext.lastProducts
       : [];
+          const preferredProductName =
+      sessionContext.lastProductMentioned ||
+      sessionContext.lastBestProduct?.product_name ||
+      "";
 
     const rememberedProductsText = rememberedProducts.length
       ? rememberedProducts
