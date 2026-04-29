@@ -319,6 +319,7 @@ function buildSessionContext(messages = [], sessionContext = {}, currentQuery = 
       sessionContext?.lastBestProduct ||
       null,
     lastIntent: sessionContext?.lastIntent || "",
+    lastPriority: mergeUserPriority(sessionContext?.lastPriority || "", detectUserPriority(currentQuery)),
     lastTopic: sessionContext?.lastTopic || "",
     lastProductMentioned:
       rememberedProducts[rememberedProducts.length - 1]?.product_name ||
