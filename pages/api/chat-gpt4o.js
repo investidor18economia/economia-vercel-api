@@ -300,15 +300,19 @@ function buildSessionContext(messages = [], sessionContext = {}, currentQuery = 
 
   const inferredProducts = extractProductsFromMessages(messages, categoryHint);
 
-  const sessionProducts = Array.isArray(sessionContext?.lastProducts)
+    const sessionProducts = Array.isArray(sessionContext?.lastProducts)
     ? sessionContext.lastProducts
     : [];
 
-  const rememberedProducts = mergeRememberedProducts(
-    inferredProducts,
-    sessionProducts,
-    categoryHint
-  );
+  const inferredCleanProducts = sanitizeRememberedProducts(inferredProducts, categoryHint);
+  const sessionCleanProducts = sanitizeRememberedProducts(sessionProducts, categoryHint);
+
+  // Regra de segurança:
+  // se o histórico atual tem produtos, ele manda.
+  // session_context antigo só entra quando o histórico atual não tiver nada.
+  const rememberedProducts = inferredCleanProducts.length
+    ? inferredCleanProducts
+    : sessionCleanProducts;
 
   const context = {
     lastQuery: sessionContext?.lastQuery || "",
