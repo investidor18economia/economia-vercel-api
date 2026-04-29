@@ -2958,7 +2958,38 @@ if (isComparison && comparisonProducts.length >= 2) {
   activePriority || // 🔥 PRIMEIRO USA O ATUAL
   sessionContext.lastPriority || // 🔥 DEPOIS O CONTEXTO
   "";
+if (isComparison && comparisonProducts.length >= 2) {
+  const comparisonPriority =
+    detectUserPriority(query) ||
+    detectUserPriority(resolvedQuery) ||
+    activePriority ||
+    sessionContext.lastPriority ||
+    "";
 
+  console.log("PRIORIDADE FINAL:", comparisonPriority);
+  console.log("QUERY:", query);
+  console.log("RESOLVED QUERY:", resolvedQuery);
+  console.log("SESSION LAST PRIORITY:", sessionContext.lastPriority);
+  console.log("ACTIVE PRIORITY:", activePriority);
+
+  comparisonWinnerProduct = getBestSmartComparisonProduct(
+    comparisonProducts,
+    comparisonPriority,
+    resolvedQuery
+  );
+
+  const comparisonReply = buildSmartComparisonReply(
+    comparisonProducts,
+    comparisonPriority,
+    resolvedQuery,
+    comparisonWinnerProduct
+  );
+
+  if (comparisonReply) {
+    reply = comparisonReply;
+  }
+}
+  
   comparisonWinnerProduct = getBestSmartComparisonProduct(
     comparisonProducts,
     comparisonPriority,
