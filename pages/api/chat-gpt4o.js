@@ -2468,16 +2468,28 @@ Regras:
     }
 
     const isComparison =
-      intent === "comparison" ||
-      / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
+  intent === "comparison" ||
+  / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
 
-    if (!isComparison && reply && reply.length > 250) {
-      reply = reply.slice(0, 250).trim();
+if (isComparison && topProductsForAI.length >= 2) {
+  const comparisonReply = buildSmartComparisonReply(
+    topProductsForAI,
+    activePriority || detectUserPriority(resolvedQuery),
+    resolvedQuery
+  );
 
-      if (!reply.endsWith(".") && reply.includes(".")) {
-        reply = reply.substring(0, reply.lastIndexOf(".") + 1);
-      }
-    }
+  if (comparisonReply) {
+    reply = comparisonReply;
+  }
+}
+
+if (!isComparison && reply && reply.length > 250) {
+  reply = reply.slice(0, 250).trim();
+
+  if (!reply.endsWith(".") && reply.includes(".")) {
+    reply = reply.substring(0, reply.lastIndexOf(".") + 1);
+  }
+}
 
     if (!reply || reply.length < 20) {
       reply = buildFallbackReply(intent, bestProduct, period);
