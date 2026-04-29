@@ -900,7 +900,30 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const priorityLabel = getPriorityLabel(activePriority);
   const bestPoint = getContrastPoint(best, second, activePriority);
 
-let secondPoint = getContrastPoint(second, best, "");
+// 🔥 NOVA LÓGICA: força contraste real
+const secondSignals = second.signals || {};
+const bestSignals = best.signals || {};
+
+const candidates = ["battery", "performance", "camera", "storage", "value"];
+
+let secondPoint = null;
+
+// tenta achar melhor ponto DIFERENTE do bestPoint
+const sortedSecond = Object.entries(secondSignals)
+  .filter(([key]) => key !== bestPoint)
+  .sort((a, b) => b[1] - a[1]);
+
+if (sortedSecond.length > 0 && sortedSecond[0][1] > 0) {
+  const labels = {
+    battery: "bateria",
+    performance: "desempenho",
+    camera: "câmera",
+    storage: "armazenamento",
+    value: "custo-benefício"
+  };
+
+  secondPoint = labels[sortedSecond[0][0]] || "custo-benefício";
+}
  // 🔥 GARANTIA FINAL: nunca permitir pontos iguais
 if (secondPoint === bestPoint || !secondPoint) {
   const rawTitle = (second.product_name || "").toLowerCase();
