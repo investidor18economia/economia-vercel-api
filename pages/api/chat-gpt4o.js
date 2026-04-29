@@ -2661,10 +2661,20 @@ const comparisonProducts =
       ? mentionedComparisonProducts
       : topProductsForAI;
 
+let comparisonWinnerProduct = null;
+
 if (isComparison && comparisonProducts.length >= 2) {
+  const comparisonPriority = activePriority || detectUserPriority(resolvedQuery);
+
+  comparisonWinnerProduct = getBestSmartComparisonProduct(
+    comparisonProducts,
+    comparisonPriority,
+    resolvedQuery
+  );
+
   const comparisonReply = buildSmartComparisonReply(
     comparisonProducts,
-    activePriority || detectUserPriority(resolvedQuery),
+    comparisonPriority,
     resolvedQuery
   );
 
