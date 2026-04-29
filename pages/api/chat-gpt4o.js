@@ -855,10 +855,10 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   reply += `\n- ${best.title}: leva vantagem em ${bestPoint}.`;
 
   if (secondPoint && secondPoint !== bestPoint) {
-    reply += `\n- ${second.title}: só ganha força se você priorizar ${secondPoint}.`;
-  } else {
-    reply += `\n- ${second.title}: fica como alternativa, mas não vejo ele vencendo no ponto principal.`;
-  }
+  reply += `\n- ${second.title}: só vale mais se você priorizar ${secondPoint}.`;
+} else {
+  reply += `\n- ${second.title}: é alternativa, mas eu não escolheria acima do ${best.title}.`;
+}
 
   reply += `\n\nResumo: eu iria no ${best.title}.`;
 
