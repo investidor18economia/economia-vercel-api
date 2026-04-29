@@ -903,7 +903,8 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
 let secondPoint = getContrastPoint(second, best, "");
  // 🔥 GARANTIA FINAL: nunca permitir pontos iguais
 if (secondPoint === bestPoint || !secondPoint) {
-  const title = normalizeQuery(second.product_name || "");
+  const rawTitle = (second.product_name || "").toLowerCase();
+const title = normalizeQuery(second.product_name || "");
 
   // 🔋 bateria forte
   if (/6300\s*mah|6000\s*mah|bateria/.test(title)) {
