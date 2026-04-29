@@ -2513,9 +2513,22 @@ Regras:
   intent === "comparison" ||
   / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
 
-if (isComparison && topProductsForAI.length >= 2) {
+const rememberedForComparison = Array.isArray(sessionContext.lastProducts)
+  ? sessionContext.lastProducts
+  : [];
+
+const mentionedComparisonProducts = isComparison
+  ? getComparisonProductsFromMemory(resolvedQuery, rememberedForComparison)
+  : [];
+
+const comparisonProducts =
+  mentionedComparisonProducts.length >= 2
+    ? mentionedComparisonProducts
+    : topProductsForAI;
+
+if (isComparison && comparisonProducts.length >= 2) {
   const comparisonReply = buildSmartComparisonReply(
-    topProductsForAI,
+    comparisonProducts,
     activePriority || detectUserPriority(resolvedQuery),
     resolvedQuery
   );
