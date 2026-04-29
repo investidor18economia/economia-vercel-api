@@ -420,15 +420,25 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
 };
 
   const ranked = [...products]
-    .map((p) => {
-      const criteria = scoreCriteria(p);
-      return {
-        ...p,
-        decisionCriteria: criteria,
-        decisionScore: pickScore(criteria)
-      };
-    })
-    .sort((a, b) => b.decisionScore - a.decisionScore);
+  .map((p) => {
+    const criteria = scoreCriteria(p);
+    const familyKey = getProductFamilyKey(p.product_name || "");
+
+    const winnerBias =
+      preferredFamilyKey && familyKey === preferredFamilyKey
+        ? priority
+          ? 180
+          : 60
+        : 0;
+
+    return {
+      ...p,
+      decisionCriteria: criteria,
+      winnerBias,
+      decisionScore: pickScore(criteria) + winnerBias
+    };
+  })
+  .sort((a, b) => b.decisionScore - a.decisionScore);
 
   const best = ranked[0];
   const second = ranked[1];
