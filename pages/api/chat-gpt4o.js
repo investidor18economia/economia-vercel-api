@@ -269,26 +269,24 @@ function responseMentionsUnknownProduct(reply = "", allowedProducts = []) {
 }
 function buildSafeDecisionReply(allowedProducts = []) {
   if (!Array.isArray(allowedProducts) || allowedProducts.length === 0) {
-    return "Pelo contexto, eu escolheria a opção principal que apareceu antes, sem inventar modelo novo.";
+    return "Pelo contexto, eu escolheria a opção principal que apareceu antes.";
   }
 
   const first = allowedProducts[0];
   const second = allowedProducts[1];
   const third = allowedProducts[2];
 
-  let reply = `Eu compraria o **${cleanTitle(first.product_name)}**.`;
+  let reply = `Eu compraria o ${cleanTitle(first.product_name)}.`;
 
-  reply += `\n\nEle foi a melhor opção dentro do que apareceu na conversa.`;
+  reply += `\n\nEle parece a opção mais equilibrada dentro do que apareceu na conversa.`;
 
   if (second || third) {
     reply += `\n\nComparando rápido:`;
 
-    if (first) reply += `\n- **${cleanTitle(first.product_name)}**: melhor escolha geral.`;
-    if (second) reply += `\n- **${cleanTitle(second.product_name)}**: alternativa dependendo do seu uso.`;
-    if (third) reply += `\n- **${cleanTitle(third.product_name)}**: outra opção dentro do contexto.`;
+    if (first) reply += `\n- ${cleanTitle(first.product_name)}: melhor escolha geral.`;
+    if (second) reply += `\n- ${cleanTitle(second.product_name)}: alternativa dependendo do seu uso.`;
+    if (third) reply += `\n- ${cleanTitle(third.product_name)}: outra opção dentro do contexto.`;
   }
-
-  reply += `\n\nNão vou sugerir outro modelo fora dessas opções pra não te passar algo sem base.`;
 
   return reply;
 }
