@@ -299,6 +299,7 @@ function buildDecisionEngineReply(allowedProducts = [], priority = "", preferred
 
   const getText = (p) => normalizeQuery(p?.product_name || "");
   const getPrice = (p) => parsePrice(p?.price);
+    const preferredFamilyKey = getProductFamilyKey(preferredProductName || "");
 
   const scoreCriteria = (product) => {
     const title = getText(product);
