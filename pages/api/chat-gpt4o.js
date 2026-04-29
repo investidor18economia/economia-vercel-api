@@ -920,7 +920,7 @@ let secondPoint = null;
 
 // tenta achar melhor ponto DIFERENTE do bestPoint
 const sortedSecond = Object.entries(secondSignals)
-  .filter(([key]) => key !== bestPoint)
+  .filter(([key]) => key !== bestKey)
   .sort((a, b) => b[1] - a[1]);
 
 if (sortedSecond.length > 0 && sortedSecond[0][1] > 0) {
