@@ -729,20 +729,28 @@ function getDetectedUseIntent(query) {
     return "battery";
   }
 
-  if (/jogo|jogar|gamer|roda|fps|desempenho|performance|potente|mais forte|aguenta/.test(q)) {
+  if (/placa de video|placa de vídeo|gpu|rtx|gtx|radeon|jogo|jogar|gamer|roda|fps|desempenho|performance|potente|mais forte|aguenta|processador|cpu/.test(q)) {
     return "performance";
   }
 
-  if (/camera|câmera|foto|fotos|video|vídeo|selfie/.test(q)) {
+  if (/camera|câmera|foto|fotos|video|vídeo|selfie|filmagem|gravar|gravação|gravacao/.test(q)) {
     return "camera";
   }
 
-  if (/barato|barata|menor preco|menor preço|economia|custo beneficio|custo-beneficio|compensa/.test(q)) {
+  if (/barato|barata|menor preco|menor preço|economia|custo beneficio|custo-beneficio|compensa|vale a pena/.test(q)) {
     return "value";
   }
 
-  if (/armazenamento|espaco|espaço|128gb|256gb|512gb|1tb|memoria|memória/.test(q)) {
+  if (/armazenamento|espaco|espaço|128gb|256gb|512gb|1tb|memoria|memória|ssd|hd/.test(q)) {
     return "storage";
+  }
+
+  if (/conforto|ergonomia|ergonomica|ergonômica|coluna|lombar|postura/.test(q)) {
+    return "comfort";
+  }
+
+  if (/consumo|energia|economico|econômico|gasta pouco|eficiencia|eficiência|procel|inverter/.test(q)) {
+    return "efficiency";
   }
 
   return "";
