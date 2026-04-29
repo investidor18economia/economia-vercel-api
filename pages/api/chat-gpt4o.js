@@ -920,35 +920,21 @@ if (forcedBest) {
 } else {
   best = scored[0];
 }
-  ...forcedBest,
-  signals: forcedBest.signals || getComparisonSignals(forcedBest),
-  title: getStrongDisplayTitle(forcedBest.product_name)
-} : scored[0];
 
-if (forcedBest) {
-  best = {
-    ...forcedBest,
-    signals: forcedBest.signals || getComparisonSignals(forcedBest)
-  };
-}
+// 🔥 garantir que best sempre tenha signals e title
+best = {
+  ...best,
+  signals: best.signals || getComparisonSignals(best),
+  title: getStrongDisplayTitle(best.product_name || best.title)
+};
 
-let second = cleanProducts
-  .filter(p => p.product_name !== best.product_name)[0] || scored[1];
+let second =
+  cleanProducts.filter(p => p.product_name !== best.product_name)[0] ||
+  scored[1];
 
 second = {
   ...second,
   signals: second.signals || getComparisonSignals(second),
-  title: getStrongDisplayTitle(second.product_name)
-};
-
-// 🔥 GARANTIR TITLE SEMPRE
-best = {
-  ...best,
-  title: getStrongDisplayTitle(best.product_name || best.title)
-};
-
-second = {
-  ...second,
   title: getStrongDisplayTitle(second.product_name || second.title)
 };
 
