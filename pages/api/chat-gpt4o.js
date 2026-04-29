@@ -804,6 +804,64 @@ function getContrastPoint(product = {}, opponent = {}, preferred = "") {
   return "custo-benefício";
 }
 
+function getContrastReason(product = {}, point = "") {
+  const title = normalizeQuery(product.product_name || product.title || "");
+
+  if (point === "bateria") {
+    if (/6300\s*mah|6000\s*mah/.test(title)) {
+      return "porque tem bateria bem maior e deve aguentar mais tempo longe da tomada";
+    }
+
+    return "porque tende a entregar mais autonomia no uso diário";
+  }
+
+  if (point === "armazenamento") {
+    if (/512gb|1tb/.test(title)) {
+      return "porque entrega bastante espaço para apps, fotos e arquivos";
+    }
+
+    if (/256gb/.test(title)) {
+      return "porque já vem com bom espaço interno para o dia a dia";
+    }
+
+    return "porque oferece mais folga para guardar arquivos e aplicativos";
+  }
+
+  if (point === "desempenho") {
+    if (/16gb|32gb/.test(title)) {
+      return "porque tem mais memória para multitarefa e uso mais pesado";
+    }
+
+    if (/8gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen|rtx|gtx/.test(title)) {
+      return "porque tende a entregar mais fôlego para apps, jogos e multitarefa";
+    }
+
+    return "porque parece mais forte para uso no dia a dia";
+  }
+
+  if (point === "câmera") {
+    if (/iphone|pro|max/.test(title)) {
+      return "porque tende a entregar fotos mais consistentes e um conjunto de câmera mais confiável";
+    }
+
+    if (/50mp|64mp|108mp/.test(title)) {
+      return "porque tem especificação de câmera mais forte no papel";
+    }
+
+    return "porque parece mais seguro para fotos e vídeos";
+  }
+
+  if (point === "segurança da escolha") {
+    return "porque parece uma compra com menos risco pelo conjunto de marca, garantia e anúncio";
+  }
+
+  if (point === "custo-benefício") {
+    return "porque entrega um conjunto mais interessante pelo que aparece no anúncio";
+  }
+
+  return "porque faz mais sentido no conjunto geral da compra";
+}
+
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
