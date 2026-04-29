@@ -932,9 +932,14 @@ if (forcedBest) {
   };
 }
 
-let second =
-  scored.find(p => p.product_name !== best.product_name) ||
-  scored[1];
+let second = cleanProducts
+  .filter(p => p.product_name !== best.product_name)[0] || scored[1];
+
+second = {
+  ...second,
+  signals: second.signals || getComparisonSignals(second),
+  title: getStrongDisplayTitle(second.product_name)
+};
 
 // 🔥 GARANTIR TITLE SEMPRE
 best = {
