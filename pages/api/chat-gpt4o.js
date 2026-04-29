@@ -2956,7 +2956,7 @@ if (isComparison && comparisonProducts.length >= 2) {
   comparisonProducts,
   comparisonPriority,
   resolvedQuery,
-  comparisonWinnerProduct // 🔥 NOVO
+  comparisonWinnerProduct // 🔥 ESSA LINHA MUDA TUDO
 );
 
   if (comparisonReply) {
