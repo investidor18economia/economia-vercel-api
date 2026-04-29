@@ -746,6 +746,7 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
 function getContrastPoint(product = {}, opponent = {}, preferred = "") {
   const signals = product.signals || {};
   const opponentSignals = opponent.signals || {};
+  const title = normalizeQuery(product.product_name || product.title || "");
 
   const labels = {
     battery: "bateria",
@@ -763,7 +764,7 @@ function getContrastPoint(product = {}, opponent = {}, preferred = "") {
     signals[preferred] !== undefined &&
     signals[preferred] > (opponentSignals[preferred] || 0)
   ) {
-    return labels[preferred] || "equilíbrio geral";
+    return labels[preferred] || "custo-benefício";
   }
 
   const bestDiff = candidates
@@ -774,7 +775,33 @@ function getContrastPoint(product = {}, opponent = {}, preferred = "") {
     .filter((item) => item.diff > 0)
     .sort((a, b) => b.diff - a.diff)[0];
 
-  return labels[bestDiff?.key] || "equilíbrio geral";
+  if (bestDiff?.key) {
+    return labels[bestDiff.key] || "custo-benefício";
+  }
+
+  // Fallback inteligente por características reais do título.
+  // Evita resposta genérica tipo "equilíbrio geral".
+  if (/6300\s*mah|6000\s*mah|bateria|autonomia/.test(title)) {
+    return "bateria";
+  }
+
+  if (/256gb|512gb|1tb|armazenamento/.test(title)) {
+    return "armazenamento";
+  }
+
+  if (/16gb|8gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen|rtx|gtx/.test(title)) {
+    return "desempenho";
+  }
+
+  if (/iphone|pro|max|50mp|64mp|108mp|camera|câmera/.test(title)) {
+    return "câmera";
+  }
+
+  if (/novo|lacrado|garantia|original/.test(title)) {
+    return "segurança da escolha";
+  }
+
+  return "custo-benefício";
 }
 
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
