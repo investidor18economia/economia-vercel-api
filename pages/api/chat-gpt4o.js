@@ -743,6 +743,40 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
   return scored[0] || null;
 }
 
+function getContrastPoint(product = {}, opponent = {}, preferred = "") {
+  const signals = product.signals || {};
+  const opponentSignals = opponent.signals || {};
+
+  const labels = {
+    battery: "bateria",
+    performance: "desempenho",
+    camera: "câmera",
+    storage: "armazenamento",
+    value: "custo-benefício",
+    reliability: "segurança da escolha"
+  };
+
+  const candidates = ["battery", "performance", "camera", "storage", "value", "reliability"];
+
+  if (
+    preferred &&
+    signals[preferred] !== undefined &&
+    signals[preferred] > (opponentSignals[preferred] || 0)
+  ) {
+    return labels[preferred] || "equilíbrio geral";
+  }
+
+  const bestDiff = candidates
+    .map((key) => ({
+      key,
+      diff: (signals[key] || 0) - (opponentSignals[key] || 0)
+    }))
+    .filter((item) => item.diff > 0)
+    .sort((a, b) => b.diff - a.diff)[0];
+
+  return labels[bestDiff?.key] || "equilíbrio geral";
+}
+
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
@@ -755,9 +789,16 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const scored = cleanProducts
     .map((product) => {
       const signals = getComparisonSignals(product);
-      const decisionScore = activePriority && signals[activePriority] !== undefined
-        ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
-        : signals.value + signals.reliability + signals.performance + signals.battery + signals.camera + signals.storage;
+
+      const decisionScore =
+        activePriority && signals[activePriority] !== undefined
+          ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
+          : signals.value +
+            signals.reliability +
+            signals.performance +
+            signals.battery +
+            signals.camera +
+            signals.storage;
 
       return {
         ...product,
@@ -772,8 +813,8 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const second = scored[1];
 
   const priorityLabel = getPriorityLabel(activePriority);
-  const bestPoint = getBestComparisonPoint(best.signals);
-  const secondPoint = getBestComparisonPoint(second.signals);
+  const bestPoint = getContrastPoint(best, second, activePriority);
+  const secondPoint = getContrastPoint(second, best, "");
 
   let reply = `Entre esses, eu iria no ${best.title}.`;
 
@@ -784,10 +825,15 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   }
 
   reply += `\n\nComparando de forma simples:`;
-  reply += `\n- ${best.title}: melhor em ${bestPoint}.`;
-  reply += `\n- ${second.title}: faz mais sentido se você priorizar ${secondPoint}.`;
+  reply += `\n- ${best.title}: leva vantagem em ${bestPoint}.`;
 
-  reply += `\n\nResumo: se você quer decidir sem complicar, eu iria no ${best.title}.`;
+  if (secondPoint && secondPoint !== bestPoint) {
+    reply += `\n- ${second.title}: só ganha força se você priorizar ${secondPoint}.`;
+  } else {
+    reply += `\n- ${second.title}: fica como alternativa, mas não vejo ele vencendo no ponto principal.`;
+  }
+
+  reply += `\n\nResumo: eu iria no ${best.title}.`;
 
   return reply.replace(/\*\*/g, "").trim();
 }
