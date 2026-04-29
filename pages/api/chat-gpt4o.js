@@ -2526,7 +2526,7 @@ const comparisonProducts =
     ? mentionedComparisonProducts
     : topProductsForAI;
 
-if (isComparison && comparisonProducts.length >= 2) {
+if (isComparison && comparisonProducts.length >= 2 && finalProducts.length > 0) {
   const comparisonReply = buildSmartComparisonReply(
     comparisonProducts,
     activePriority || detectUserPriority(resolvedQuery),
