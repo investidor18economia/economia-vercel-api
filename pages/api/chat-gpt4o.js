@@ -909,7 +909,17 @@ function buildSmartComparisonReply(products = [], priority = "", query = "", for
     })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
-let best = forcedBest ? {
+let best;
+
+if (forcedBest) {
+  best = {
+    ...forcedBest,
+    signals: forcedBest.signals || getComparisonSignals(forcedBest),
+    title: getStrongDisplayTitle(forcedBest.product_name)
+  };
+} else {
+  best = scored[0];
+}
   ...forcedBest,
   signals: forcedBest.signals || getComparisonSignals(forcedBest),
   title: getStrongDisplayTitle(forcedBest.product_name)
