@@ -874,7 +874,7 @@ function getContrastReason(product = {}, point = "") {
   return "porque faz mais sentido no conjunto geral da compra";
 }
 
-function buildSmartComparisonReply(products = [], priority = "", query = "") {
+function buildSmartComparisonReply(products = [], priority = "", query = "", forcedBest = null)
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
   if (cleanProducts.length < 2) {
@@ -909,8 +909,8 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
     })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
-let best = scored[0];
-let second = scored[1];
+let best = forcedBest || scored[0];
+let second = scored.find(p => p !== best) || scored[1];
 
 // 🔥 PRIORIDADE PODE TROCAR O VENCEDOR
 if (activePriority) {
@@ -2931,10 +2931,11 @@ if (isComparison && comparisonProducts.length >= 2) {
   );
 
   const comparisonReply = buildSmartComparisonReply(
-    comparisonProducts,
-    comparisonPriority,
-    resolvedQuery
-  );
+  comparisonProducts,
+  comparisonPriority,
+  resolvedQuery,
+  comparisonWinnerProduct // 🔥 NOVO
+);
 
   if (comparisonReply) {
     reply = comparisonReply;
