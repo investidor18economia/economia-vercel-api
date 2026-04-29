@@ -1385,6 +1385,16 @@ Instruções para esta resposta:
 - NÃO repita o preço na resposta, porque o preço já aparece no card visual.
 - Use a resposta para explicar o motivo prático da escolha: desempenho, bateria, câmera, armazenamento, segurança da marca, economia ou tipo de uso.
 - Explique de forma simples por que esse produto faz sentido para o usuário.
+- NÃO use padrões robóticos como:
+  "Ele tem...", "Além disso...", "Ele oferece..."
+
+- Prefira linguagem natural, como:
+  "Ele aguenta bem o dia a dia"
+  "Vai rodar tranquilo o que você precisa"
+  "Dá conta sem dor de cabeça"
+  "É uma escolha bem segura nessa faixa"
+
+- Escreva como uma pessoa real explicando rápido, não como descrição de loja.
 - Se houver uma segunda opção realmente relevante, mencione como alternativa curta.
 - Não diga "separei duas opções" se você não for explicar claramente as duas.
 - Não liste produtos como catálogo.
