@@ -294,90 +294,180 @@ function buildDecisionEngineReply(allowedProducts = [], priority = "") {
   const products = sanitizeRememberedProducts(allowedProducts);
 
   if (!Array.isArray(products) || products.length === 0) {
-    return "Eu preciso de pelo menos uma opção válida no histórico para te dar um veredito seguro.";
+    return "Preciso de pelo menos uma opção válida no histórico para te dar um veredito seguro.";
   }
 
   const getText = (p) => normalizeQuery(p?.product_name || "");
   const getPrice = (p) => parsePrice(p?.price);
 
-  const scoreByPriority = (product) => {
+  const scoreCriteria = (product) => {
     const title = getText(product);
     const price = getPrice(product);
 
-    let score = 0;
+    const criteria = {
+      battery: 0,
+      performance: 0,
+      camera: 0,
+      storage: 0,
+      value: 0,
+      comfort: 0,
+      efficiency: 0,
+      reliability: 0
+    };
 
+    // Custo-benefício base: preço importa, mas não pode dominar tudo.
     if (!Number.isNaN(price)) {
-      score += Math.max(0, 3000 - price) / 80;
+      criteria.value += Math.max(0, 3000 - price) / 120;
     }
 
-    if (/5g/.test(title)) score += 8;
-    if (/256gb/.test(title)) score += 8;
-    if (/8gb/.test(title)) score += 6;
-    if (/16gb/.test(title)) score += 5;
-    if (/motorola|samsung|xiaomi|realme|iphone/.test(title)) score += 5;
-
-    if (priority === "battery") {
-      if (/6300mah|6000mah|5500mah/.test(title)) score += 45;
-      if (/5000mah/.test(title)) score += 25;
-      if (/bateria/.test(title)) score += 15;
+    // Confiabilidade geral.
+    if (/motorola|samsung|xiaomi|realme|iphone|lg|brastemp|electrolux|consul|dell|lenovo|acer|asus|philips|aoc|lg|sony|microsoft|playstation|xbox/.test(title)) {
+      criteria.reliability += 12;
+      criteria.value += 6;
     }
 
-    if (priority === "performance") {
-      if (/g81|helio|snapdragon|dimensity|8gb|16gb|90hz|120hz/.test(title)) score += 20;
-      if (/4gb/.test(title)) score -= 15;
+    if (/novo|lacrado|garantia|original/.test(title)) {
+      criteria.reliability += 12;
+      criteria.value += 8;
     }
 
-    if (priority === "camera") {
-      if (/50mp|64mp|108mp|camera|câmera/.test(title)) score += 25;
+    if (/usado|seminovo|recondicionado|vitrine|certificado|excelente/.test(title)) {
+      criteria.reliability -= 35;
+      criteria.value -= 25;
     }
 
-    if (priority === "storage") {
-      if (/256gb/.test(title)) score += 25;
-      if (/128gb/.test(title)) score += 10;
+    // Bateria / autonomia / consumo.
+    const mahMatch = title.match(/(\d{4,5})\s*mah/);
+    if (mahMatch) {
+      const mah = Number(mahMatch[1]);
+      if (mah >= 6000) criteria.battery += 70;
+      else if (mah >= 5000) criteria.battery += 45;
+      else if (mah >= 4000) criteria.battery += 20;
     }
 
-    if (priority === "value") {
-      if (!Number.isNaN(price)) score += Math.max(0, 2000 - price) / 50;
-      if (/256gb|8gb|5g/.test(title)) score += 15;
+    if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
+      criteria.battery += 20;
     }
 
-    return score;
+    if (/inverter|frost free|economico|econômico|baixo consumo|a\+\+\+|a\+\+|selo procel/.test(title)) {
+      criteria.efficiency += 45;
+      criteria.value += 10;
+    }
+
+    // Desempenho geral: serve para celular, notebook, PC, console, monitor etc.
+    if (/rtx|gtx|radeon|rx\s?\d+|geforce/.test(title)) criteria.performance += 70;
+    if (/i7|i9|ryzen 7|ryzen 9|m[1234]\s?(pro|max)?/.test(title)) criteria.performance += 55;
+    if (/i5|ryzen 5|snapdragon|dimensity|helio|g81|g99|exynos/.test(title)) criteria.performance += 35;
+    if (/16gb|32gb/.test(title)) criteria.performance += 25;
+    if (/8gb/.test(title)) criteria.performance += 15;
+    if (/ssd|nvme/.test(title)) criteria.performance += 20;
+    if (/120hz|144hz|165hz|240hz/.test(title)) criteria.performance += 20;
+    if (/90hz/.test(title)) criteria.performance += 10;
+    if (/celeron|dual core|4gb/.test(title)) criteria.performance -= 25;
+
+    // Câmera / imagem.
+    if (/iphone\s?(13|14|15|16)\s?(pro|max)?/.test(title)) criteria.camera += 55;
+    if (/pro|max|ultra/.test(title) && /iphone|galaxy|xiaomi|redmi/.test(title)) criteria.camera += 30;
+    if (/108mp|64mp|50mp/.test(title)) criteria.camera += 25;
+    if (/camera|câmera|foto|video|vídeo|4k/.test(title)) criteria.camera += 15;
+
+    // Armazenamento.
+    if (/1tb|2tb/.test(title)) criteria.storage += 50;
+    if (/512gb/.test(title)) criteria.storage += 38;
+    if (/256gb/.test(title)) criteria.storage += 28;
+    if (/128gb/.test(title)) criteria.storage += 15;
+
+    // Conforto / ergonomia.
+    if (/ergonomica|ergonômica|apoio lombar|lombar|reclinavel|reclinável|apoio de braço|apoio de braco/.test(title)) {
+      criteria.comfort += 55;
+    }
+
+    if (/mesh|tela respiravel|espuma injetada|ajuste de altura/.test(title)) {
+      criteria.comfort += 25;
+    }
+
+    // Custo-benefício extra.
+    if (/5g|256gb|8gb|ssd|frost free|inverter|4k|full hd/.test(title)) {
+      criteria.value += 12;
+    }
+
+    return criteria;
+  };
+
+  const pickScore = (criteria) => {
+    if (priority && criteria[priority] !== undefined) {
+      return criteria[priority] * 3 + criteria.value + criteria.reliability;
+    }
+
+    return (
+      criteria.value +
+      criteria.reliability +
+      criteria.performance * 0.8 +
+      criteria.storage * 0.6 +
+      criteria.battery * 0.6 +
+      criteria.camera * 0.5 +
+      criteria.comfort * 0.5 +
+      criteria.efficiency * 0.5
+    );
   };
 
   const ranked = [...products]
-    .map((p) => ({
-      ...p,
-      decisionScore: scoreByPriority(p)
-    }))
+    .map((p) => {
+      const criteria = scoreCriteria(p);
+      return {
+        ...p,
+        decisionCriteria: criteria,
+        decisionScore: pickScore(criteria)
+      };
+    })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
   const best = ranked[0];
   const second = ranked[1];
 
-  const bestTitle = cleanTitle(best.product_name);
-  const secondTitle = second ? cleanTitle(second.product_name) : "";
+  const bestTitle = cleanTitle(best.product_name)
+    .replace(/\s*,\s*$/g, "")
+    .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
+    .trim();
+
+  const secondTitle = second
+    ? cleanTitle(second.product_name)
+        .replace(/\s*,\s*$/g, "")
+        .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
+        .trim()
+    : "";
 
   const priorityLabel = getPriorityLabel(priority);
 
   let reply = `Eu compraria o ${bestTitle}.`;
 
-  reply += `\n\nPensando em ${priorityLabel}, ele é o que faz mais sentido entre as opções que apareceram.`;
+  if (priority) {
+    reply += `\n\nPensando em ${priorityLabel}, ele é o que faz mais sentido entre as opções que apareceram.`;
+  } else {
+    reply += `\n\nEle parece o melhor equilíbrio geral entre as opções que apareceram.`;
+  }
 
   if (second) {
     reply += `\n\nComparando rápido:`;
     reply += `\n- ${bestTitle}: melhor escolha para ${priorityLabel}.`;
-    reply += `\n- ${secondTitle}: eu só escolheria se sua prioridade fosse mais equilíbrio geral ou preferência pela marca.`;
+    reply += `\n- ${secondTitle}: faz mais sentido se sua prioridade for diferente, como marca, preço ou equilíbrio geral.`;
   }
 
   if (priority === "battery") {
-    reply += `\n\nVeredito: se bateria é prioridade, vai nele.`;
+    reply += `\n\nVeredito: se autonomia é o foco, eu iria nele.`;
   } else if (priority === "performance") {
-    reply += `\n\nVeredito: para jogos leves e médios, ele é a escolha mais coerente. Para jogos pesados, eu teria cautela.`;
+    reply += `\n\nVeredito: para desempenho, ele é a escolha mais coerente.`;
+  } else if (priority === "camera") {
+    reply += `\n\nVeredito: para câmera e fotos, eu iria nele.`;
+  } else if (priority === "storage") {
+    reply += `\n\nVeredito: para espaço e longevidade, ele é a melhor escolha.`;
+  } else if (priority === "value") {
+    reply += `\n\nVeredito: pensando em custo-benefício, ele é o mais interessante.`;
   } else {
-    reply += `\n\nVeredito: é a opção mais equilibrada para comprar agora.`;
+    reply += `\n\nVeredito: é a opção mais segura para comprar agora.`;
   }
 
-  return reply;
+  return reply.replace(/\*\*/g, "").trim();
 }
 
 function buildSessionContext(messages = [], sessionContext = {}, currentQuery = "") {
