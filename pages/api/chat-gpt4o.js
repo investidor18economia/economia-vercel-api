@@ -444,16 +444,21 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
   const second = ranked[1];
 
   const bestTitle = cleanTitle(best.product_name)
-    .replace(/\s*,\s*$/g, "")
-    .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
-    .trim();
+  .replace(/\s*,\s*$/g, "")
+  .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
+  .trim();
 
-  const secondTitle = second
-    ? cleanTitle(second.product_name)
-        .replace(/\s*,\s*$/g, "")
-        .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
-        .trim()
-    : "";
+const strongBestTitle = bestTitle
+  .replace(/^smartphone\s+/i, "")
+  .replace(/^celular\s+/i, "")
+  .trim();
+
+const secondTitle = second
+  ? cleanTitle(second.product_name)
+      .replace(/\s*,\s*$/g, "")
+      .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
+      .trim()
+  : "";
 
   const priorityLabel = getPriorityLabel(priority);
 
