@@ -966,7 +966,7 @@ if (secondPoint === bestPoint || !secondPoint) {
     secondPoint = fallbackMap[bestPoint] || "bateria";
   }
 } // 👈 ESSA CHAVE É OBRIGATÓRIA
-  let reply = `Entre esses, eu iria no ${best.title}.`;
+  let reply = `Se fosse pra escolher entre esses, eu iria no ${best.title}.`;
 
   if (activePriority) {
   reply += `\n\nSe sua prioridade é ${priorityLabel}, ele faz mais sentido aqui.`;
