@@ -2702,11 +2702,19 @@ if (!isDecisionQuery && !isGeneralQuery) {
   // 🟡 comparação → se houver produtos da memória citados pelo usuário,
   // usa eles para o card também, evitando card G55 e texto G05/G56.
   if (isComparisonQuery) {
-    productsToShow =
-      mentionedComparisonProducts.length >= 1
-        ? mentionedComparisonProducts.slice(0, 1)
-        : finalProducts.slice(0, 1);
-  }
+  const comparisonCardProducts = queryComparisonProducts.length >= 1
+    ? queryComparisonProducts
+    : mentionedComparisonProducts;
+
+  const comparisonCardWithData = comparisonCardProducts.filter(
+    (p) => p.price || p.link || p.thumbnail
+  );
+
+  productsToShow =
+    comparisonCardWithData.length >= 1
+      ? comparisonCardWithData.slice(0, 1)
+      : finalProducts.slice(0, 1);
+}
 }
 
 // 🔥 AGORA SIM O RETURN CORRETO
