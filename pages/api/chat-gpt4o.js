@@ -395,21 +395,25 @@ function buildDecisionEngineReply(allowedProducts = [], priority = "") {
   };
 
   const pickScore = (criteria) => {
-    if (priority && criteria[priority] !== undefined) {
-      return criteria[priority] * 3 + criteria.value + criteria.reliability;
-    }
-
+  if (priority && criteria[priority] !== undefined) {
     return (
-      criteria.value +
-      criteria.reliability +
-      criteria.performance * 0.8 +
-      criteria.storage * 0.6 +
-      criteria.battery * 0.6 +
-      criteria.camera * 0.5 +
-      criteria.comfort * 0.5 +
-      criteria.efficiency * 0.5
+      criteria[priority] * 10 +
+      criteria.reliability * 0.8 +
+      criteria.value * 0.5
     );
-  };
+  }
+
+  return (
+    criteria.value +
+    criteria.reliability +
+    criteria.performance * 0.8 +
+    criteria.storage * 0.6 +
+    criteria.battery * 0.6 +
+    criteria.camera * 0.5 +
+    criteria.comfort * 0.5 +
+    criteria.efficiency * 0.5
+  );
+};
 
   const ranked = [...products]
     .map((p) => {
