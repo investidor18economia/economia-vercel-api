@@ -932,10 +932,10 @@ const secondReason = getContrastReason(second, secondPoint);
 reply += `\n\nComparando de forma simples:`;
 reply += `\n- ${best.title}: leva vantagem em ${bestPoint}, ${bestReason}.`;
 
-  if (secondPoint) {
+ if (secondPoint) {
   reply += `\n- ${second.title}: só vale mais se ${secondPoint} for sua prioridade, ${secondReason}.`;
 } else {
-  reply += `\n- ${second.title}: só escolheria se você tiver preferência pela marca ou encontrar uma oferta muito melhor.`;
+  reply += `\n- ${second.title}: pode fazer sentido dependendo da oferta ou preferência, mas não vejo uma vantagem clara aqui.`;
 }
 
   reply += `\n\nResumo: eu iria no ${best.title}.`;
