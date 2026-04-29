@@ -457,7 +457,7 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
 
   const priorityLabel = getPriorityLabel(priority);
 
-  let reply = `Eu compraria o ${bestTitle}.`;
+  let reply = `Eu iria nesse ${bestTitle}.`;
 
   if (priority) {
   reply += `\n\nPensando em ${priorityLabel}, ele vence porque entrega melhor justamente no ponto que você demonstrou priorizar.`;
