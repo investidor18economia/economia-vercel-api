@@ -2709,6 +2709,50 @@ if (smartFollowUp) {
  let finalProducts = (rankedProducts && rankedProducts.length > 0)
   ? rankedProducts.slice(0, 3)
   : [];
+    if (
+  isComparison &&
+  comparisonWinnerProduct &&
+  !comparisonWinnerProduct.price &&
+  !comparisonWinnerProduct.link
+) {
+  try {
+    const hydrateQuery = cleanTitle(comparisonWinnerProduct.product_name || "");
+
+    if (hydrateQuery) {
+      console.log("💧 hidratando vencedor da comparação:", hydrateQuery);
+
+      let hydratedResults = await fetchSerpPrices(hydrateQuery, 3);
+
+      hydratedResults = Array.isArray(hydratedResults)
+        ? hydratedResults
+            .filter((p) => productMatchesCategory(p, hydrateQuery))
+            .filter((p) => !isBadProduct(p.product_name, hydrateQuery))
+            .filter((p) => {
+              const title = normalizeQuery(p.product_name || "");
+
+              if (/certificado|recondicionado|vitrine|usado|seminovo|excelente|frete grátis de 2 dias nos eua/.test(title)) {
+                return false;
+              }
+
+              if (/iphone/.test(title) && /desbloqueado|certificado|excelente/.test(title)) {
+                return false;
+              }
+
+              return true;
+            })
+        : [];
+
+      if (hydratedResults.length > 0) {
+        hydratedComparisonWinner = {
+          ...hydratedResults[0],
+          product_name: cleanTitle(hydratedResults[0].product_name)
+        };
+      }
+    }
+  } catch (hydrateErr) {
+    console.warn("⚠️ falha ao hidratar vencedor da comparação:", hydrateErr);
+  }
+}
 
 // 🔥 NÃO buscar fallback se for decisão
 if (!finalProducts || finalProducts.length === 0) {
