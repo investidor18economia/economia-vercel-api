@@ -1960,7 +1960,7 @@ if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
   }
 }
 if (contextAction === "decision") {
-  reply = buildDecisionEngineReply(rememberedProducts, activePriority);
+  reply = buildDecisionEngineReply(rememberedProducts, activePriority, preferredProductName);
 }
     return res.status(200).json({
       reply,
