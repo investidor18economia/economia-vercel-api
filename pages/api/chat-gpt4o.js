@@ -472,18 +472,18 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
 }
 
   if (priority === "battery") {
-    reply += `\n\nVeredito: se autonomia é o foco, eu iria nele.`;
-  } else if (priority === "performance") {
-    reply += `\n\nVeredito: para desempenho, ele é a escolha mais coerente.`;
-  } else if (priority === "camera") {
-    reply += `\n\nVeredito: para câmera e fotos, eu iria nele.`;
-  } else if (priority === "storage") {
-    reply += `\n\nVeredito: para espaço e longevidade, ele é a melhor escolha.`;
-  } else if (priority === "value") {
-    reply += `\n\nVeredito: pensando em custo-benefício, ele é o mais interessante.`;
-  } else {
-    reply += `\n\nVeredito: é a opção mais segura para comprar agora.`;
-  }
+  reply += `\n\nSe bateria é importante pra você, vai nele sem pensar muito.`;
+} else if (priority === "performance") {
+  reply += `\n\nSe você quer desempenho, esse aqui é a melhor escolha.`;
+} else if (priority === "camera") {
+  reply += `\n\nSe o foco é câmera, esse é o que mais vale a pena.`;
+} else if (priority === "storage") {
+  reply += `\n\nSe você quer espaço e folga no uso, esse faz mais sentido.`;
+} else if (priority === "value") {
+  reply += `\n\nSe a ideia é gastar bem o dinheiro, esse é o mais acertado.`;
+} else {
+  reply += `\n\nNo geral, é a escolha mais segura pra ir agora.`;
+}
 
   return reply.replace(/\*\*/g, "").trim();
 }
