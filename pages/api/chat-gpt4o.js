@@ -1353,6 +1353,8 @@ Instruções para esta resposta:
 - Evite recomendar produtos com sinais de usado, recondicionado, certificado, vitrine, importação duvidosa ou descrição estranha.
 - Trate sempre o primeiro produto da lista como a recomendação principal.
 - Recomende 1 produto principal com clareza.
+- NÃO repita o preço na resposta, porque o preço já aparece no card visual.
+- Use a resposta para explicar o motivo prático da escolha: desempenho, bateria, câmera, armazenamento, segurança da marca, economia ou tipo de uso.
 - Explique de forma simples por que esse produto faz sentido para o usuário.
 - Se houver uma segunda opção realmente relevante, mencione como alternativa curta.
 - Não diga "separei duas opções" se você não for explicar claramente as duas.
