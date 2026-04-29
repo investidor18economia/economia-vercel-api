@@ -337,17 +337,20 @@ function buildDecisionEngineReply(allowedProducts = [], priority = "") {
     }
 
     // Bateria / autonomia / consumo.
-    const mahMatch = title.match(/(\d{4,5})\s*mah/);
-    if (mahMatch) {
-      const mah = Number(mahMatch[1]);
-      if (mah >= 6000) criteria.battery += 70;
-      else if (mah >= 5000) criteria.battery += 45;
-      else if (mah >= 4000) criteria.battery += 20;
-    }
+const mahMatch = title.match(/(\d{4,5})\s*mah/);
+if (mahMatch) {
+  const mah = Number(mahMatch[1]);
 
-    if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
-      criteria.battery += 20;
-    }
+  if (mah >= 6500) criteria.battery += 120;
+  else if (mah >= 6000) criteria.battery += 105;
+  else if (mah >= 5500) criteria.battery += 80;
+  else if (mah >= 5000) criteria.battery += 55;
+  else if (mah >= 4000) criteria.battery += 25;
+}
+
+if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
+  criteria.battery += 15;
+}
 
     if (/inverter|frost free|economico|econômico|baixo consumo|a\+\+\+|a\+\+|selo procel/.test(title)) {
       criteria.efficiency += 45;
