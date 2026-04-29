@@ -460,7 +460,7 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
   let reply = `Eu iria nesse ${bestTitle}.`;
 
   if (priority) {
-  reply += `\n\nPensando em ${priorityLabel}, ele vence porque entrega melhor justamente no ponto que você demonstrou priorizar.`;
+  reply += `\n\nSe sua prioridade é ${priorityLabel}, ele faz mais sentido aqui.`;
 } else {
   reply += `\n\nEle parece o melhor equilíbrio geral entre as opções que apareceram.`;
 }
