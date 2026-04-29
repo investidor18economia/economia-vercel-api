@@ -986,7 +986,11 @@ reply += `\n- ${best.title}: leva vantagem em ${bestPoint}, ${bestReason}.`;
   reply += `\n- ${second.title}: pode fazer sentido dependendo da oferta ou preferência, mas não vejo uma vantagem clara aqui.`;
 }
 
+  if (secondPoint) {
+  reply += `\n\nResumo: se você quer algo mais equilibrado, vai no ${best.title}. Agora, se ${secondPoint} for o mais importante pra você, o ${second.title} pode fazer mais sentido.`;
+} else {
   reply += `\n\nResumo: eu iria no ${best.title}.`;
+}
 
   return reply.replace(/\*\*/g, "").trim();
 }
