@@ -909,8 +909,11 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   reply += `\n\nEle parece a escolha mais segura quando olho o conjunto todo.`;
 }
 
-  reply += `\n\nComparando de forma simples:`;
-  reply += `\n- ${best.title}: leva vantagem em ${bestPoint}.`;
+  const bestReason = getContrastReason(best, bestPoint);
+const secondReason = getContrastReason(second, secondPoint);
+
+reply += `\n\nComparando de forma simples:`;
+reply += `\n- ${best.title}: leva vantagem em ${bestPoint}, ${bestReason}.`;
 
   if (secondPoint && secondPoint !== bestPoint) {
   reply += `\n- ${second.title}: só vale mais se você priorizar ${secondPoint}.`;
