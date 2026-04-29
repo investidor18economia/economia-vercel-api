@@ -541,6 +541,59 @@ function getDetectedUseIntent(query) {
 }
 
 function scoreRelevanceToQuery(title, query) {
+  function detectUserPriority(query = "") {
+  const q = normalizeQuery(query);
+
+  if (/bateria|duracao|duração|carregar|carga|autonomia/.test(q)) {
+    return "battery";
+  }
+
+  if (/jogo|jogar|gamer|roda|fps|desempenho|performance|potente|mais forte|aguenta/.test(q)) {
+    return "performance";
+  }
+
+  if (/camera|câmera|foto|fotos|video|vídeo|selfie/.test(q)) {
+    return "camera";
+  }
+
+  if (/barato|barata|menor preco|menor preço|economia|custo beneficio|custo-beneficio|compensa/.test(q)) {
+    return "value";
+  }
+
+  if (/armazenamento|espaco|espaço|128gb|256gb|512gb|1tb|memoria|memória/.test(q)) {
+    return "storage";
+  }
+
+  if (/conforto|ergonomia|ergonomico|ergonômico|coluna|lombar/.test(q)) {
+    return "comfort";
+  }
+
+  if (/consumo|energia|economico|econômico|gasta pouco|eficiencia|eficiência/.test(q)) {
+    return "efficiency";
+  }
+
+  return "";
+}
+
+function mergeUserPriority(previousPriority = "", currentPriority = "") {
+  return currentPriority || previousPriority || "";
+}
+
+function getPriorityLabel(priority = "") {
+  const labels = {
+    battery: "bateria/autonomia",
+    performance: "desempenho",
+    camera: "câmera/fotos",
+    value: "custo-benefício",
+    storage: "armazenamento",
+    comfort: "conforto/ergonomia",
+    efficiency: "eficiência/consumo"
+  };
+
+  return labels[priority] || "equilíbrio geral";
+}
+  
+function scoreRelevanceToQuery(title, query) {
   const t = (title || "").toLowerCase();
   const queryWords = getQueryWords(query);
 
