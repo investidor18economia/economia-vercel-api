@@ -886,15 +886,22 @@ function buildSmartComparisonReply(products = [], priority = "", query = "", for
     .map((product) => {
       const signals = getComparisonSignals(product);
 
-      const decisionScore =
-        activePriority && signals[activePriority] !== undefined
-          ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
-          : signals.value +
-            signals.reliability +
-            signals.performance +
-            signals.battery +
-            signals.camera +
-            signals.storage;
+      const decisionScore = (() => {
+  // 🔥 PRIORIDADE DOMINA COMPLETAMENTE
+  if (activePriority && signals[activePriority] !== undefined) {
+    return signals[activePriority] * 100;
+  }
+
+  // fallback normal
+  return (
+    signals.value +
+    signals.reliability +
+    signals.performance +
+    signals.battery +
+    signals.camera +
+    signals.storage
+  );
+})();
 
       return {
         ...product,
