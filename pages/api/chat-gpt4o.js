@@ -1824,9 +1824,7 @@ ${contextModeInstructions}
 if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
   console.warn("🚫 IA tentou inventar produto. Corrigindo...");
 
-    if (contextAction === "decision") {
-    reply = buildDecisionEngineReply(rememberedProducts, activePriority);
-  } else {
+    if (contextAction !== "decision") {
     const lastProduct =
       rememberedProducts[rememberedProducts.length - 1] ||
       rememberedProducts[0];
@@ -1836,7 +1834,9 @@ if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
       : "Consigo analisar melhor, mas preciso que você me diga qual produto quer avaliar.";
   }
 }
-
+if (contextAction === "decision") {
+  reply = buildDecisionEngineReply(rememberedProducts, activePriority);
+}
     return res.status(200).json({
       reply,
       prices: []
