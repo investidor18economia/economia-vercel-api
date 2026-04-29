@@ -2942,8 +2942,8 @@ if (isComparison && comparisonProducts.length >= 2) {
   const comparisonPriority =
   detectUserPriority(query) ||
   detectUserPriority(resolvedQuery) ||
-  sessionContext.lastPriority ||
   activePriority ||
+  sessionContext.lastPriority || // 🔥 AGORA ELE USA O CONTEXTO DE VERDADE
   "";
 
   comparisonWinnerProduct = getBestSmartComparisonProduct(
