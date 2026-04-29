@@ -290,7 +290,7 @@ function buildSafeDecisionReply(allowedProducts = []) {
 
   return reply;
 }
-function buildDecisionEngineReply(allowedProducts = [], priority = "") {
+function buildDecisionEngineReply(allowedProducts = [], priority = "", preferredProductName = "") {
   const products = sanitizeRememberedProducts(allowedProducts);
 
   if (!Array.isArray(products) || products.length === 0) {
