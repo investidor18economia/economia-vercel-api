@@ -1742,9 +1742,9 @@ if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
       rememberedProducts[rememberedProducts.length - 1] ||
       rememberedProducts[0];
 
-    reply = lastProduct
-  ? `Sobre o **${cleanTitle(lastProduct.product_name)}**, olhando pela prioridade de **${getPriorityLabel(activePriority)}**, eu analisaria com cautela usando só o que apareceu na conversa. Ele parece adequado para uso leve ou intermediário, mas eu não vou prometer desempenho pesado nem citar outro modelo fora do contexto.`
-  : "Pelo contexto, eu consigo analisar a opção anterior, mas não vou citar outro produto sem base.";
+       reply = lastProduct
+      ? `Sobre o ${cleanTitle(lastProduct.product_name)}, eu vejo ele como uma opção mais segura para uso leve ou intermediário. Para jogos pesados, eu teria cautela.`
+      : "Consigo analisar melhor, mas preciso que você me diga qual produto quer avaliar.";
   }
 }
 
