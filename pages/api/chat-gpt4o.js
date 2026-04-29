@@ -916,9 +916,9 @@ reply += `\n\nComparando de forma simples:`;
 reply += `\n- ${best.title}: leva vantagem em ${bestPoint}, ${bestReason}.`;
 
   if (secondPoint && secondPoint !== bestPoint) {
-  reply += `\n- ${second.title}: só vale mais se você priorizar ${secondPoint}.`;
+  reply += `\n- ${second.title}: só vale mais se você priorizar ${secondPoint}, ${secondReason}.`;
 } else {
-  reply += `\n- ${second.title}: é alternativa, mas eu não escolheria acima do ${best.title}.`;
+  reply += `\n- ${second.title}: é alternativa, mas não vejo um motivo forte para escolher acima do ${best.title}.`;
 }
 
   reply += `\n\nResumo: eu iria no ${best.title}.`;
