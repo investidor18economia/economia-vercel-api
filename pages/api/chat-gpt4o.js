@@ -472,7 +472,7 @@ const secondTitle = second
 
   if (second) {
   reply += `\n\nComparando rápido:`;
-  reply += `\n- ${bestTitle}: melhor escolha pensando em ${priorityLabel}.`;
+  reply += `\n- ${strongBestTitle}: melhor escolha pensando em ${priorityLabel}.`;
   reply += `\n- ${secondTitle}: eu só escolheria se você quiser priorizar outro ponto, como preço, marca ou equilíbrio geral.`;
 }
 
