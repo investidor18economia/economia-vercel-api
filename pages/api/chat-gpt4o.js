@@ -907,22 +907,22 @@ if (secondPoint === bestPoint || !secondPoint) {
 const title = normalizeQuery(second.product_name || "");
 
   // 🔋 bateria forte
-  if (/6300\s*mah|6000\s*mah|bateria/.test(title)) {
+  if (/6300\s*mah|6000\s*mah|bateria/.test(rawTitle)) {
     secondPoint = "bateria";
 
   // 📦 armazenamento alto
-  } else if (/512gb|1tb/.test(title)) {
+  } else if (/512gb|1tb/.test(rawTitle)) {
     secondPoint = "armazenamento";
 
-  } else if (/256gb/.test(title)) {
+  } else if (/256gb/.test(rawTitle)) {
     secondPoint = "armazenamento";
 
   // 📸 câmera
-  } else if (/iphone|pro|max|camera|câmera|50mp|64mp|108mp/.test(title)) {
+  } else if (/iphone|pro|max|camera|câmera|50mp|64mp|108mp/.test(rawTitle)) {
     secondPoint = "câmera";
 
   // 🎮 desempenho
-  } else if (/16gb|32gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(title)) {
+  } else if (/16gb|32gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(rawTitle)) {
     secondPoint = "desempenho";
 
   // 🧠 fallback inteligente (NUNCA vazio)
