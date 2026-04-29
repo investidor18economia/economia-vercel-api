@@ -1541,7 +1541,7 @@ export default async function handler(req, res) {
   }
 
   const resolvedQuery = contextResolution.standaloneQuery || query;
-  const sessionContext = buildSessionContext(conversationMessages, req.body?.session_context);
+  const sessionContext = buildSessionContext(conversationMessages, req.body?.session_context, resolvedQuery);
 
   const intent = detectIntent(resolvedQuery);
   const userStyle = detectUserStyle(resolvedQuery);
