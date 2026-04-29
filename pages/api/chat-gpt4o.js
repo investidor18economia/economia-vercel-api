@@ -901,7 +901,7 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const bestPoint = getContrastPoint(best, second, activePriority);
 
 let secondPoint = getContrastPoint(second, best, "");
-  // 🔥 GARANTIA FINAL: nunca permitir pontos iguais
+ // 🔥 GARANTIA FINAL: nunca permitir pontos iguais
 if (secondPoint === bestPoint) {
   const title = normalizeQuery(second.product_name || "");
 
@@ -914,44 +914,7 @@ if (secondPoint === bestPoint) {
   } else if (/snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(title)) {
     secondPoint = "desempenho";
   } else {
-    // fallback mínimo diferente do bestPoint
-    const fallbackMap = {
-      "custo-benefício": "desempenho",
-      "desempenho": "bateria",
-      "bateria": "armazenamento",
-      "armazenamento": "câmera",
-      "câmera": "custo-benefício"
-    };
-
-    secondPoint = fallbackMap[bestPoint] || "desempenho";
-  }
-}
-
-// 🔥 REGRA NOVA: nunca repetir o mesmo ponto
-if (secondPoint === bestPoint) {
-  const fallbackPoints = ["battery", "performance", "camera", "storage", "value"];
-
-  const alternative = fallbackPoints.find(
-    (p) => p !== bestPoint && second.signals?.[p] > (best.signals?.[p] || 0)
-  );
-
-  if (alternative) {
-    secondPoint = getPriorityLabel(alternative);
-  } else {
-    // 🔥 FORÇAR UM PONTO REAL BASEADO NO PRODUTO
-    const title = normalizeQuery(second.product_name || "");
-
-    if (/6300\s*mah|6000\s*mah|bateria/.test(title)) {
-      secondPoint = "bateria";
-    } else if (/256gb|512gb|1tb/.test(title)) {
-      secondPoint = "armazenamento";
-    } else if (/iphone|camera|câmera|50mp|64mp|108mp/.test(title)) {
-      secondPoint = "câmera";
-    } else if (/snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(title)) {
-      secondPoint = "desempenho";
-    } else {
-      secondPoint = "custo-benefício";
-    }
+    secondPoint = "";
   }
 }
 
