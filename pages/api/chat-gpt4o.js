@@ -874,7 +874,7 @@ function getContrastReason(product = {}, point = "") {
   return "porque faz mais sentido no conjunto geral da compra";
 }
 
-function buildSmartComparisonReply(products = [], priority = "", query = "", forcedBest = null)
+function buildSmartComparisonReply(products = [], priority = "", query = "", forcedBest = null) {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
   if (cleanProducts.length < 2) {
