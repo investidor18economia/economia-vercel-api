@@ -958,10 +958,17 @@ const title = normalizeQuery(second.product_name || "");
   } else if (/16gb|32gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(rawTitle)) {
     secondPoint = "desempenho";
 
-  // 🧠 fallback inteligente (NUNCA vazio)
-  } else {
-    secondPoint = "custo-benefício";
-  }
+  // 🧠 fallback inteligente (NUNCA repetir bestPoint)
+} else {
+  const fallbackMap = {
+    "custo-benefício": "bateria",
+    "bateria": "desempenho",
+    "desempenho": "armazenamento",
+    "armazenamento": "câmera",
+    "câmera": "custo-benefício"
+  };
+
+  secondPoint = fallbackMap[bestPoint] || "bateria";
 }
 
   let reply = `Entre esses, eu iria no ${best.title}.`;
