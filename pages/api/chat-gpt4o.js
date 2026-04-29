@@ -2401,6 +2401,9 @@ const activePriority =
   currentPriority ||
   sessionContext.lastPriority ||
   "";
+  if (activePriority) {
+  sessionContext.lastPriority = activePriority;
+}
     // 🔥 MODO CONTEXTO / DECISÃO / ANÁLISE DE PRODUTO ANTERIOR
 const contextAction = detectContextAction(query, intent, contextResolution);
 
