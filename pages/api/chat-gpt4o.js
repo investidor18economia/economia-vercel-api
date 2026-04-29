@@ -2955,8 +2955,8 @@ if (isComparison && comparisonProducts.length >= 2) {
   const comparisonPriority =
   detectUserPriority(query) ||
   detectUserPriority(resolvedQuery) ||
-  sessionContext.lastPriority || // 🔥 SOBE ISSO PRA CIMA
-  activePriority ||
+  activePriority || // 🔥 PRIMEIRO USA O ATUAL
+  sessionContext.lastPriority || // 🔥 DEPOIS O CONTEXTO
   "";
 
   comparisonWinnerProduct = getBestSmartComparisonProduct(
