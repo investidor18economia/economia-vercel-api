@@ -718,6 +718,9 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
   }
 
   const activePriority = priority || detectUserPriority(query) || "";
+  if (activePriority) {
+  sessionContext.lastPriority = activePriority;
+}
 
   const scored = cleanProducts
     .map((product) => {
@@ -2952,8 +2955,8 @@ if (isComparison && comparisonProducts.length >= 2) {
   const comparisonPriority =
   detectUserPriority(query) ||
   detectUserPriority(resolvedQuery) ||
+  sessionContext.lastPriority || // 🔥 SOBE ISSO PRA CIMA
   activePriority ||
-  sessionContext.lastPriority || // 🔥 AGORA ELE USA O CONTEXTO DE VERDADE
   "";
 
   comparisonWinnerProduct = getBestSmartComparisonProduct(
