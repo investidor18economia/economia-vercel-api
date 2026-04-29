@@ -900,7 +900,16 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
 
   const priorityLabel = getPriorityLabel(activePriority);
   const bestPoint = getContrastPoint(best, second, activePriority);
+// 🔥 converter label para chave interna
+const labelToKey = {
+  "bateria": "battery",
+  "desempenho": "performance",
+  "câmera": "camera",
+  "armazenamento": "storage",
+  "custo-benefício": "value"
+};
 
+const bestKey = labelToKey[bestPoint] || bestPoint;
 // 🔥 NOVA LÓGICA: força contraste real
 const secondSignals = second.signals || {};
 const bestSignals = best.signals || {};
