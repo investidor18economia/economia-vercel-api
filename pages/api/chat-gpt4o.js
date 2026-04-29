@@ -2662,6 +2662,7 @@ const comparisonProducts =
       : topProductsForAI;
 
 let comparisonWinnerProduct = null;
+let hydratedComparisonWinner = null;
 
 if (isComparison && comparisonProducts.length >= 2) {
   const comparisonPriority = activePriority || detectUserPriority(resolvedQuery);
