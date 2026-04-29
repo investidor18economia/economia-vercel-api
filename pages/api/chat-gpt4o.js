@@ -492,6 +492,136 @@ const secondTitle = second
 
   return reply.replace(/\*\*/g, "").trim();
 }
+function getStrongDisplayTitle(title = "") {
+  return cleanTitle(title)
+    .replace(/\s*,\s*$/g, "")
+    .replace(/\s+que\s+t[aá]\s+saindo.*$/i, "")
+    .replace(/^smartphone\s+/i, "")
+    .replace(/^celular\s+/i, "")
+    .trim();
+}
+
+function getComparisonSignals(product = {}) {
+  const title = normalizeQuery(product.product_name || "");
+  const price = parsePrice(product.price);
+
+  const signals = {
+    battery: 0,
+    performance: 0,
+    camera: 0,
+    storage: 0,
+    value: 0,
+    reliability: 0
+  };
+
+  if (!Number.isNaN(price)) {
+    signals.value += Math.max(0, 3000 - price) / 120;
+  }
+
+  if (/motorola|samsung|xiaomi|realme|iphone|lg|dell|lenovo|acer|asus|brastemp|electrolux|consul|sony|playstation|xbox/.test(title)) {
+    signals.reliability += 12;
+  }
+
+  const mahMatch = title.match(/(\d{4,5})\s*mah/);
+  if (mahMatch) {
+    const mah = Number(mahMatch[1]);
+    if (mah >= 6000) signals.battery += 90;
+    else if (mah >= 5000) signals.battery += 55;
+    else if (mah >= 4000) signals.battery += 25;
+  }
+
+  if (/rtx|gtx|radeon|geforce|rx\s?\d+/.test(title)) signals.performance += 90;
+  if (/i7|i9|ryzen 7|ryzen 9|m[1234]\s?(pro|max)?/.test(title)) signals.performance += 65;
+  if (/i5|ryzen 5|snapdragon|dimensity|helio|g81|g99|exynos/.test(title)) signals.performance += 40;
+  if (/16gb|32gb/.test(title)) signals.performance += 25;
+  if (/8gb/.test(title)) signals.performance += 15;
+  if (/ssd|nvme/.test(title)) signals.performance += 20;
+  if (/120hz|144hz|165hz|240hz/.test(title)) signals.performance += 20;
+  if (/90hz/.test(title)) signals.performance += 10;
+
+  if (/iphone\s?(13|14|15|16)\s?(pro|max)?/.test(title)) signals.camera += 60;
+  if (/pro|max|ultra/.test(title) && /iphone|galaxy|xiaomi|redmi/.test(title)) signals.camera += 30;
+  if (/108mp|64mp|50mp|camera|câmera|4k/.test(title)) signals.camera += 20;
+
+  if (/1tb|2tb/.test(title)) signals.storage += 50;
+  if (/512gb/.test(title)) signals.storage += 38;
+  if (/256gb/.test(title)) signals.storage += 28;
+  if (/128gb/.test(title)) signals.storage += 15;
+
+  if (/usado|seminovo|recondicionado|vitrine|certificado/.test(title)) {
+    signals.reliability -= 40;
+    signals.value -= 25;
+  }
+
+  return signals;
+}
+
+function getBestComparisonPoint(signals = {}) {
+  const entries = Object.entries(signals)
+    .filter(([key]) => key !== "reliability")
+    .sort((a, b) => b[1] - a[1]);
+
+  const best = entries[0]?.[0];
+
+  const labels = {
+    battery: "bateria",
+    performance: "desempenho",
+    camera: "câmera",
+    storage: "armazenamento",
+    value: "custo-benefício"
+  };
+
+  return labels[best] || "equilíbrio geral";
+}
+
+function buildSmartComparisonReply(products = [], priority = "", query = "") {
+  const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
+
+  if (cleanProducts.length < 2) {
+    return "";
+  }
+
+  const activePriority = priority || detectUserPriority(query) || "";
+
+  const scored = cleanProducts
+    .map((product) => {
+      const signals = getComparisonSignals(product);
+      const decisionScore = activePriority && signals[activePriority] !== undefined
+        ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
+        : signals.value + signals.reliability + signals.performance + signals.battery + signals.camera + signals.storage;
+
+      return {
+        ...product,
+        signals,
+        decisionScore,
+        title: getStrongDisplayTitle(product.product_name)
+      };
+    })
+    .sort((a, b) => b.decisionScore - a.decisionScore);
+
+  const best = scored[0];
+  const second = scored[1];
+
+  const priorityLabel = getPriorityLabel(activePriority);
+  const bestPoint = getBestComparisonPoint(best.signals);
+  const secondPoint = getBestComparisonPoint(second.signals);
+
+  let reply = `Entre esses, eu iria no ${best.title}.`;
+
+  if (activePriority) {
+    reply += `\n\nSe o foco é ${priorityLabel}, ele é o que faz mais sentido.`;
+  } else {
+    reply += `\n\nEle parece a escolha mais segura no equilíbrio geral.`;
+  }
+
+  reply += `\n\nComparando de forma simples:`;
+  reply += `\n- ${best.title}: melhor em ${bestPoint}.`;
+  reply += `\n- ${second.title}: faz mais sentido se você priorizar ${secondPoint}.`;
+
+  reply += `\n\nResumo: se você quer decidir sem complicar, eu iria no ${best.title}.`;
+
+  return reply.replace(/\*\*/g, "").trim();
+}
 
 function buildSessionContext(messages = [], sessionContext = {}, currentQuery = "") {
   const categoryHint =
