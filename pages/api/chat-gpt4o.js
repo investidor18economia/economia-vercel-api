@@ -201,9 +201,8 @@ function mergeRememberedProducts(primary = [], secondary = [], categoryHint = ""
   return merged.slice(-5);
 }
 
-function extractProductsFromMessages(messages = []) {
+function extractProductsFromMessages(messages = [], categoryHint = "") {
   const found = [];
-  const seen = new Map();
 
   for (const msg of messages) {
     const role = String(msg?.role || "").toLowerCase();
@@ -211,36 +210,24 @@ function extractProductsFromMessages(messages = []) {
 
     if (role !== "assistant" || !content) continue;
 
+    // Só extrai produtos de mensagens que realmente parecem recomendação/oferta.
+    // Isso evita capturar produto citado em resposta genérica ou fallback.
+    const looksLikeProductRecommendation =
+      /R\$\s*[\d.,]+/.test(content) ||
+      /melhor preço encontrado/i.test(content) ||
+      /minha escolha principal seria/i.test(content) ||
+      /eu iria nesse/i.test(content) ||
+      /eu iria nessa/i.test(content);
+
+    if (!looksLikeProductRecommendation) continue;
+
     const products = extractProductsFromText(content);
-
-    for (const product of products) {
-      const familyKey = getProductFamilyKey(product.product_name);
-      if (!familyKey) continue;
-
-      const currentIndex = seen.get(familyKey);
-
-      if (currentIndex === undefined) {
-        seen.set(familyKey, found.length);
-        found.push(product);
-        continue;
-      }
-
-      const existing = found[currentIndex];
-
-      const existingScore =
-        String(existing.product_name || "").length + (existing.price ? 30 : 0);
-
-      const newScore =
-        String(product.product_name || "").length + (product.price ? 30 : 0);
-
-      if (newScore > existingScore) {
-        found[currentIndex] = product;
-      }
-    }
+    found.push(...products);
   }
 
-  return found.slice(-5);
+  return sanitizeRememberedProducts(found, categoryHint);
 }
+
 function responseMentionsUnknownProduct(reply = "", allowedProducts = []) {
   const text = normalizeQuery(reply);
 
