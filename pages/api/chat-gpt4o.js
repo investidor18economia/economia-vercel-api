@@ -2550,10 +2550,11 @@ if (!isComparison && reply && reply.length > 250) {
       reply = buildFallbackReply(intent, bestProduct, period);
     }
 
-    const smartFollowUp = getSmartFollowUp(intent, reply);
-    if (smartFollowUp) {
-      reply = `${reply}\n\n${smartFollowUp}`;
-    }
+    const smartFollowUp = isComparison ? "" : getSmartFollowUp(intent, reply);
+
+if (smartFollowUp) {
+  reply = `${reply}\n\n${smartFollowUp}`;
+}
 
     if (reply.length > 900) {
       reply = reply.slice(0, 900).trim();
