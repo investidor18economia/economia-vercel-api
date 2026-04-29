@@ -1739,8 +1739,8 @@ if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
       rememberedProducts[0];
 
     reply = lastProduct
-      ? `Sobre o **${cleanTitle(lastProduct.product_name)}**, eu analisaria com cautela pelo que apareceu na conversa. Ele parece fazer sentido para uso leve ou intermediário, mas eu não vou citar outro modelo fora do contexto só para completar a resposta.`
-      : "Pelo contexto, eu consigo analisar a opção anterior, mas não vou citar outro produto sem base.";
+  ? `Sobre o **${cleanTitle(lastProduct.product_name)}**, olhando pela prioridade de **${getPriorityLabel(activePriority)}**, eu analisaria com cautela usando só o que apareceu na conversa. Ele parece adequado para uso leve ou intermediário, mas eu não vou prometer desempenho pesado nem citar outro modelo fora do contexto.`
+  : "Pelo contexto, eu consigo analisar a opção anterior, mas não vou citar outro produto sem base.";
   }
 }
 
