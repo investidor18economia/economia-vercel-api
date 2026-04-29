@@ -2596,9 +2596,13 @@ if (!isDecisionQuery && !isGeneralQuery) {
   // 🟢 busca normal → mostra produtos
   productsToShow = finalProducts;
 
-  // 🟡 comparação → mostra só 1 produto
+  // 🟡 comparação → se houver produtos da memória citados pelo usuário,
+  // usa eles para o card também, evitando card G55 e texto G05/G56.
   if (isComparisonQuery) {
-    productsToShow = finalProducts.slice(0, 1);
+    productsToShow =
+      mentionedComparisonProducts.length >= 1
+        ? mentionedComparisonProducts.slice(0, 1)
+        : finalProducts.slice(0, 1);
   }
 }
 
