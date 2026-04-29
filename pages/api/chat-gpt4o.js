@@ -718,42 +718,36 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
   }
 
   const activePriority = priority || detectUserPriority(query) || "";
-  if (activePriority) {
-  sessionContext.lastPriority = activePriority;
-}
 
   const scored = cleanProducts
     .map((product) => {
       const signals = getComparisonSignals(product);
 
       const decisionScore = (() => {
-  // 🔥 PRIORIDADE DOMINA COMPLETAMENTE
-  if (priority && signals[priority] !== undefined) {
-    return signals[priority] * 100; // peso absurdo pra garantir vitória
-  }
+        if (activePriority && signals[activePriority] !== undefined) {
+          return signals[activePriority] * 100;
+        }
 
-  // fallback normal
-  return (
-    signals.value +
-    signals.reliability +
-    signals.performance +
-    signals.battery +
-    signals.camera +
-    signals.storage
-  );
-})();
+        return (
+          signals.value +
+          signals.reliability +
+          signals.performance +
+          signals.battery +
+          signals.camera +
+          signals.storage
+        );
+      })();
 
       return {
-  ...product,
-  signals, // 🔥 ESSA LINHA É O QUE FALTAVA
-  decisionScore
-};
+        ...product,
+        signals,
+        decisionScore
+      };
     })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
   return scored[0] || null;
 }
-
 function getContrastPoint(product = {}, opponent = {}, preferred = "") {
   const signals = product.signals || {};
   const opponentSignals = opponent.signals || {};
@@ -1091,23 +1085,44 @@ function buildSessionContext(messages = [], sessionContext = {}, currentQuery = 
     ? inferredCleanProducts
     : sessionCleanProducts;
 
-  const context = {
-    lastQuery: sessionContext?.lastQuery || "",
-    lastCategory: sessionContext?.lastCategory || categoryHint || "",
-    lastProducts: rememberedProducts,
-    lastBestProduct:
-      rememberedProducts[rememberedProducts.length - 1] ||
-      sessionContext?.lastBestProduct ||
-      null,
-    lastIntent: sessionContext?.lastIntent || "",
-    lastPriority: mergeUserPriority(sessionContext?.lastPriority || "", detectUserPriority(currentQuery)),
-    lastTopic: sessionContext?.lastTopic || "",
-    lastProductMentioned:
-      rememberedProducts[rememberedProducts.length - 1]?.product_name ||
-      sessionContext?.lastProductMentioned ||
-      "",
-    lastInteractionType: sessionContext?.lastInteractionType || ""
-  };
+  let inferredPriorityFromMessages = "";
+
+for (let i = messages.length - 1; i >= 0; i--) {
+  const msg = messages[i];
+  const role = String(msg?.role || "").toLowerCase();
+  const content = String(msg?.content || "").trim();
+
+  if (role !== "user" || !content) continue;
+
+  const detectedPriority = detectUserPriority(content);
+
+  if (detectedPriority) {
+    inferredPriorityFromMessages = detectedPriority;
+    break;
+  }
+}
+
+const context = {
+  lastQuery: sessionContext?.lastQuery || "",
+  lastCategory: sessionContext?.lastCategory || categoryHint || "",
+  lastProducts: rememberedProducts,
+  lastBestProduct:
+    rememberedProducts[rememberedProducts.length - 1] ||
+    sessionContext?.lastBestProduct ||
+    null,
+  lastIntent: sessionContext?.lastIntent || "",
+  lastPriority:
+    detectUserPriority(currentQuery) ||
+    inferredPriorityFromMessages ||
+    sessionContext?.lastPriority ||
+    "",
+  lastTopic: sessionContext?.lastTopic || "",
+  lastProductMentioned:
+    rememberedProducts[rememberedProducts.length - 1]?.product_name ||
+    sessionContext?.lastProductMentioned ||
+    "",
+  lastInteractionType: sessionContext?.lastInteractionType || ""
+};
 
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -2953,24 +2968,11 @@ let hydratedComparisonWinner = null;
 
 if (isComparison && comparisonProducts.length >= 2) {
   const comparisonPriority =
-  detectUserPriority(query) ||
-  detectUserPriority(resolvedQuery) ||
-  activePriority || // 🔥 PRIMEIRO USA O ATUAL
-  sessionContext.lastPriority || // 🔥 DEPOIS O CONTEXTO
-  "";
-if (isComparison && comparisonProducts.length >= 2) {
-  const comparisonPriority =
     detectUserPriority(query) ||
     detectUserPriority(resolvedQuery) ||
-    activePriority ||
     sessionContext.lastPriority ||
+    activePriority ||
     "";
-
-  console.log("PRIORIDADE FINAL:", comparisonPriority);
-  console.log("QUERY:", query);
-  console.log("RESOLVED QUERY:", resolvedQuery);
-  console.log("SESSION LAST PRIORITY:", sessionContext.lastPriority);
-  console.log("ACTIVE PRIORITY:", activePriority);
 
   comparisonWinnerProduct = getBestSmartComparisonProduct(
     comparisonProducts,
@@ -2984,24 +2986,6 @@ if (isComparison && comparisonProducts.length >= 2) {
     resolvedQuery,
     comparisonWinnerProduct
   );
-
-  if (comparisonReply) {
-    reply = comparisonReply;
-  }
-}
-  
-  comparisonWinnerProduct = getBestSmartComparisonProduct(
-    comparisonProducts,
-    comparisonPriority,
-    resolvedQuery
-  );
-
-  const comparisonReply = buildSmartComparisonReply(
-  comparisonProducts,
-  comparisonPriority,
-  resolvedQuery,
-  comparisonWinnerProduct // 🔥 ESSA LINHA MUDA TUDO
-);
 
   if (comparisonReply) {
     reply = comparisonReply;
