@@ -920,13 +920,29 @@ const bestSignals = best.signals || {};
 const candidates = ["battery", "performance", "camera", "storage", "value"];
 
 let secondPoint = null;
+  // 🔥 PRIORIDADE DO USUÁRIO TEM PRIORIDADE REAL
+if (
+  activePriority &&
+  secondSignals[activePriority] !== undefined &&
+  secondSignals[activePriority] > 0
+) {
+  const labels = {
+    battery: "bateria",
+    performance: "desempenho",
+    camera: "câmera",
+    storage: "armazenamento",
+    value: "custo-benefício"
+  };
+
+  secondPoint = labels[activePriority];
+}
 
 // tenta achar melhor ponto DIFERENTE do bestPoint
 const sortedSecond = Object.entries(secondSignals)
   .filter(([key]) => key !== bestKey)
   .sort((a, b) => b[1] - a[1]);
 
-if (sortedSecond.length > 0 && sortedSecond[0][1] > 0) {
+if (!secondPoint && sortedSecond.length > 0 && sortedSecond[0][1] > 0) {
   const labels = {
     battery: "bateria",
     performance: "desempenho",
