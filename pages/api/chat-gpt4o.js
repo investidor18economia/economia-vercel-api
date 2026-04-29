@@ -899,7 +899,23 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
 
   const priorityLabel = getPriorityLabel(activePriority);
   const bestPoint = getContrastPoint(best, second, activePriority);
-  const secondPoint = getContrastPoint(second, best, "");
+
+let secondPoint = getContrastPoint(second, best, "");
+
+// 🔥 REGRA NOVA: nunca repetir o mesmo ponto
+if (secondPoint === bestPoint) {
+  const fallbackPoints = ["battery", "performance", "camera", "storage", "value"];
+
+  const alternative = fallbackPoints.find(
+    (p) => p !== bestPoint && second.signals?.[p] > (best.signals?.[p] || 0)
+  );
+
+  if (alternative) {
+    secondPoint = getPriorityLabel(alternative);
+  } else {
+    secondPoint = "";
+  }
+}
 
   let reply = `Entre esses, eu iria no ${best.title}.`;
 
