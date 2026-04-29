@@ -1589,6 +1589,8 @@ export default async function handler(req, res) {
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
+  const currentPriority = detectUserPriority(query) || detectUserPriority(resolvedQuery);
+const activePriority = mergeUserPriority(sessionContext.lastPriority, currentPriority);
     // 🔥 MODO CONTEXTO / DECISÃO / ANÁLISE DE PRODUTO ANTERIOR
 const contextAction = detectContextAction(query, intent, contextResolution);
 
