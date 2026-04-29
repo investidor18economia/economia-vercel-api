@@ -462,7 +462,7 @@ const secondTitle = second
 
   const priorityLabel = getPriorityLabel(priority);
 
-  let reply = `Eu iria nesse ${bestTitle}.`;
+  let reply = `Eu iria nesse ${strongBestTitle}.`;
 
   if (priority) {
   reply += `\n\nSe sua prioridade é ${priorityLabel}, ele faz mais sentido aqui.`;
