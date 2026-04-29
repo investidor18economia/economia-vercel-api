@@ -724,16 +724,12 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
       const signals = getComparisonSignals(product);
 
       const decisionScore = (() => {
-  // 🔥 prioridade domina a decisão
+  // 🔥 PRIORIDADE DOMINA COMPLETAMENTE
   if (priority && signals[priority] !== undefined) {
-    return (
-      signals[priority] * 10 + // peso principal
-      signals.value * 0.3 +
-      signals.reliability
-    );
+    return signals[priority] * 100; // peso absurdo pra garantir vitória
   }
 
-  // fallback padrão
+  // fallback normal
   return (
     signals.value +
     signals.reliability +
