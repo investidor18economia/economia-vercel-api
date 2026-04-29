@@ -773,6 +773,8 @@ function getPriorityLabel(priority = "") {
 
   return labels[priority] || "equilíbrio geral";
 }
+
+function scoreRelevanceToQuery(title, query) {
   const t = (title || "").toLowerCase();
   const queryWords = getQueryWords(query);
 
