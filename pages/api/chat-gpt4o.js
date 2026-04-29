@@ -969,9 +969,9 @@ if (secondPoint === bestPoint || !secondPoint) {
   let reply = `Entre esses, eu iria no ${best.title}.`;
 
   if (activePriority) {
-    reply += `\n\nSe o foco é ${priorityLabel}, ele é o que faz mais sentido.`;
-  } else {
-  reply += `\n\nEle é o mais equilibrado no geral.`;
+  reply += `\n\nSe sua prioridade é ${priorityLabel}, ele faz mais sentido aqui.`;
+} else {
+  reply += `\n\nEle é mais equilibrado porque entrega um conjunto mais completo no dia a dia.`;
 }
 
   const bestReason = getContrastReason(best, bestPoint);
