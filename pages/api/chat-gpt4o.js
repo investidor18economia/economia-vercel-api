@@ -912,6 +912,17 @@ function buildSmartComparisonReply(products = [], priority = "", query = "", for
 let best = forcedBest || scored[0];
 let second = scored.find(p => p !== best) || scored[1];
 
+// 🔥 GARANTIR TITLE SEMPRE
+best = {
+  ...best,
+  title: getStrongDisplayTitle(best.product_name || best.title)
+};
+
+second = {
+  ...second,
+  title: getStrongDisplayTitle(second.product_name || second.title)
+};
+
 // 🔥 PRIORIDADE PODE TROCAR O VENCEDOR
 if (activePriority) {
   const bestScore = best?.signals?.[activePriority] || 0;
