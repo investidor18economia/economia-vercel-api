@@ -292,25 +292,37 @@ function buildSafeDecisionReply(allowedProducts = []) {
 
   return reply;
 }
-function buildSessionContext(messages = [], sessionContext = {}) {
-  const inferredProducts = extractProductsFromMessages(messages);
+function buildSessionContext(messages = [], sessionContext = {}, currentQuery = "") {
+  const categoryHint =
+    detectProductCategory(currentQuery) ||
+    sessionContext?.lastCategory ||
+    "";
+
+  const inferredProducts = extractProductsFromMessages(messages, categoryHint);
+
+  const sessionProducts = Array.isArray(sessionContext?.lastProducts)
+    ? sessionContext.lastProducts
+    : [];
+
+  const rememberedProducts = mergeRememberedProducts(
+    inferredProducts,
+    sessionProducts,
+    categoryHint
+  );
 
   const context = {
     lastQuery: sessionContext?.lastQuery || "",
-    lastCategory: sessionContext?.lastCategory || "",
-    lastProducts:
-      Array.isArray(sessionContext?.lastProducts) && sessionContext.lastProducts.length
-        ? sessionContext.lastProducts
-        : inferredProducts,
+    lastCategory: sessionContext?.lastCategory || categoryHint || "",
+    lastProducts: rememberedProducts,
     lastBestProduct:
+      rememberedProducts[rememberedProducts.length - 1] ||
       sessionContext?.lastBestProduct ||
-      inferredProducts[inferredProducts.length - 1] ||
       null,
     lastIntent: sessionContext?.lastIntent || "",
     lastTopic: sessionContext?.lastTopic || "",
     lastProductMentioned:
+      rememberedProducts[rememberedProducts.length - 1]?.product_name ||
       sessionContext?.lastProductMentioned ||
-      inferredProducts[inferredProducts.length - 1]?.product_name ||
       "",
     lastInteractionType: sessionContext?.lastInteractionType || ""
   };
@@ -342,6 +354,18 @@ function buildSessionContext(messages = [], sessionContext = {}) {
   if (!context.lastCategory && context.lastQuery) {
     context.lastCategory = detectProductCategory(context.lastQuery) || "";
   }
+
+  context.lastProducts = sanitizeRememberedProducts(
+    context.lastProducts,
+    context.lastCategory || categoryHint || currentQuery
+  );
+
+  context.lastBestProduct =
+    context.lastProducts[context.lastProducts.length - 1] ||
+    null;
+
+  context.lastProductMentioned =
+    context.lastBestProduct?.product_name || "";
 
   return context;
 }
