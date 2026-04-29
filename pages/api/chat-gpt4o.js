@@ -2272,6 +2272,15 @@ Regras:
     });
 
     let reply = getOpenAIText(aiResponse)?.trim();
+        if (reply) {
+      reply = reply
+        .replace(/\*\*/g, "")
+        .replace(/,\s*que\s+(est[aá]|t[aá])\s+(saindo|custando)\s+por\s+R\$\s*[\d.,]+/gi, "")
+        .replace(/\s+por\s+R\$\s*[\d.,]+/gi, "")
+        .replace(/\s*,\s*\./g, ".")
+        .replace(/\s+,/g, ",")
+        .trim();
+    }
 
     const isComparison =
       intent === "comparison" ||
