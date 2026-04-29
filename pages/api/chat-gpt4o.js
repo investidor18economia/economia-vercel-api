@@ -2511,7 +2511,7 @@ Regras:
 
     const isComparison =
   intent === "comparison" ||
-  / ou | vs | versus | comparar | vale mais a pena/i.test(resolvedQuery);
+  /\b(ou|vs|versus|comparar|vale mais a pena)\b/i.test(resolvedQuery);
 
 const rememberedForComparison = Array.isArray(sessionContext.lastProducts)
   ? sessionContext.lastProducts
