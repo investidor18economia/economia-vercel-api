@@ -870,7 +870,10 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
     return "";
   }
 
-  const activePriority = priority || detectUserPriority(query) || "";
+  const activePriority =
+  priority ||
+  detectUserPriority(query) ||
+  "";
 
   const scored = cleanProducts
     .map((product) => {
@@ -2328,8 +2331,15 @@ export default async function handler(req, res) {
   const budget = extractBudget(resolvedQuery);
   const wantsNew = wantsNewProduct(resolvedQuery);
   const period = getTimePeriod();
-  const currentPriority = detectUserPriority(query) || detectUserPriority(resolvedQuery);
-const activePriority = mergeUserPriority(sessionContext.lastPriority, currentPriority);
+  const currentPriority =
+  detectUserPriority(query) ||
+  detectUserPriority(resolvedQuery) ||
+  "";
+
+const activePriority =
+  currentPriority ||
+  sessionContext.lastPriority ||
+  "";
     // 🔥 MODO CONTEXTO / DECISÃO / ANÁLISE DE PRODUTO ANTERIOR
 const contextAction = detectContextAction(query, intent, contextResolution);
 
@@ -2868,7 +2878,12 @@ let comparisonWinnerProduct = null;
 let hydratedComparisonWinner = null;
 
 if (isComparison && comparisonProducts.length >= 2) {
-  const comparisonPriority = activePriority || detectUserPriority(resolvedQuery);
+  const comparisonPriority =
+  detectUserPriority(query) ||
+  detectUserPriority(resolvedQuery) ||
+  sessionContext.lastPriority ||
+  activePriority ||
+  "";
 
   comparisonWinnerProduct = getBestSmartComparisonProduct(
     comparisonProducts,
