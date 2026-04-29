@@ -710,6 +710,39 @@ function getComparisonProductsFromQuery(query = "", rememberedProducts = []) {
 
   return sanitizeRememberedProducts(products).slice(0, 3);
 }
+function getBestSmartComparisonProduct(products = [], priority = "", query = "") {
+  const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
+
+  if (cleanProducts.length < 2) {
+    return null;
+  }
+
+  const activePriority = priority || detectUserPriority(query) || "";
+
+  const scored = cleanProducts
+    .map((product) => {
+      const signals = getComparisonSignals(product);
+
+      const decisionScore =
+        activePriority && signals[activePriority] !== undefined
+          ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
+          : signals.value +
+            signals.reliability +
+            signals.performance +
+            signals.battery +
+            signals.camera +
+            signals.storage;
+
+      return {
+        ...product,
+        decisionScore
+      };
+    })
+    .sort((a, b) => b.decisionScore - a.decisionScore);
+
+  return scored[0] || null;
+}
+
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
