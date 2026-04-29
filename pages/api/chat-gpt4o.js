@@ -910,7 +910,10 @@ function buildSmartComparisonReply(products = [], priority = "", query = "", for
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
 let best = forcedBest || scored[0];
-let second = scored.find(p => p !== best) || scored[1];
+
+let second =
+  scored.find(p => p.product_name !== best.product_name) ||
+  scored[1];
 
 // 🔥 GARANTIR TITLE SEMPRE
 best = {
