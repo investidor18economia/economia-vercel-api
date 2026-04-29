@@ -1824,8 +1824,8 @@ ${contextModeInstructions}
 if (responseMentionsUnknownProduct(reply, rememberedProducts)) {
   console.warn("🚫 IA tentou inventar produto. Corrigindo...");
 
-  if (contextAction === "decision") {
-    reply = buildSafeDecisionReply(rememberedProducts);
+    if (contextAction === "decision") {
+    reply = buildDecisionEngineReply(rememberedProducts, activePriority);
   } else {
     const lastProduct =
       rememberedProducts[rememberedProducts.length - 1] ||
