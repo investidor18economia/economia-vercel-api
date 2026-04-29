@@ -2186,6 +2186,7 @@ return res.status(200).json({
         }
       : null,
     lastIntent: intent,
+    lastPriority: activePriority,
     lastInteractionType: "search"
   }
 });
