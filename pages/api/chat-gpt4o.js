@@ -848,8 +848,8 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   if (activePriority) {
     reply += `\n\nSe o foco é ${priorityLabel}, ele é o que faz mais sentido.`;
   } else {
-    reply += `\n\nEle parece a escolha mais segura no equilíbrio geral.`;
-  }
+  reply += `\n\nEle parece a escolha mais segura quando olho o conjunto todo.`;
+}
 
   reply += `\n\nComparando de forma simples:`;
   reply += `\n- ${best.title}: leva vantagem em ${bestPoint}.`;
