@@ -1626,18 +1626,27 @@ REGRAS:
 - NÃO dê decisão final de compra.
 - NÃO transforme análise em veredito geral.
 - Responda apenas sobre o produto anterior ou mais recente no contexto.
-- Se o usuário perguntar se roda jogos, analise desempenho de forma cautelosa.
-- Se o usuário perguntar se serve/presta/aguenta, responda sobre aquela necessidade.
+- Analise de acordo com a prioridade atual do usuário.
 - Não diga "Eu compraria X" nesse modo.
 - Não use ranking "Jogos/Bateria/Equilíbrio geral" nesse modo.
 - Seja direto, honesto e útil.
-- Se faltar informação técnica, diga que parece adequado para uso leve/médio, mas não prometa desempenho pesado.
+- Se faltar informação técnica, responda com cautela em vez de prometer demais.
+
+PRIORIDADE ATUAL DO USUÁRIO:
+${getPriorityLabel(activePriority)}
+
+COMO RESPONDER:
+- Se a prioridade for desempenho/jogos, diga se parece adequado para jogos leves, médios ou pesados.
+- Se a prioridade for bateria, comente autonomia/duração.
+- Se a prioridade for câmera, comente fotos/vídeos.
+- Se a prioridade for custo-benefício, comente preço vs entrega.
+- Se não houver dados suficientes, diga isso claramente.
 
 PRODUTOS DISPONÍVEIS:
 ${rememberedProductsText}
 
 CONTEXTO INFERIDO:
-${JSON.stringify(sessionContext, null, 2)}
+${JSON.stringify({ ...sessionContext, lastPriority: activePriority }, null, 2)}
 
 MENSAGEM ATUAL DO USUÁRIO:
 "${query}"
