@@ -906,7 +906,7 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
   if (activePriority) {
     reply += `\n\nSe o foco é ${priorityLabel}, ele é o que faz mais sentido.`;
   } else {
-  reply += `\n\nEle parece a escolha mais segura quando olho o conjunto todo.`;
+  reply += `\n\nEle é o mais equilibrado no geral.`;
 }
 
   const bestReason = getContrastReason(best, bestPoint);
