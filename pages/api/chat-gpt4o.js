@@ -455,10 +455,10 @@ if (/bateria|autonomia|longa duracao|longa duração/.test(title)) {
   }
 
   if (second) {
-    reply += `\n\nComparando rápido:`;
-    reply += `\n- ${bestTitle}: melhor escolha para ${priorityLabel}.`;
-    reply += `\n- ${secondTitle}: faz mais sentido se sua prioridade for diferente, como marca, preço ou equilíbrio geral.`;
-  }
+  reply += `\n\nComparando rápido:`;
+  reply += `\n- ${bestTitle}: melhor escolha pensando em ${priorityLabel}.`;
+  reply += `\n- ${secondTitle}: eu só escolheria se você quiser priorizar outro ponto, como preço, marca ou equilíbrio geral.`;
+}
 
   if (priority === "battery") {
     reply += `\n\nVeredito: se autonomia é o foco, eu iria nele.`;
