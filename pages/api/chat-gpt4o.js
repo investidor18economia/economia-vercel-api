@@ -723,15 +723,26 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
     .map((product) => {
       const signals = getComparisonSignals(product);
 
-      const decisionScore =
-        activePriority && signals[activePriority] !== undefined
-          ? signals[activePriority] * 8 + signals.value * 0.5 + signals.reliability
-          : signals.value +
-            signals.reliability +
-            signals.performance +
-            signals.battery +
-            signals.camera +
-            signals.storage;
+      const decisionScore = (() => {
+  // 🔥 prioridade domina a decisão
+  if (priority && signals[priority] !== undefined) {
+    return (
+      signals[priority] * 10 + // peso principal
+      signals.value * 0.3 +
+      signals.reliability
+    );
+  }
+
+  // fallback padrão
+  return (
+    signals.value +
+    signals.reliability +
+    signals.performance +
+    signals.battery +
+    signals.camera +
+    signals.storage
+  );
+})();
 
       return {
   ...product,
@@ -898,14 +909,14 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
     })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
-  const best = scored[0];
-  const second = scored[1];
-  // 🔥 PRIORIDADE PODE TROCAR O VENCEDOR
-if (activePriority) {
-  const bestScore = best.signals?.[activePriority] || 0;
-  const secondScore = second.signals?.[activePriority] || 0;
+let best = scored[0];
+let second = scored[1];
 
-  // se o segundo for melhor na prioridade → vira vencedor
+// 🔥 PRIORIDADE PODE TROCAR O VENCEDOR
+if (activePriority) {
+  const bestScore = best?.signals?.[activePriority] || 0;
+  const secondScore = second?.signals?.[activePriority] || 0;
+
   if (secondScore > bestScore) {
     const temp = best;
     best = second;
