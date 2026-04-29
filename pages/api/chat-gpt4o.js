@@ -937,40 +937,35 @@ if (sortedSecond.length > 0 && sortedSecond[0][1] > 0) {
  // 🔥 GARANTIA FINAL: nunca permitir pontos iguais
 if (secondPoint === bestPoint || !secondPoint) {
   const rawTitle = (second.product_name || "").toLowerCase();
-const title = normalizeQuery(second.product_name || "");
+  const title = normalizeQuery(second.product_name || "");
 
-  // 🔋 bateria forte
   if (/6300\s*mah|6000\s*mah|bateria/.test(rawTitle)) {
     secondPoint = "bateria";
 
-  // 📦 armazenamento alto
   } else if (/512gb|1tb/.test(rawTitle)) {
     secondPoint = "armazenamento";
 
   } else if (/256gb/.test(rawTitle)) {
     secondPoint = "armazenamento";
 
-  // 📸 câmera
   } else if (/iphone|pro|max|camera|câmera|50mp|64mp|108mp/.test(rawTitle)) {
     secondPoint = "câmera";
 
-  // 🎮 desempenho
   } else if (/16gb|32gb|snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(rawTitle)) {
     secondPoint = "desempenho";
 
-  // 🧠 fallback inteligente (NUNCA repetir bestPoint)
-} else {
-  const fallbackMap = {
-    "custo-benefício": "bateria",
-    "bateria": "desempenho",
-    "desempenho": "armazenamento",
-    "armazenamento": "câmera",
-    "câmera": "custo-benefício"
-  };
+  } else {
+    const fallbackMap = {
+      "custo-benefício": "bateria",
+      "bateria": "desempenho",
+      "desempenho": "armazenamento",
+      "armazenamento": "câmera",
+      "câmera": "custo-benefício"
+    };
 
-  secondPoint = fallbackMap[bestPoint] || "bateria";
-}
-
+    secondPoint = fallbackMap[bestPoint] || "bateria";
+  }
+} // 👈 ESSA CHAVE É OBRIGATÓRIA
   let reply = `Entre esses, eu iria no ${best.title}.`;
 
   if (activePriority) {
