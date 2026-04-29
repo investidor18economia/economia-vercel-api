@@ -766,12 +766,13 @@ function getPriorityLabel(priority = "") {
     performance: "desempenho",
     camera: "câmera/fotos",
     value: "custo-benefício",
-    storage: "armazenamento"
+    storage: "armazenamento",
+    comfort: "conforto/ergonomia",
+    efficiency: "eficiência/consumo"
   };
 
   return labels[priority] || "equilíbrio geral";
 }
-function scoreRelevanceToQuery(title, query) {
   const t = (title || "").toLowerCase();
   const queryWords = getQueryWords(query);
 
