@@ -900,6 +900,18 @@ function buildSmartComparisonReply(products = [], priority = "", query = "") {
 
   const best = scored[0];
   const second = scored[1];
+  // 🔥 PRIORIDADE PODE TROCAR O VENCEDOR
+if (activePriority) {
+  const bestScore = best.signals?.[activePriority] || 0;
+  const secondScore = second.signals?.[activePriority] || 0;
+
+  // se o segundo for melhor na prioridade → vira vencedor
+  if (secondScore > bestScore) {
+    const temp = best;
+    best = second;
+    second = temp;
+  }
+}
 
   const priorityLabel = getPriorityLabel(activePriority);
   const bestPoint = getContrastPoint(best, second, activePriority);
