@@ -613,7 +613,103 @@ function getComparisonProductsFromMemory(query = "", rememberedProducts = []) {
 
   return sanitizeRememberedProducts(matched).slice(0, 3);
 }
+function cleanComparisonTerm(term = "") {
+  return cleanTitle(term)
+    .replace(/[?!.]+$/g, "")
+    .replace(/,\s*qual.*$/i, "")
+    .replace(/\s+qual\s+.*$/i, "")
+    .replace(/\s+quem\s+.*$/i, "")
+    .replace(/\s+vale\s+mais\s+a\s+pena.*$/i, "")
+    .replace(/\s+melhor.*$/i, "")
+    .replace(/\b(o|a|os|as|um|uma|de|do|da|pra|para|entre)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
+function canonicalizeComparisonName(term = "") {
+  const t = cleanComparisonTerm(term);
+
+  if (!t) return "";
+
+  const normalized = normalizeQuery(t);
+
+  const motoMatch = normalized.match(/\bmoto\s*g\s?(\d+)\b/);
+  if (motoMatch) return `Motorola Moto G${motoMatch[1]}`;
+
+  const realmeMatch = normalized.match(/\brealme\s+note\s+(\d+)\b/);
+  if (realmeMatch) return `Realme Note ${realmeMatch[1]}`;
+
+  const iphoneMatch = normalized.match(/\biphone\s+(\d+)\s*(pro|max|plus)?\b/);
+  if (iphoneMatch) {
+    const suffix = iphoneMatch[2]
+      ? ` ${iphoneMatch[2].charAt(0).toUpperCase()}${iphoneMatch[2].slice(1)}`
+      : "";
+    return `iPhone ${iphoneMatch[1]}${suffix}`;
+  }
+
+  const galaxyMatch = normalized.match(/\bgalaxy\s+a\s?(\d+)\b/);
+  if (galaxyMatch) return `Samsung Galaxy A${galaxyMatch[1]}`;
+
+  const redmiMatch = normalized.match(/\bredmi\s+note\s+(\d+)\b/);
+  if (redmiMatch) return `Redmi Note ${redmiMatch[1]}`;
+
+  return t
+    .split(" ")
+    .map((w) => (w.length <= 2 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
+function extractComparisonTermsFromQuery(query = "") {
+  const q = String(query || "").trim();
+
+  if (!q) return [];
+
+  const parts = q
+    .split(/\s+(?:ou|vs|versus)\s+/i)
+    .map(cleanComparisonTerm)
+    .filter((part) => part.length >= 3);
+
+  if (parts.length < 2) return [];
+
+  return parts.slice(0, 3);
+}
+
+function getComparisonProductsFromQuery(query = "", rememberedProducts = []) {
+  const terms = extractComparisonTermsFromQuery(query);
+
+  if (terms.length < 2) return [];
+
+  const products = [];
+  const seen = new Set();
+
+  for (const term of terms) {
+    const canonicalName = canonicalizeComparisonName(term);
+    if (!canonicalName) continue;
+
+    const memoryMatch = Array.isArray(rememberedProducts)
+      ? rememberedProducts.find((product) =>
+          productMatchesQueryMention(product, term) ||
+          productMatchesQueryMention(product, canonicalName)
+        )
+      : null;
+
+    const product = memoryMatch || {
+      product_name: canonicalName,
+      price: null,
+      link: null,
+      thumbnail: null,
+      source: "comparação"
+    };
+
+    const familyKey = getProductFamilyKey(product.product_name || canonicalName);
+    if (!familyKey || seen.has(familyKey)) continue;
+
+    seen.add(familyKey);
+    products.push(product);
+  }
+
+  return sanitizeRememberedProducts(products).slice(0, 3);
+}
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
