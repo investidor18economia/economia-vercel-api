@@ -91,6 +91,115 @@ function extractProductsFromText(text = "") {
 
   return products;
 }
+function sanitizeRememberedProducts(products = [], categoryHint = "") {
+  if (!Array.isArray(products)) return [];
+
+  const cleaned = [];
+  const seen = new Map();
+
+  for (const product of products) {
+    const title = cleanTitle(product?.product_name || "");
+    if (!title || title.length < 6) continue;
+
+    const normalizedTitle = normalizeQuery(title);
+
+    if (
+      /se quiser|posso|porque|olhei aqui|minha escolha|veredito|comparando|alternativa|melhor escolha|não vou|nao vou/i.test(title)
+    ) {
+      continue;
+    }
+
+    if (
+      /iphone\s*13/i.test(title) &&
+      categoryHint &&
+      !/iphone/i.test(normalizeQuery(categoryHint))
+    ) {
+      continue;
+    }
+
+    const candidate = {
+      product_name: title,
+      price: product.price || null,
+      link: product.link || null,
+      thumbnail: product.thumbnail || null,
+      source: product.source || "histórico"
+    };
+
+    if (categoryHint && !productMatchesCategory(candidate, categoryHint)) {
+      continue;
+    }
+
+    const familyKey = getProductFamilyKey(title);
+    if (!familyKey) continue;
+
+    const currentIndex = seen.get(familyKey);
+
+    if (currentIndex === undefined) {
+      seen.set(familyKey, cleaned.length);
+      cleaned.push(candidate);
+      continue;
+    }
+
+    const existing = cleaned[currentIndex];
+
+    const existingScore =
+      String(existing.product_name || "").length +
+      (existing.price ? 30 : 0) +
+      (existing.link ? 30 : 0);
+
+    const newScore =
+      String(candidate.product_name || "").length +
+      (candidate.price ? 30 : 0) +
+      (candidate.link ? 30 : 0);
+
+    if (newScore > existingScore) {
+      cleaned[currentIndex] = candidate;
+    }
+  }
+
+  return cleaned.slice(-5);
+}
+
+function mergeRememberedProducts(primary = [], secondary = [], categoryHint = "") {
+  const merged = [];
+  const seen = new Map();
+
+  const addProducts = (list = []) => {
+    for (const product of sanitizeRememberedProducts(list, categoryHint)) {
+      const familyKey = getProductFamilyKey(product.product_name);
+      if (!familyKey) continue;
+
+      const currentIndex = seen.get(familyKey);
+
+      if (currentIndex === undefined) {
+        seen.set(familyKey, merged.length);
+        merged.push(product);
+        continue;
+      }
+
+      const existing = merged[currentIndex];
+
+      const existingScore =
+        String(existing.product_name || "").length +
+        (existing.price ? 30 : 0) +
+        (existing.link ? 30 : 0);
+
+      const newScore =
+        String(product.product_name || "").length +
+        (product.price ? 30 : 0) +
+        (product.link ? 30 : 0);
+
+      if (newScore > existingScore) {
+        merged[currentIndex] = product;
+      }
+    }
+  };
+
+  addProducts(primary);
+  addProducts(secondary);
+
+  return merged.slice(-5);
+}
 
 function extractProductsFromMessages(messages = []) {
   const found = [];
