@@ -574,6 +574,46 @@ function getBestComparisonPoint(signals = {}) {
   return labels[best] || "equilíbrio geral";
 }
 
+function productMatchesQueryMention(product = {}, query = "") {
+  const title = normalizeQuery(product.product_name || "");
+  const q = normalizeQuery(query);
+
+  if (!title || !q) return false;
+
+  const familyKey = getProductFamilyKey(title);
+
+  if (familyKey && q.includes(familyKey)) return true;
+
+  const compactTitle = title.replace(/\s+/g, "");
+  const compactQuery = q.replace(/\s+/g, "");
+
+  if (familyKey && compactQuery.includes(familyKey.replace(/\s+/g, ""))) {
+    return true;
+  }
+
+  const importantTokens = familyKey
+    .split(" ")
+    .filter((w) => w.length >= 2);
+
+  if (importantTokens.length >= 2 && importantTokens.every((token) => q.includes(token))) {
+    return true;
+  }
+
+  return false;
+}
+
+function getComparisonProductsFromMemory(query = "", rememberedProducts = []) {
+  if (!Array.isArray(rememberedProducts) || rememberedProducts.length === 0) {
+    return [];
+  }
+
+  const matched = rememberedProducts.filter((product) =>
+    productMatchesQueryMention(product, query)
+  );
+
+  return sanitizeRememberedProducts(matched).slice(0, 3);
+}
+
 function buildSmartComparisonReply(products = [], priority = "", query = "") {
   const cleanProducts = sanitizeRememberedProducts(products).slice(0, 3);
 
