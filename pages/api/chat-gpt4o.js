@@ -734,9 +734,10 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
             signals.storage;
 
       return {
-        ...product,
-        decisionScore
-      };
+  ...product,
+  signals, // 🔥 ESSA LINHA É O QUE FALTAVA
+  decisionScore
+};
     })
     .sort((a, b) => b.decisionScore - a.decisionScore);
 
