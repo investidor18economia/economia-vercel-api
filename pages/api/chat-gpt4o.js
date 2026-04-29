@@ -913,7 +913,20 @@ if (secondPoint === bestPoint) {
   if (alternative) {
     secondPoint = getPriorityLabel(alternative);
   } else {
-    secondPoint = "";
+    // 🔥 FORÇAR UM PONTO REAL BASEADO NO PRODUTO
+    const title = normalizeQuery(second.product_name || "");
+
+    if (/6300\s*mah|6000\s*mah|bateria/.test(title)) {
+      secondPoint = "bateria";
+    } else if (/256gb|512gb|1tb/.test(title)) {
+      secondPoint = "armazenamento";
+    } else if (/iphone|camera|câmera|50mp|64mp|108mp/.test(title)) {
+      secondPoint = "câmera";
+    } else if (/snapdragon|dimensity|helio|g81|g99|i5|i7|ryzen/.test(title)) {
+      secondPoint = "desempenho";
+    } else {
+      secondPoint = "custo-benefício";
+    }
   }
 }
 
