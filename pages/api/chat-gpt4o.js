@@ -1727,7 +1727,8 @@ ${contextModeInstructions}
       getOpenAIText(aiResponse)?.trim() ||
       "Pelo contexto, eu iria na opção principal mais equilibrada. Só escolheria outra se sua prioridade for algo bem específico, como bateria ou jogos.";
 
-    reply = reply
+        reply = reply
+      .replace(/\*\*/g, "")
       .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
       .replace(/\n?\s*Se precisar de mais alguma ajuda.*$/i, "")
       .trim();
