@@ -1393,6 +1393,9 @@ Instruções para esta resposta:
 - Recomende 1 produto principal com clareza.
 - NÃO repita o preço na resposta, porque o preço já aparece no card visual.
 - Use a resposta para explicar o motivo prático da escolha: desempenho, bateria, câmera, armazenamento, segurança da marca, economia ou tipo de uso.
+- NÃO explique demais.
+- Foque no principal (1 ou 2 motivos fortes).
+- Corte qualquer explicação genérica ou óbvia.
 - Explique de forma simples por que esse produto faz sentido para o usuário.
 - NÃO use padrões robóticos como:
   "Ele tem...", "Além disso...", "Ele oferece..."
