@@ -290,6 +290,96 @@ function buildSafeDecisionReply(allowedProducts = []) {
 
   return reply;
 }
+function buildDecisionEngineReply(allowedProducts = [], priority = "") {
+  const products = sanitizeRememberedProducts(allowedProducts);
+
+  if (!Array.isArray(products) || products.length === 0) {
+    return "Eu preciso de pelo menos uma opção válida no histórico para te dar um veredito seguro.";
+  }
+
+  const getText = (p) => normalizeQuery(p?.product_name || "");
+  const getPrice = (p) => parsePrice(p?.price);
+
+  const scoreByPriority = (product) => {
+    const title = getText(product);
+    const price = getPrice(product);
+
+    let score = 0;
+
+    if (!Number.isNaN(price)) {
+      score += Math.max(0, 3000 - price) / 80;
+    }
+
+    if (/5g/.test(title)) score += 8;
+    if (/256gb/.test(title)) score += 8;
+    if (/8gb/.test(title)) score += 6;
+    if (/16gb/.test(title)) score += 5;
+    if (/motorola|samsung|xiaomi|realme|iphone/.test(title)) score += 5;
+
+    if (priority === "battery") {
+      if (/6300mah|6000mah|5500mah/.test(title)) score += 45;
+      if (/5000mah/.test(title)) score += 25;
+      if (/bateria/.test(title)) score += 15;
+    }
+
+    if (priority === "performance") {
+      if (/g81|helio|snapdragon|dimensity|8gb|16gb|90hz|120hz/.test(title)) score += 20;
+      if (/4gb/.test(title)) score -= 15;
+    }
+
+    if (priority === "camera") {
+      if (/50mp|64mp|108mp|camera|câmera/.test(title)) score += 25;
+    }
+
+    if (priority === "storage") {
+      if (/256gb/.test(title)) score += 25;
+      if (/128gb/.test(title)) score += 10;
+    }
+
+    if (priority === "value") {
+      if (!Number.isNaN(price)) score += Math.max(0, 2000 - price) / 50;
+      if (/256gb|8gb|5g/.test(title)) score += 15;
+    }
+
+    return score;
+  };
+
+  const ranked = [...products]
+    .map((p) => ({
+      ...p,
+      decisionScore: scoreByPriority(p)
+    }))
+    .sort((a, b) => b.decisionScore - a.decisionScore);
+
+  const best = ranked[0];
+  const second = ranked[1];
+
+  const bestTitle = cleanTitle(best.product_name);
+  const secondTitle = second ? cleanTitle(second.product_name) : "";
+
+  const priorityLabel = getPriorityLabel(priority);
+
+  let reply = `Eu compraria o ${bestTitle}.`;
+
+  reply += `\n\nPensando em ${priorityLabel}, ele é o que faz mais sentido entre as opções que apareceram.`;
+
+  if (second) {
+    reply += `\n\nComparando rápido:`;
+    reply += `\n- ${bestTitle}: melhor escolha para ${priorityLabel}.`;
+    reply += `\n- ${secondTitle}: eu só escolheria se sua prioridade fosse mais equilíbrio geral ou preferência pela marca.`;
+  }
+
+  if (priority === "battery") {
+    reply += `\n\nVeredito: se bateria é prioridade, vai nele.`;
+  } else if (priority === "performance") {
+    reply += `\n\nVeredito: para jogos leves e médios, ele é a escolha mais coerente. Para jogos pesados, eu teria cautela.`;
+  } else {
+    reply += `\n\nVeredito: é a opção mais equilibrada para comprar agora.`;
+  }
+
+  return reply;
+}
+
 function buildSessionContext(messages = [], sessionContext = {}, currentQuery = "") {
   const categoryHint =
     detectProductCategory(currentQuery) ||
