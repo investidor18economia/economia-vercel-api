@@ -2790,17 +2790,15 @@ if (!isDecisionQuery && !isGeneralQuery) {
   // 🟡 comparação → se houver produtos da memória citados pelo usuário,
   // usa eles para o card também, evitando card G55 e texto G05/G56.
   if (isComparisonQuery) {
-  const winnerHasCardData =
-    comparisonWinnerProduct &&
-    (comparisonWinnerProduct.price ||
-      comparisonWinnerProduct.link ||
-      comparisonWinnerProduct.thumbnail);
+  const winnerForCard = hydratedComparisonWinner || comparisonWinnerProduct;
 
-  // Regra:
-  // se temos card real do vencedor, mostra o vencedor.
-  // se não temos card real do vencedor, não mostra card nenhum.
-  // melhor não mostrar card do que mostrar um produto diferente da resposta.
-  productsToShow = winnerHasCardData ? [comparisonWinnerProduct] : [];
+  const winnerHasCardData =
+    winnerForCard &&
+    (winnerForCard.price ||
+      winnerForCard.link ||
+      winnerForCard.thumbnail);
+
+  productsToShow = winnerHasCardData ? [winnerForCard] : [];
 }
 }
 
