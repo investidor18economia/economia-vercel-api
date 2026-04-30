@@ -884,12 +884,11 @@ function buildSmartComparisonReply(products = [], priority = "", query = "", for
       const signals = getComparisonSignals(product);
 
       const decisionScore = (() => {
-  // 🔥 PRIORIDADE DOMINA COMPLETAMENTE
+  // 🔥 prioridade domina de verdade
   if (activePriority && signals[activePriority] !== undefined) {
-    return signals[activePriority] * 100;
+    return signals[activePriority] * 1000;
   }
 
-  // fallback normal
   return (
     signals.value +
     signals.reliability +
