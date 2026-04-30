@@ -718,6 +718,20 @@ function getBestSmartComparisonProduct(products = [], priority = "", query = "")
   }
 
   const activePriority = priority || detectUserPriority(query) || "";
+  if (activePriority) {
+  const productsWithSignals = cleanProducts.map((product) => ({
+    ...product,
+    signals: getComparisonSignals(product)
+  }));
+
+  const priorityWinner = productsWithSignals
+    .filter((product) => product.signals?.[activePriority] > 0)
+    .sort((a, b) => b.signals[activePriority] - a.signals[activePriority])[0];
+
+  if (priorityWinner) {
+    return priorityWinner;
+  }
+}
 
   const scored = cleanProducts
     .map((product) => {
