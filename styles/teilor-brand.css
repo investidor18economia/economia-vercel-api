@@ -1,0 +1,239 @@
+:root {
+  --mia-landing-title-blue: #00C6FF;
+}
+
+.teilor-brand-hero {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: calc(2px + env(safe-area-inset-top, 0px)) 14px 4px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.teilor-brand-top-band {
+  height: 28px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.teilor-brand-tagline {
+  margin: 0 auto 4px;
+  min-height: 1.2em;
+  max-width: 100%;
+  padding: 0 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: #F4FAFF;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translateY(1px);
+  transition: opacity 0.32s ease, transform 0.32s ease;
+}
+
+.teilor-brand-tagline--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.teilor-brand-logo-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.teilor-brand-logo {
+  width: min(200px, 52vw);
+  height: auto;
+  max-height: 36px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.teilor-brand-trust {
+  position: relative;
+  margin: 0 auto;
+  max-width: 100%;
+  padding: 4px 9px 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(143, 210, 245, 0.14);
+  background: rgba(8, 22, 48, 0.48);
+  box-shadow: none;
+  text-align: left;
+}
+
+.teilor-brand-trust-accent {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: rgba(159, 216, 255, 0.32);
+  box-shadow: none;
+}
+
+.teilor-brand-trust-text {
+  margin: 0;
+  padding-right: 0;
+  font-size: 11.5px;
+  line-height: 1.36;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.teilor-brand-trust-line {
+  display: block;
+}
+
+.teilor-brand-trust-line--primary {
+  color: var(--mia-landing-title-blue);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.teilor-brand-trust-line--secondary {
+  margin-top: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.38;
+  color: var(--mia-landing-title-blue);
+}
+
+@media (min-width: 641px) {
+  .teilor-brand-hero {
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 18px 6px;
+  }
+
+  .teilor-brand-top-band {
+    height: 32px;
+  }
+
+  .teilor-brand-tagline {
+    margin-bottom: 6px;
+    font-size: 12.5px;
+    max-width: 42ch;
+  }
+
+  .teilor-brand-logo {
+    width: min(240px, 32vw);
+    max-height: 44px;
+  }
+
+  .teilor-brand-logo-wrap {
+    margin-bottom: 6px;
+  }
+
+  .teilor-brand-trust {
+    max-width: 40ch;
+    padding: 5px 10px 5px 11px;
+  }
+
+  .teilor-brand-trust-text,
+  .teilor-brand-trust-line--primary,
+  .teilor-brand-trust-line--secondary {
+    font-size: 12.5px;
+    line-height: 1.34;
+  }
+}
+
+@media (max-width: 640px) {
+  .teilor-brand-hero {
+    padding-inline: 10px;
+    padding-bottom: 2px;
+  }
+
+  .teilor-brand-top-band {
+    height: 26px;
+  }
+
+  .teilor-brand-tagline {
+    font-size: 10.5px;
+    margin-bottom: 3px;
+  }
+
+  .teilor-brand-logo {
+    width: min(176px, 48vw);
+    max-height: 32px;
+  }
+
+  .teilor-brand-logo-wrap {
+    margin-bottom: 3px;
+  }
+
+  .teilor-brand-trust {
+    padding: 3px 8px 3px 9px;
+    border-radius: 7px;
+  }
+
+  .teilor-brand-trust-accent {
+    top: 3px;
+    bottom: 3px;
+  }
+
+  .teilor-brand-trust-text,
+  .teilor-brand-trust-line--primary,
+  .teilor-brand-trust-line--secondary {
+    font-size: 10.5px;
+    line-height: 1.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .teilor-brand-tagline {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+body.mia-app-drawer-open .teilor-brand-hero {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.mia-app-drawer-open {
+  overflow: hidden;
+}
+
+body.mia-app-intro .teilor-brand-hero {
+  padding-bottom: 6px;
+}
+
+body.mia-app-intro .teilor-brand-logo-wrap {
+  display: none;
+}
+
+body.mia-app-intro .teilor-brand-trust {
+  margin-top: 0;
+}
+
+body.mia-app-intro .teilor-brand-trust-accent {
+  top: 3px;
+  bottom: 3px;
+  background: rgba(143, 210, 245, 0.22);
+}
+
+body.mia-app-intro .teilor-brand-trust-text,
+body.mia-app-intro .teilor-brand-trust-line--primary,
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  font-size: 12.5px;
+  line-height: 1.28;
+}
+
+body.mia-app-intro .teilor-brand-trust-line--primary {
+  color: var(--mia-landing-title-blue);
+}
+
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  color: var(--mia-landing-title-blue);
+}

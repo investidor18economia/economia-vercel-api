@@ -1,0 +1,1593 @@
+/* ── Feed Inteligente da MIΛ ──────────────────────────────────────────── */
+
+
+
+.mia-side-panel--feed {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+  overflow: hidden;
+
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+
+  padding-bottom: 0;
+
+}
+
+
+
+.mia-feed-hub-topbar {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 6px 6px 6px 10px;
+
+  border-radius: 10px;
+
+  border: 1px solid rgba(0, 198, 255, 0.14);
+
+  background: linear-gradient(135deg, rgba(0, 198, 255, 0.08) 0%, rgba(0, 198, 255, 0.06) 100%);
+
+  flex-shrink: 0;
+
+}
+
+
+
+.mia-feed-hub-topbar-text {
+
+  margin: 0;
+
+  flex: 1;
+
+  min-width: 0;
+
+  font-size: 11px;
+
+  line-height: 1.38;
+
+  color: #C4DCF0;
+
+}
+
+
+
+.mia-feed-hub-close-btn {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  width: 32px;
+
+  height: 32px;
+
+  margin: 0;
+
+  padding: 0;
+
+  border-radius: 9px;
+
+  border: 1px solid transparent;
+
+  background: transparent;
+
+  color: #B8D4EC;
+
+  font-size: 15px;
+
+  font-weight: 500;
+
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+}
+
+
+
+.mia-feed-hub-close-btn:focus-visible {
+
+  outline: 2px solid rgba(0, 198, 255, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+
+.mia-feed-hub-close-btn:active {
+
+  background: rgba(255, 255, 255, 0.06);
+
+}
+
+
+
+.mia-feed-hub-mia-dot {
+
+  width: 7px;
+
+  height: 7px;
+
+  border-radius: 50%;
+
+  flex-shrink: 0;
+
+  background: #00C6FF;
+
+  box-shadow: 0 0 10px rgba(0, 198, 255, 0.55);
+
+}
+
+
+
+/* Viewport imersivo — 1 produto por vez */
+
+.mia-feed-viewport {
+
+  position: relative;
+
+  flex: 1;
+
+  min-height: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  margin: 0 -16px;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+
+}
+
+
+
+.mia-feed-scroll {
+
+  flex: 1;
+
+  min-height: 0;
+
+  height: 100%;
+
+  overflow-y: auto;
+
+  overflow-x: hidden;
+
+  -webkit-overflow-scrolling: touch;
+
+  overscroll-behavior-y: contain;
+
+  scroll-snap-type: y mandatory;
+
+  scroll-behavior: smooth;
+
+  scrollbar-width: none;
+
+}
+
+
+
+.mia-feed-scroll::-webkit-scrollbar {
+
+  display: none;
+
+}
+
+
+
+.mia-feed-slide {
+
+  height: 100%;
+
+  min-height: 100%;
+
+  flex-shrink: 0;
+
+  scroll-snap-align: start;
+
+  scroll-snap-stop: always;
+
+  box-sizing: border-box;
+
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+}
+
+
+
+.mia-feed-slide--footer {
+
+  display: flex;
+
+  align-items: stretch;
+
+}
+
+
+
+.mia-feed-scroll-footer {
+
+  width: 100%;
+
+  height: 100%;
+
+  overflow-y: auto;
+
+  -webkit-overflow-scrolling: touch;
+
+  padding: 16px;
+
+  box-sizing: border-box;
+
+}
+
+
+
+.mia-feed-card {
+
+  height: 100%;
+
+  min-height: 100%;
+
+  display: flex;
+
+  flex-direction: column;
+
+  border-radius: 0;
+
+  border: none;
+
+  background: linear-gradient(180deg, rgba(10, 28, 58, 0.96) 0%, rgba(6, 16, 38, 0.98) 100%);
+
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  overflow: hidden;
+
+}
+
+
+
+.mia-feed-card-media-wrap {
+
+  position: relative;
+
+  width: 100%;
+
+  flex-shrink: 0;
+
+  height: clamp(126px, 26vh, 210px);
+
+  background: rgba(0, 0, 0, 0.25);
+
+  border: none;
+
+  padding: 0;
+
+  margin: 0;
+
+}
+
+
+
+.mia-feed-card-media-wrap--clickable {
+
+  cursor: zoom-in;
+
+  touch-action: manipulation;
+
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+}
+
+
+
+.mia-feed-card-media-wrap--clickable:focus-visible {
+
+  outline: 2px solid rgba(0, 198, 255, 0.45);
+
+  outline-offset: -2px;
+
+}
+
+
+
+.mia-feed-card-media-wrap--clickable:active {
+
+  transform: scale(0.995);
+
+}
+
+
+
+.mia-feed-card-gallery-hint {
+
+  position: absolute;
+
+  right: 12px;
+
+  bottom: 12px;
+
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.04em;
+
+  text-transform: uppercase;
+
+  color: #EAF4FF;
+
+  border: 1px solid rgba(255, 255, 255, 0.14);
+
+  background: rgba(6, 16, 38, 0.72);
+
+  backdrop-filter: blur(8px);
+
+  -webkit-backdrop-filter: blur(8px);
+
+}
+
+
+
+.mia-feed-card-image {
+
+  width: 100%;
+
+  height: 100%;
+
+  object-fit: cover;
+
+  object-position: center;
+
+  display: block;
+
+}
+
+
+
+.mia-feed-card-image-fallback {
+
+  width: 100%;
+
+  height: 100%;
+
+  position: relative;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  overflow: hidden;
+
+  background: linear-gradient(145deg, #0a1e48 0%, #061428 52%, #0c2448 100%);
+
+  border-bottom: 1px solid rgba(0, 198, 255, 0.08);
+
+}
+
+
+
+.mia-feed-card-image-fallback-glow {
+
+  position: absolute;
+
+  inset: auto 18% 22%;
+
+  height: 42%;
+
+  border-radius: 50%;
+
+  background: radial-gradient(circle, rgba(0, 198, 255, 0.22) 0%, rgba(0, 198, 255, 0) 72%);
+
+  pointer-events: none;
+
+}
+
+
+
+.mia-feed-card-image-fallback-emoji {
+
+  font-size: clamp(36px, 8vw, 48px);
+
+  line-height: 1;
+
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+
+}
+
+
+
+.mia-feed-card-image-fallback-label {
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+
+  color: rgba(0, 198, 255, 0.72);
+
+}
+
+
+
+.mia-feed-card-badge {
+
+  position: absolute;
+
+  top: 12px;
+
+  left: 12px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 4px;
+
+  padding: 7px 12px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.05em;
+
+  text-transform: uppercase;
+
+  color: #F4FAFF;
+
+  border: 1px solid rgba(0, 198, 255, 0.42);
+
+  background: linear-gradient(135deg, rgba(0, 198, 255, 0.28) 0%, rgba(0, 198, 255, 0.2) 100%);
+
+  backdrop-filter: blur(10px);
+
+  -webkit-backdrop-filter: blur(10px);
+
+  box-shadow:
+
+    0 4px 18px rgba(0, 0, 0, 0.28),
+
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+
+    0 0 22px rgba(0, 198, 255, 0.12);
+
+}
+
+
+
+.mia-feed-card-badge-spark {
+
+  font-size: 11px;
+
+  line-height: 1;
+
+}
+
+
+
+.mia-feed-card-scroll-hint {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  margin: 0;
+
+  padding: 6px 12px 2px;
+
+  font-size: 11px;
+
+  font-weight: 650;
+
+  line-height: 1.35;
+
+  color: rgba(175, 198, 222, 0.88);
+
+  flex-shrink: 0;
+
+}
+
+
+
+.mia-feed-card-scroll-hint-icon {
+
+  animation: miaFeedHintBounce 1.6s ease-in-out infinite;
+
+}
+
+
+
+@keyframes miaFeedHintBounce {
+
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+
+  50% { transform: translateY(3px); opacity: 1; }
+
+}
+
+
+
+.mia-feed-card-body {
+
+  flex: 1;
+
+  min-height: 0;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+
+  min-width: 0;
+
+  overflow-y: auto;
+
+  -webkit-overflow-scrolling: touch;
+
+  overscroll-behavior: contain;
+
+}
+
+
+
+.mia-feed-card-category {
+
+  margin: 0;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.7px;
+
+  text-transform: uppercase;
+
+  color: #9FE8FF;
+
+}
+
+
+
+.mia-feed-card-name {
+
+  margin: 0;
+
+  font-size: 20px;
+
+  font-weight: 800;
+
+  letter-spacing: -0.35px;
+
+  line-height: 1.2;
+
+  color: #F4FAFF;
+
+}
+
+
+
+.mia-feed-card-meta {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  align-items: baseline;
+
+  gap: 8px 12px;
+
+}
+
+
+
+.mia-feed-card-price {
+
+  font-size: 22px;
+
+  font-weight: 800;
+
+  color: #00C6FF;
+
+  letter-spacing: -0.3px;
+
+}
+
+
+
+.mia-feed-card-store {
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  color: #9BB8D4;
+
+}
+
+
+
+.mia-feed-card-insight {
+
+  padding: 13px 13px;
+
+  border-radius: 14px;
+
+  border: 1px solid rgba(123, 97, 255, 0.26);
+
+  background: linear-gradient(145deg, rgba(12, 34, 78, 0.62) 0%, rgba(8, 22, 52, 0.72) 100%);
+
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+
+}
+
+
+
+.mia-feed-card-insight-text {
+
+  margin: 0;
+
+  font-size: 15px;
+
+  line-height: 1.66;
+
+  color: #F4FAFF;
+
+  letter-spacing: -0.01em;
+
+}
+
+
+
+.mia-feed-card-section {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 6px;
+
+}
+
+
+
+.mia-feed-card-section-title {
+
+  margin: 0;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  color: #C8E4F8;
+
+}
+
+
+
+.mia-feed-card-list {
+
+  margin: 0;
+
+  padding-left: 18px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 4px;
+
+  font-size: 12.5px;
+
+  line-height: 1.45;
+
+  color: #D8EAFA;
+
+}
+
+
+
+.mia-feed-card-list--muted {
+
+  color: #AFC6DE;
+
+}
+
+
+
+.mia-feed-card-section--price {
+
+  padding: 10px 12px;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(0, 198, 255, 0.2);
+
+  background: rgba(0, 198, 255, 0.06);
+
+}
+
+
+
+.mia-feed-card-best-price {
+
+  margin: 0;
+
+  font-size: 18px;
+
+  font-weight: 800;
+
+  color: #00C6FF;
+
+}
+
+
+
+.mia-feed-card-best-store {
+
+  margin: 0;
+
+  font-size: 12px;
+
+  color: #9BB8D4;
+
+}
+
+
+
+.mia-feed-card-actions {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 8px;
+
+  margin-top: auto;
+
+  padding-top: 6px;
+
+}
+
+
+
+.mia-feed-card-actions-row--pair {
+
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 8px;
+
+}
+
+
+
+.mia-feed-card-actions-row--solo {
+
+  display: flex;
+
+  justify-content: center;
+
+}
+
+
+
+.mia-feed-card-actions-row--solo .mia-feed-action-btn {
+
+  width: 100%;
+
+  max-width: min(100%, 300px);
+
+}
+
+
+
+.mia-feed-action-btn--ask {
+
+  border-color: rgba(255, 255, 255, 0.1);
+
+  background: rgba(255, 255, 255, 0.04);
+
+}
+
+
+
+.mia-feed-action-btn {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  min-height: 44px;
+
+  padding: 10px 12px;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 255, 255, 0.1);
+
+  background: rgba(255, 255, 255, 0.04);
+
+  color: #EAF4FF;
+
+  font-size: 12px;
+
+  font-weight: 650;
+
+  text-decoration: none;
+
+  cursor: pointer;
+
+  box-sizing: border-box;
+
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+}
+
+
+
+.mia-feed-action-btn--primary {
+
+  border-color: rgba(0, 198, 255, 0.28);
+
+  background: linear-gradient(180deg, rgba(0, 198, 255, 0.18) 0%, rgba(123, 97, 255, 0.14) 100%);
+
+}
+
+
+
+.mia-feed-action-btn--disabled {
+
+  opacity: 0.45;
+
+  pointer-events: none;
+
+}
+
+
+
+.mia-feed-action-btn:disabled {
+
+  opacity: 0.55;
+
+  cursor: not-allowed;
+
+}
+
+
+
+.mia-feed-action-btn:focus-visible {
+
+  outline: 2px solid rgba(0, 198, 255, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+
+/* Onboarding — primeira visita */
+
+.mia-feed-onboarding {
+
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 6;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  pointer-events: none;
+
+  background: linear-gradient(
+
+    180deg,
+
+    rgba(4, 12, 28, 0.08) 0%,
+
+    rgba(4, 12, 28, 0.52) 38%,
+
+    rgba(4, 12, 28, 0.72) 100%
+
+  );
+
+  animation: miaFeedOnboardingIn 0.45s ease forwards;
+
+}
+
+
+
+.mia-feed-onboarding--leaving {
+
+  animation: miaFeedOnboardingOut 0.42s ease forwards;
+
+}
+
+
+
+.mia-feed-onboarding-content {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 0 24px;
+
+  text-align: center;
+
+}
+
+
+
+.mia-feed-onboarding-hand {
+
+  font-size: 34px;
+
+  line-height: 1;
+
+  animation: miaFeedSwipeHand 1.15s ease-in-out infinite;
+
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.35));
+
+}
+
+
+
+.mia-feed-onboarding-swipe-track {
+
+  position: relative;
+
+  width: 3px;
+
+  height: 56px;
+
+  border-radius: 999px;
+
+  background: linear-gradient(180deg, rgba(0, 198, 255, 0.08) 0%, rgba(0, 198, 255, 0.22) 100%);
+
+  overflow: hidden;
+
+}
+
+
+
+.mia-feed-onboarding-swipe-dot {
+
+  position: absolute;
+
+  left: 0;
+
+  right: 0;
+
+  top: 0;
+
+  height: 14px;
+
+  border-radius: 999px;
+
+  background: linear-gradient(180deg, #00C6FF 0%, #00C6FF 100%);
+
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.45);
+
+  animation: miaFeedSwipeDot 1.15s ease-in-out infinite;
+
+}
+
+
+
+.mia-feed-onboarding-text {
+
+  margin: 6px 0 0;
+
+  max-width: 22ch;
+
+  font-size: 13px;
+
+  font-weight: 650;
+
+  line-height: 1.45;
+
+  color: #EAF4FF;
+
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+
+}
+
+
+
+@keyframes miaFeedSwipeHand {
+
+  0%,
+
+  100% {
+
+    transform: translateY(10px);
+
+    opacity: 0.82;
+
+  }
+
+  50% {
+
+    transform: translateY(-18px);
+
+    opacity: 1;
+
+  }
+
+}
+
+
+
+@keyframes miaFeedSwipeDot {
+
+  0%,
+
+  100% {
+
+    transform: translateY(42px);
+
+    opacity: 0.35;
+
+  }
+
+  50% {
+
+    transform: translateY(0);
+
+    opacity: 1;
+
+  }
+
+}
+
+
+
+@keyframes miaFeedOnboardingIn {
+
+  from {
+
+    opacity: 0;
+
+  }
+
+  to {
+
+    opacity: 1;
+
+  }
+
+}
+
+
+
+@keyframes miaFeedOnboardingOut {
+
+  from {
+
+    opacity: 1;
+
+  }
+
+  to {
+
+    opacity: 0;
+
+  }
+
+}
+
+
+
+.mia-feed-empty {
+
+  padding: 22px 16px;
+
+  border-radius: 16px;
+
+  border: 1px solid rgba(0, 198, 255, 0.2);
+
+  background: linear-gradient(165deg, rgba(14, 36, 72, 0.45) 0%, rgba(8, 22, 50, 0.55) 100%);
+
+  text-align: center;
+
+}
+
+
+
+.mia-feed-empty-icon.mia-hub-empty-mia-mark {
+  width: auto;
+  height: auto;
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: none;
+  border: none;
+}
+
+
+
+.mia-feed-empty-title {
+
+  margin: 0 0 8px;
+
+  font-size: 17px;
+
+  font-weight: 800;
+
+  color: #F4FAFF;
+
+}
+
+
+
+.mia-feed-empty-text {
+
+  margin: 0 0 14px;
+
+  font-size: 13px;
+
+  line-height: 1.55;
+
+  color: #9BB8D4;
+
+}
+
+
+
+.mia-feed-empty-cta {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  min-height: 44px;
+
+  padding: 10px 16px;
+
+  border-radius: 12px;
+
+  border: 1px solid rgba(0, 198, 255, 0.28);
+
+  background: linear-gradient(180deg, rgba(0, 198, 255, 0.18) 0%, rgba(123, 97, 255, 0.14) 100%);
+
+  color: #F4FAFF;
+
+  font-size: 13px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+}
+
+
+
+.mia-feed-edu {
+
+  margin-top: 0;
+
+}
+
+
+
+.mia-feed-edu-title {
+
+  margin: 0 0 10px;
+
+  font-size: 14px;
+
+  font-weight: 750;
+
+  color: #EAF4FF;
+
+}
+
+
+
+.mia-feed-edu-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 8px;
+
+}
+
+
+
+.mia-feed-edu-card {
+
+  padding: 12px;
+
+  border-radius: 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  background: rgba(255, 255, 255, 0.03);
+
+}
+
+
+
+.mia-feed-edu-icon {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 28px;
+
+  height: 28px;
+
+  margin-bottom: 8px;
+
+  border-radius: 9px;
+
+  font-size: 14px;
+
+  background: rgba(0, 198, 255, 0.08);
+
+  border: 1px solid rgba(0, 198, 255, 0.12);
+
+}
+
+
+
+.mia-feed-edu-card-title {
+
+  margin: 0 0 4px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  color: #EAF4FF;
+
+}
+
+
+
+.mia-feed-edu-card-text {
+
+  margin: 0;
+
+  font-size: 11.5px;
+
+  line-height: 1.45;
+
+  color: #9BB8D4;
+
+}
+
+
+
+.mia-drawer-feed-btn {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 8px;
+
+  width: 100%;
+
+  min-height: 48px;
+
+  padding: 12px 16px;
+
+  border-radius: 16px;
+
+  border: 1px solid rgba(0, 198, 255, 0.52);
+
+  background:
+
+    linear-gradient(135deg, rgba(0, 198, 255, 0.24) 0%, rgba(0, 198, 255, 0.12) 48%, rgba(0, 198, 255, 0.18) 100%);
+
+  color: #FFF8E8;
+
+  font-size: 14px;
+
+  font-weight: 750;
+
+  cursor: pointer;
+
+  box-shadow:
+
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+
+    0 0 0 1px rgba(0, 198, 255, 0.08) inset,
+
+    0 10px 28px rgba(0, 0, 0, 0.22),
+
+    0 0 24px rgba(0, 198, 255, 0.12);
+
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+
+}
+
+
+
+.mia-drawer-feed-btn:active {
+
+  transform: scale(0.99);
+
+}
+
+
+
+.mia-drawer-feed-btn:focus-visible {
+
+  outline: 2px solid rgba(0, 198, 255, 0.45);
+
+  outline-offset: 2px;
+
+}
+
+
+
+@media (min-width: 901px) {
+
+  .mia-side-panel--feed {
+
+    left: 50%;
+
+    right: auto;
+
+    transform: translateX(-50%);
+
+    width: min(760px, 92vw);
+
+    max-width: 760px;
+
+    top: 20px;
+
+    bottom: 20px;
+
+    height: auto;
+
+    max-height: calc(100dvh - 40px);
+
+    border-radius: 22px;
+
+    border: 1px solid rgba(255, 255, 255, 0.1);
+
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+
+    padding-bottom: 0;
+
+  }
+
+
+
+  .mia-feed-viewport {
+
+    margin: 0;
+
+    border-radius: 0 0 22px 22px;
+
+    overflow: hidden;
+
+  }
+
+
+
+  .mia-feed-card-media-wrap {
+
+    height: clamp(140px, 23vh, 200px);
+
+  }
+
+}
+
+
+
+@media (max-width: 640px) {
+
+  .mia-feed-edu-grid {
+
+    grid-template-columns: 1fr;
+
+  }
+
+
+
+  .mia-feed-card-name {
+
+    font-size: 18px;
+
+  }
+
+
+
+  .mia-feed-card-price {
+
+    font-size: 20px;
+
+  }
+
+
+
+  .mia-feed-card-insight-text {
+
+    font-size: 14.5px;
+
+    line-height: 1.62;
+
+  }
+
+}
+
+
+
+@media (hover: hover) and (pointer: fine) {
+
+  .mia-feed-action-btn:hover:not(:disabled) {
+
+    background: rgba(255, 255, 255, 0.07);
+
+    border-color: rgba(255, 255, 255, 0.14);
+
+  }
+
+
+
+  .mia-feed-action-btn--primary:hover:not(:disabled) {
+
+    border-color: rgba(0, 198, 255, 0.36);
+
+    background: linear-gradient(180deg, rgba(0, 198, 255, 0.24) 0%, rgba(123, 97, 255, 0.18) 100%);
+
+  }
+
+
+
+  .mia-feed-hub-close-btn:hover {
+
+    background: rgba(255, 255, 255, 0.06);
+
+    border-color: rgba(255, 255, 255, 0.08);
+
+    color: #EAF4FF;
+
+  }
+
+
+
+  .mia-feed-action-btn--ask:hover:not(:disabled) {
+
+    background: rgba(255, 255, 255, 0.07);
+
+    border-color: rgba(255, 255, 255, 0.14);
+
+  }
+
+
+
+  .mia-drawer-feed-btn:hover {
+
+    border-color: rgba(0, 198, 255, 0.68);
+
+    background:
+
+      linear-gradient(135deg, rgba(0, 198, 255, 0.3) 0%, rgba(0, 198, 255, 0.16) 48%, rgba(0, 198, 255, 0.24) 100%);
+
+    box-shadow:
+
+      inset 0 1px 0 rgba(255, 255, 255, 0.16),
+
+      0 0 0 1px rgba(0, 198, 255, 0.12) inset,
+
+      0 12px 32px rgba(0, 0, 0, 0.24),
+
+      0 0 28px rgba(0, 198, 255, 0.14);
+
+  }
+
+
+
+  .mia-feed-empty-cta:hover {
+
+    border-color: rgba(0, 198, 255, 0.36);
+
+  }
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+
+  .mia-feed-scroll {
+
+    scroll-behavior: auto;
+
+  }
+
+
+
+  .mia-feed-onboarding,
+
+  .mia-feed-onboarding--leaving,
+
+  .mia-feed-onboarding-hand,
+
+  .mia-feed-onboarding-swipe-dot {
+
+    animation: none;
+
+  }
+
+}
+
+

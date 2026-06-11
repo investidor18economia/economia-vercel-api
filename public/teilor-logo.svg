@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 56" fill="none" role="img" aria-label="Teilor">
+  <defs>
+    <linearGradient id="teilorGold" x1="0" y1="0" x2="280" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4E4BC"/>
+      <stop offset="0.45" stop-color="#E8D5A3"/>
+      <stop offset="1" stop-color="#C9A962"/>
+    </linearGradient>
+    <linearGradient id="teilorCyan" x1="0" y1="28" x2="280" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#00C6FF" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#00C6FF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7B61FF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="52" width="280" height="1.5" rx="0.75" fill="url(#teilorCyan)"/>
+  <text x="140" y="38" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="34" font-weight="700" letter-spacing="6" fill="url(#teilorGold)">TEILOR</text>
+</svg>

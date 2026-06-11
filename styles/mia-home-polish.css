@@ -1,0 +1,422 @@
+/**
+ * PATCH 3.7 / 3.8 + HOTFIX — Home conversacional equilibrada.
+ * Sem alteração de copy. Preserva estabilidade mobile (3.6).
+ */
+
+body.mia-app-intro .app-mia-landing-wrap {
+  display: none;
+}
+
+/* —— Topo: respiro, menu fixo não cobre conteúdo —— */
+body.mia-app-intro .teilor-brand-hero {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 2px);
+  padding-bottom: 6px;
+}
+
+body.mia-app-intro .teilor-brand-top-band {
+  height: 36px;
+}
+
+body.mia-app-intro .teilor-brand-tagline {
+  margin: 0 44px 6px 10px;
+  padding: 0 2px;
+  min-height: 1.25em;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 600;
+  color: #F4FAFF;
+}
+body.mia-app-intro .teilor-brand-tagline.teilor-brand-tagline--visible {
+  opacity: 1;
+}
+
+body.mia-app-intro .teilor-brand-logo-wrap {
+  display: none;
+}
+
+body.mia-app-intro .teilor-brand-trust {
+  margin: 0 10px 8px;
+  padding: 5px 9px 5px 10px;
+  border-color: rgba(143, 210, 245, 0.2);
+  background: rgba(8, 22, 48, 0.52);
+  opacity: 1;
+}
+
+body.mia-app-intro .teilor-brand-trust-accent {
+  background: rgba(0, 198, 255, 0.32);
+}
+
+body.mia-app-intro .teilor-brand-trust-text,
+body.mia-app-intro .teilor-brand-trust-line--primary,
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  font-size: 12.5px;
+  line-height: 1.34;
+}
+
+/* —— Chat: coluna com footer na base (3.6) —— */
+.mia-chat-root--intro {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mia-chat-root--intro .mia-chat-header-shell {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+  padding-bottom: 0;
+}
+
+.mia-chat-root--intro .mia-chat-header {
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-right: 8px;
+}
+
+.mia-chat-root--intro .mia-chat-header-brand {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: visible;
+}
+
+.mia-chat-root--intro .mia-chat-header-copy {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.mia-chat-root--intro .mia-chat-header-title {
+  font-size: 13px !important;
+  opacity: 1;
+  margin: 0;
+}
+
+.mia-chat-root--intro .mia-chat-header-title .mia-wordmark--md {
+  font-size: 13px;
+}
+
+.mia-chat-root--intro .mia-chat-header-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.mia-chat-root--intro .mia-header-btn--fav,
+.mia-chat-root--intro .mia-header-btn--history {
+  min-width: 34px;
+  min-height: 34px;
+  padding: 5px 7px !important;
+  opacity: 0.65;
+  color: rgba(176, 200, 222, 0.85);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.mia-chat-root--intro .mia-header-fav-star {
+  font-size: 14px;
+  opacity: 0.75;
+  filter: none;
+}
+
+.mia-chat-root--intro .mia-header-btn--history span[aria-hidden="true"] {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.mia-chat-root--intro .mia-menu-btn {
+  opacity: 0.88;
+}
+
+/* —— PATCH — Modo Conversa: cabeçalho compacto (☰ + MIΛ) —— */
+.mia-chat-root--conversation {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 4px;
+}
+
+.mia-chat-root--conversation .mia-chat-header-shell {
+  flex-shrink: 0;
+  margin-bottom: 4px;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.mia-chat-root--conversation .mia-chat-header {
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-right: 8px;
+}
+
+.mia-chat-root--conversation .mia-chat-header-brand {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mia-chat-root--conversation .mia-chat-header-copy {
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.mia-chat-root--conversation .mia-chat-header-title {
+  font-size: 13px !important;
+  font-weight: 700;
+  opacity: 0.92;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.mia-chat-root--conversation .mia-chat-header-title .mia-wordmark--md {
+  font-size: 13px;
+}
+
+.mia-chat-root--conversation .mia-chat-header-status,
+.mia-chat-root--conversation .mia-chat-header-tagline {
+  display: none !important;
+}
+
+.mia-chat-root--conversation .mia-menu-btn {
+  opacity: 0.9;
+}
+
+.mia-chat-root--conversation .mia-chat-messages {
+  flex: 1;
+  min-height: 0;
+}
+
+/* —— Mensagens: área flexível; conteúdo no topo —— */
+.mia-chat-root--intro .mia-chat-messages--intro {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 2px !important;
+  padding-bottom: 8px !important;
+}
+
+.mia-chat-root--intro .mia-chat-turn--intro {
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* —— Abertura: protagonista, não banner —— */
+.mia-chat-root--intro .mia-msg-assistant-row--hero-opening,
+.mia-chat-root--intro .mia-msg-assistant-row--opening-presence {
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.mia-chat-root--intro .mia-msg-assistant-avatar--opening {
+  width: 28px;
+  height: 28px;
+  margin-top: 4px;
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px rgba(143, 210, 245, 0.12);
+}
+
+.mia-chat-root--intro .mia-msg-assistant-bubble--hero-opening {
+  padding: 11px 12px 10px;
+  border-color: rgba(143, 210, 245, 0.24);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.mia-chat-root--intro .mia-opening-utterance,
+.mia-chat-root--intro .mia-opening-utterance__lead,
+.mia-chat-root--intro .mia-opening-utterance__invite {
+  font-size: 14px;
+  line-height: 1.52;
+  font-weight: 500;
+}
+
+.mia-chat-root--intro .mia-opening-presence-bubble {
+  padding: 10px 12px;
+}
+
+/* —— Chips: secundários, clicáveis, compactos —— */
+.mia-chat-root--intro .mia-empty-welcome--after-opening {
+  opacity: 1;
+  margin-top: 4px;
+  margin-bottom: 0;
+  padding: 0 2px 4px;
+}
+
+.mia-chat-root--intro .mia-empty-suggestions {
+  gap: 5px;
+}
+
+.mia-chat-root--intro .mia-empty-welcome--after-opening .suggestion-btn--secondary,
+.mia-chat-root--intro .suggestion-btn--secondary {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.32;
+  color: rgba(204, 224, 242, 0.92);
+  border-color: rgba(143, 210, 245, 0.22);
+  background: rgba(10, 28, 58, 0.42);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.mia-chat-root--intro .suggestion-btn--secondary:active {
+  background: rgba(0, 198, 255, 0.14);
+  border-color: rgba(0, 198, 255, 0.3);
+  color: #f4faff;
+}
+
+/* —— Footer ancorado na base —— */
+.mia-chat-root--intro .mia-chat-footer--intro {
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 6px !important;
+}
+
+.mia-chat-root--intro .mia-chat-send-row {
+  margin-top: 6px;
+}
+
+.mia-chat-root--intro .mia-chat-input-row {
+  gap: 6px;
+}
+
+.mia-chat-root--intro .mia-input {
+  border-color: rgba(143, 210, 245, 0.18);
+  box-shadow: none;
+}
+
+.mia-chat-root--intro .send-btn {
+  box-shadow: 0 1px 8px rgba(0, 80, 160, 0.12);
+}
+
+@media (max-width: 640px) {
+  body.mia-app-intro .teilor-brand-top-band {
+    height: 38px;
+  }
+
+  body.mia-app-intro .teilor-brand-tagline {
+    font-size: 11.5px;
+    margin-bottom: 5px;
+    color: #F4FAFF;
+    font-weight: 600;
+  }
+
+  body.mia-app-intro .teilor-brand-trust {
+    margin-bottom: 6px;
+  }
+
+  .mia-chat-root--intro .mia-chat-header,
+  .mia-chat-root--conversation .mia-chat-header {
+    padding-left: 48px;
+    min-height: 42px;
+  }
+
+  .mia-chat-root--conversation {
+    padding-top: 2px;
+  }
+
+  .mia-chat-root--conversation .mia-chat-header-shell {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .mia-chat-root--conversation .mia-chat-header-title {
+    font-size: 14px !important;
+  }
+
+  .mia-chat-root--conversation .mia-chat-header-logo--compact .mia-avatar--compact {
+    width: 26px;
+    height: 26px;
+  }
+
+  .mia-chat-root--intro .mia-chat-header-tagline {
+    font-size: 11.5px;
+  }
+
+  .mia-chat-root--intro .mia-header-btn--fav,
+  .mia-chat-root--intro .mia-header-btn--history {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .mia-chat-root--intro .mia-msg-assistant-avatar--opening {
+    width: 26px;
+    height: 26px;
+    margin-top: 3px;
+  }
+
+  .mia-chat-root--intro .mia-opening-utterance {
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .mia-chat-root--intro .suggestion-btn--secondary {
+    padding: 5px 7px;
+    font-size: 10.5px;
+  }
+}
+
+/* —— PATCH 4.1 — limpeza visual Home —— */
+.mia-chat-messages .mia-msg-assistant-row--no-avatar {
+  display: block;
+  gap: 0;
+}
+
+.mia-chat-messages .mia-msg-assistant-row--no-avatar .mia-msg-assistant-bubble,
+.mia-chat-messages .mia-msg-assistant-row--no-avatar .mia-opening-presence-bubble {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.mia-chat-header-tagline {
+  color: #72d4a8 !important;
+  font-weight: 600;
+  opacity: 1;
+}
+
+body.mia-app-intro .teilor-brand-trust-text,
+body.mia-app-intro .teilor-brand-trust-line--primary,
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  font-size: 12.5px;
+  line-height: 1.38;
+}
+
+body.mia-app-intro .teilor-brand-trust-line--primary {
+  color: var(--mia-landing-title-blue);
+  font-weight: 600;
+  line-height: 1.4;
+  opacity: 1;
+}
+
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  margin-top: 2px;
+  color: var(--mia-landing-title-blue);
+  font-weight: 600;
+  line-height: 1.38;
+  opacity: 1;
+}
+
+body.mia-app-intro .teilor-brand-trust-accent {
+  background: rgba(0, 198, 255, 0.55);
+}
+
+@media (max-width: 640px) {
+  body.mia-app-intro .teilor-brand-trust-text,
+  body.mia-app-intro .teilor-brand-trust-line--primary,
+  body.mia-app-intro .teilor-brand-trust-line--secondary {
+    font-size: 12px;
+  }
+}

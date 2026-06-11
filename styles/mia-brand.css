@@ -1,0 +1,156 @@
+.mia-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32em;
+  vertical-align: middle;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mia-wordmark-text {
+  display: inline-block;
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: #EDF2F7;
+  font-variant-numeric: normal;
+}
+
+.mia-wordmark-beta {
+  font-family: Inter, "Segoe UI", system-ui, sans-serif;
+  font-size: 0.58em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: #00C6FF;
+  padding: 0.28em 0.58em;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 198, 255, 0.42);
+  background: linear-gradient(135deg, rgba(0, 198, 255, 0.24) 0%, rgba(0, 216, 255, 0.14) 100%);
+  line-height: 1.2;
+  box-shadow: 0 0 12px rgba(0, 198, 255, 0.14);
+}
+
+.mia-wordmark-prefix,
+.mia-wordmark-suffix {
+  font-family: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.mia-wordmark--xs {
+  font-size: 11px;
+}
+
+.mia-wordmark--sm {
+  font-size: 12px;
+}
+
+.mia-wordmark--md {
+  font-size: 18px;
+}
+
+.mia-wordmark--lg {
+  font-size: 22px;
+}
+
+.mia-wordmark--xl {
+  font-size: 28px;
+}
+
+.mia-msg-label .mia-wordmark {
+  vertical-align: baseline;
+}
+
+.mia-msg-label .mia-wordmark--xs {
+  font-size: 10px;
+}
+
+.mia-chat-header-title .mia-wordmark {
+  gap: 0.36em;
+}
+
+.mia-drawer-powered .mia-wordmark {
+  vertical-align: -0.1em;
+}
+
+.mia-drawer-powered .mia-wordmark--xs {
+  font-size: 12px;
+}
+
+.mia-landing-eyebrow .mia-wordmark,
+.mia-landing-heading .mia-wordmark,
+.mia-landing-flow-label .mia-wordmark,
+.mia-settings-hub-title .mia-wordmark,
+.mia-help-hub-title .mia-wordmark,
+.mia-profile-hub-title .mia-wordmark,
+.mia-alerts-hub-title .mia-wordmark,
+.mia-favorites-hub-title .mia-wordmark {
+  vertical-align: -0.06em;
+}
+
+.mia-landing-eyebrow .mia-wordmark--sm {
+  font-size: 13px;
+}
+
+.mia-landing-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.mia-landing-cta {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  justify-content: center;
+}
+
+.mia-landing-eyebrow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  justify-content: center;
+}
+
+.mia-settings-hub-title,
+.mia-help-hub-section-title,
+.mia-alerts-hub-section-title,
+.mia-profile-hub-section-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.mia-profile-metric-label {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.28em;
+}
+
+@media (max-width: 640px) {
+  .mia-chat-header-title .mia-wordmark--md {
+    font-size: 15px;
+  }
+
+  .mia-wordmark--xs .mia-wordmark-text {
+    letter-spacing: 0.06em;
+  }
+
+  .mia-wordmark--md .mia-wordmark-beta {
+    font-size: 0.44em;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .mia-wordmark-text {
+    color: #F8FAFC;
+  }
+}

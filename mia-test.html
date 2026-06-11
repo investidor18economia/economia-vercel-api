@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIA — Teste Humano Local</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a0e1a;
+    color: #f1f5f9;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  .header {
+    padding: 14px 24px;
+    border-bottom: 1px solid #1e293b;
+    background: #0d1117;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #1d4ed8, #7c3aed);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; color: #fff;
+  }
+  .header-title { font-weight: 700; font-size: 15px; }
+  .header-sub { color: #64748b; font-size: 11px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .server-label { color: #64748b; font-size: 12px; }
+  .btn-clear {
+    background: none; border: 1px solid #334155; border-radius: 6px;
+    color: #94a3b8; font-size: 12px; padding: 4px 12px; cursor: pointer;
+  }
+
+  /* MESSAGES */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    max-width: 860px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* HINTS */
+  .hints-header { text-align: center; padding-top: 40px; margin-bottom: 32px; }
+  .hints-header .icon { font-size: 36px; margin-bottom: 12px; }
+  .hints-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+  .hints-header p { color: #64748b; font-size: 14px; max-width: 460px; margin: 0 auto; }
+  .hints-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    max-width: 720px; margin: 0 auto;
+  }
+  .hint-btn {
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 8px;
+    color: #94a3b8; font-size: 13px; padding: 10px 14px; cursor: pointer;
+    text-align: left; line-height: 1.4; transition: border-color 0.15s;
+    font-family: inherit;
+  }
+  .hint-btn:hover { border-color: #3b82f6; }
+
+  /* MESSAGE BUBBLES */
+  .msg { margin-bottom: 24px; display: flex; flex-direction: column; }
+  .msg.user { align-items: flex-end; }
+  .msg.mia { align-items: flex-start; }
+
+  .bubble {
+    max-width: 80%;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+  .msg.user .bubble {
+    background: #1d4ed8; color: #f1f5f9;
+    border-radius: 18px 18px 4px 18px;
+  }
+  .msg.mia .bubble {
+    background: #1e293b; color: #f1f5f9;
+    border-radius: 18px 18px 18px 4px;
+  }
+
+  .msg-meta {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  }
+  .msg-meta span { color: #4b5563; font-size: 11px; }
+  .debug-toggle {
+    background: none; border: 1px solid #334155; border-radius: 4px;
+    color: #64748b; font-size: 11px; padding: 1px 8px; cursor: pointer;
+  }
+
+  /* DEBUG PANEL */
+  .debug-panel {
+    max-width: 80%; width: 100%;
+    background: #0f172a; border: 1px solid #1e293b; border-radius: 10px;
+    padding: 16px 18px; font-size: 13px; line-height: 1.6;
+    margin-top: 6px;
+  }
+  .debug-title {
+    color: #94a3b8; font-weight: 700; margin-bottom: 10px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .debug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .debug-label { color: #64748b; font-size: 11px; margin-bottom: 3px; }
+  .debug-value { color: #f1f5f9; font-weight: 600; }
+  .debug-sub { color: #94a3b8; font-size: 12px; }
+  .debug-mono { color: #a78bfa; font-family: monospace; }
+
+  .axis-pill {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 12px; font-weight: 700; margin-right: 4px;
+  }
+  .signal-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 600; margin-right: 4px; margin-bottom: 4px;
+    border: 1px solid;
+  }
+  .archetype-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; margin-right: 4px; margin-bottom: 4px;
+    background: #1e1b4b; color: #a78bfa; border: 1px solid #4c1d95;
+    font-family: monospace;
+  }
+  .consequence-dot {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+    margin-right: 6px; vertical-align: middle;
+  }
+
+  /* LOADING */
+  .loading { display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 13px; }
+  .loading-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #3b82f6;
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ERROR */
+  .error-box {
+    background: #1f0a0a; border: 1px solid #7f1d1d; border-radius: 8px;
+    padding: 10px 14px; color: #fca5a5; font-size: 13px; margin-top: 8px;
+  }
+
+  /* INPUT */
+  .input-area {
+    border-top: 1px solid #1e293b;
+    padding: 16px 24px;
+    background: #0d1117;
+    position: sticky;
+    bottom: 0;
+  }
+  .input-row {
+    max-width: 860px; margin: 0 auto;
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  textarea {
+    flex: 1; background: #0f172a; border: 1px solid #334155;
+    border-radius: 10px; color: #f1f5f9; font-size: 14px;
+    padding: 10px 14px; resize: none; outline: none;
+    font-family: inherit; line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { border-color: #3b82f6; }
+  .send-btn {
+    background: #1d4ed8; border: none; border-radius: 10px;
+    color: #fff; font-size: 14px; font-weight: 600;
+    padding: 10px 20px; cursor: pointer; height: 52px; white-space: nowrap;
+    transition: background 0.15s;
+  }
+  .send-btn:disabled { background: #1e293b; color: #4b5563; cursor: not-allowed; }
+  .input-hint {
+    max-width: 860px; margin: 6px auto 0;
+    color: #334155; font-size: 11px;
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0e1a; }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">M</div>
+    <div>
+      <div class="header-title">MIA · Teste Humano Local</div>
+      <div class="header-sub">HLU Fase 1+2 · pipeline completo · debug ativo</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="dot"></div>
+    <span class="server-label">localhost:3000</span>
+    <button class="btn-clear" onclick="clearChat()">limpar</button>
+  </div>
+</div>
+
+<div class="messages" id="messages">
+  <div id="hints">
+    <div class="hints-header">
+      <div class="icon">🧠</div>
+      <h2>MIA — Teste Humano Real</h2>
+      <p>Teste queries humanas reais, caóticas e variadas. Clique em "▼ debug" em qualquer resposta para ver os sinais cognitivos da MIA.</p>
+    </div>
+    <div class="hints-grid" id="hints-grid"></div>
+  </div>
+  <div id="chat-log"></div>
+  <div id="loading" style="display:none" class="loading">
+    <div class="loading-dot"></div>
+    MIA está processando…
+  </div>
+  <div id="error-box" style="display:none" class="error-box"></div>
+  <div id="anchor"></div>
+</div>
+
+<div class="input-area">
+  <div class="input-row">
+    <textarea id="query-input" rows="2"
+      placeholder='Ex: "Samsung S25 vs A73 — odeio celular travando" · Enter para enviar'
+      onkeydown="handleKey(event)"></textarea>
+    <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>Enviar</button>
+  </div>
+  <div class="input-hint">Enter = enviar · Shift+Enter = nova linha · Clique "▼ debug" na resposta para ver querySignals, archetypeSignals, axis, contextKey</div>
+</div>
+
+<script>
+const API_KEY = "minha_chave_181199";
+const ENDPOINT = window.location.protocol === "file:"
+  ? "http://localhost:3000/api/chat-gpt4o"
+  : "/api/chat-gpt4o";
+const IS_FILE_PROTOCOL = window.location.protocol === "file:";
+
+let sessionContext = {};
+let loading = false;
+let msgCount = 0;
+
+const HINTS = [
+  "Samsung Galaxy S25 vs Galaxy A73 5G — uso muito jogos",
+  "iPhone 16 vs S25 — tenho medo de me arrepender",
+  "S25 vs A73 — odeio celular travando, preciso de fluidez",
+  "iPhone vs S25 — quero bateria boa mas também quero algo bonito",
+  "S25 vs A73 — pra minha mãe usar no dia a dia",
+  "S25 vs A73 — preciso de algo que dure bastante, não quero trocar cedo",
+  "iPhone vs S25 — não entendo nada de celular, qual escolho?",
+  "S25 vs A73 — trabalho pesado, muita multitarefa",
+  "iPhone vs S25 — quero o melhor custo-benefício, grana apertada",
+  "S25 vs A73 — fora de casa o dia todo, longe de tomada",
+  "S25 vs A73 — quero assistir netflix e séries no celular",
+  "quero um celular bom",
+];
+
+const AXIS_COLORS = {
+  performance: "#6366f1", battery: "#22c55e", value: "#f59e0b",
+  camera: "#ec4899", longevity: "#14b8a6", screen: "#8b5cf6",
+};
+const SIGNAL_LABELS = {
+  gaming: "🎮 gaming", heavyUse: "⚡ heavyUse", awayFromHome: "🚶 awayFromHome",
+  casual: "☕ casual", longTerm: "📅 longTerm", regretFear: "😟 regretFear",
+  priceSensitive: "💰 priceSensitive", batteryPriority: "🔋 batteryPriority",
+};
+
+function buildHints() {
+  const grid = document.getElementById("hints-grid");
+  HINTS.forEach(h => {
+    const btn = document.createElement("button");
+    btn.className = "hint-btn";
+    btn.textContent = h;
+    btn.onclick = () => sendMessage(h);
+    grid.appendChild(btn);
+  });
+}
+buildHints();
+
+if (IS_FILE_PROTOCOL) {
+  const errBox = document.getElementById("error-box");
+  errBox.textContent = "⚠️ Abra via http://localhost:3000/mia-test.html (não abra o arquivo direto pelo Explorer). Fetch a partir de file:// costuma falhar antes de chegar na API.";
+  errBox.style.display = "block";
+}
+
+document.getElementById("query-input").addEventListener("input", function() {
+  document.getElementById("send-btn").disabled = !this.value.trim() || loading;
+});
+
+function handleKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    if (!loading && document.getElementById("query-input").value.trim()) sendMessage();
+  }
+}
+
+function getTime() {
+  return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function axisPill(axis) {
+  const color = AXIS_COLORS[axis] || "#6b7280";
+  return `<span class="axis-pill" style="background:${color}22;color:${color};border:1px solid ${color}55">${axis}</span>`;
+}
+
+function renderDebug(debug) {
+  if (!debug) return "";
+  const signals = debug.querySignals || {};
+  const activeCount = Object.values(signals).filter(Boolean).length;
+
+  const signalsHtml = Object.entries(SIGNAL_LABELS).map(([k, label]) => {
+    const on = !!signals[k];
+    return `<span class="signal-badge" style="background:${on?"#1e3a5f":"#1a1a2e"};color:${on?"#60a5fa":"#4b5563"};border-color:${on?"#3b82f6":"#2d2d44"};opacity:${on?1:0.45}">${label}</span>`;
+  }).join("");
+
+  const archetypeHtml = (debug.archetypeSignals || []).map(a =>
+    `<span class="archetype-tag">${a}</span>`
+  ).join("") || '<span style="color:#4b5563;font-size:12px">nenhum</span>';
+
+  const tradeoffHtml = (debug.tradeoff || []).map(t => axisPill(t)).join("") || 
+    '<span style="color:#4b5563;font-size:12px">nenhum</span>';
+
+  const confColor = debug.confidence === "high" ? "#22c55e" : debug.confidence === "medium" ? "#f59e0b" : "#ef4444";
+  const conseqColor = debug.consequenceActive ? "#22c55e" : "#ef4444";
+
+  return `
+    <div class="debug-panel">
+      <div class="debug-title">MIA Cognitive Debug</div>
+      <div class="debug-grid">
+        <div>
+          <div class="debug-label">WINNER / LOSER</div>
+          <div class="debug-value">${debug.winner || "—"}</div>
+          <div class="debug-sub">vs ${debug.loser || "—"}</div>
+        </div>
+        <div>
+          <div class="debug-label">PRIORITY AXIS</div>
+          <div>${debug.axis ? axisPill(debug.axis) : '<span style="color:#4b5563">—</span>'}</div>
+        </div>
+        <div>
+          <div class="debug-label">CONTEXT KEY</div>
+          <div class="debug-mono">${debug.contextKey || "—"}</div>
+        </div>
+        <div>
+          <div class="debug-label">CONFIDENCE</div>
+          <div style="color:${confColor}">${debug.confidence || "—"} · ${debug.dominance || "—"}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="debug-label" style="margin-bottom:6px">QUERY SIGNALS <span style="color:#3b82f6;font-size:11px">(${activeCount} ativo${activeCount!==1?"s":""})</span></div>
+        ${signalsHtml}
+        ${activeCount === 0 ? '<div style="color:#4b5563;font-size:12px;margin-top:4px">nenhum sinal ativo — fallback genérico</div>' : ''}
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="debug-label" style="margin-bottom:6px">ARCHETYPES</div>
+        ${archetypeHtml}
+      </div>
+      <div style="margin-bottom:10px">
+        <div class="debug-label" style="margin-bottom:6px">TRADEOFFS</div>
+        ${tradeoffHtml}
+      </div>
+      <div style="display:flex;align-items:center;margin-top:4px">
+        <span class="consequence-dot" style="background:${conseqColor}"></span>
+        <span style="color:#64748b;font-size:11px">consequence reasoning ${debug.consequenceActive ? 'ATIVO' : 'INATIVO'}${debug.consequenceVersion ? ' · v' + debug.consequenceVersion : ''}</span>
+      </div>
+    </div>
+  `;
+}
+
+function appendMessage(role, content, debug) {
+  document.getElementById("hints").style.display = "none";
+  const log = document.getElementById("chat-log");
+  const id = "msg-" + (++msgCount);
+
+  const div = document.createElement("div");
+  div.className = `msg ${role}`;
+  div.innerHTML = `
+    <div class="bubble">${content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+    <div class="msg-meta">
+      <span>${role === "user" ? "você" : "MIA"} · ${getTime()}</span>
+      ${role === "mia" && debug ? `<button class="debug-toggle" onclick="toggleDebug('${id}')">▼ debug</button>` : ""}
+    </div>
+    ${role === "mia" && debug ? `<div id="${id}-debug" style="max-width:80%;width:100%;display:none">${renderDebug(debug)}</div>` : ""}
+  `;
+  log.appendChild(div);
+  document.getElementById("anchor").scrollIntoView({ behavior: "smooth" });
+}
+
+function toggleDebug(id) {
+  const el = document.getElementById(id + "-debug");
+  const btn = el.previousElementSibling.querySelector(".debug-toggle");
+  if (el.style.display === "none") {
+    el.style.display = "block";
+    btn.textContent = "▲ debug";
+  } else {
+    el.style.display = "none";
+    btn.textContent = "▼ debug";
+  }
+}
+
+function setLoading(on) {
+  loading = on;
+  document.getElementById("loading").style.display = on ? "flex" : "none";
+  document.getElementById("send-btn").disabled = on || !document.getElementById("query-input").value.trim();
+  if (on) document.getElementById("anchor").scrollIntoView({ behavior: "smooth" });
+}
+
+async function sendMessage(text) {
+  const input = document.getElementById("query-input");
+  const query = (text || input.value).trim();
+  if (!query || loading) return;
+
+  appendMessage("user", query, null);
+  input.value = "";
+  document.getElementById("send-btn").disabled = true;
+  document.getElementById("error-box").style.display = "none";
+  setLoading(true);
+
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY
+      },
+      body: JSON.stringify({
+        text: query,
+        user_id: "mia-test-local",
+        conversation_id: "mia-test-session",
+        session_context: sessionContext
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.reply || `HTTP ${res.status}`);
+    if (data.session_context) sessionContext = data.session_context;
+
+    appendMessage("mia", data.reply || "(sem resposta)", data.mia_debug || null);
+  } catch (err) {
+    const errBox = document.getElementById("error-box");
+    const hint = IS_FILE_PROTOCOL
+      ? "Use http://localhost:3000/mia-test.html com npm run dev rodando."
+      : "Confirme npm run dev e veja Network/Console do navegador.";
+    errBox.textContent = "⚠️ " + (err.message || "Failed to fetch") + " — " + hint;
+    errBox.style.display = "block";
+    appendMessage("mia", "⚠️ Erro na requisição. " + hint, null);
+  } finally {
+    setLoading(false);
+    input.focus();
+  }
+}
+
+function clearChat() {
+  document.getElementById("chat-log").innerHTML = "";
+  document.getElementById("hints").style.display = "block";
+  document.getElementById("error-box").style.display = "none";
+  sessionContext = {};
+  msgCount = 0;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+.mia-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.mia-avatar--header {
+  width: 48px;
+  height: 48px;
+}
+
+.mia-avatar--compact {
+  width: 28px;
+  height: 28px;
+}
+
+.mia-avatar--chat {
+  width: 40px;
+  height: 40px;
+}
+
+.mia-avatar--feed {
+  width: 40px;
+  height: 40px;
+}
+
+.mia-avatar--drawer {
+  width: 36px;
+  height: 36px;
+}
+
+.mia-avatar--profile {
+  width: 80px;
+  height: 80px;
+}
+
+.mia-avatar--loading {
+  width: 40px;
+  height: 40px;
+}
+
+.mia-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.mia-avatar-inline-title {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.mia-hub-empty-mia-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  width: auto;
+  height: auto;
+  padding: 0;
+}
+
+.mia-profile-hub-mia-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.mia-menu-symbol {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.mia-menu-symbol-image {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: block;
+}

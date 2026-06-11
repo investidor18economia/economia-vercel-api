@@ -1,0 +1,298 @@
+/**
+ * PATCH 3.5 — escala tipográfica única (home + chat intro).
+ * Hierarquia: conversa > input/CTA > suporte > caption > meta > whisper
+ */
+
+:root {
+  --mia-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --mia-type-conversation-size: 15px;
+  --mia-type-conversation-lh: 1.56;
+  --mia-type-conversation-weight: 500;
+
+  --mia-type-input-size: 15px;
+  --mia-type-input-lh: 1.48;
+  --mia-type-input-weight: 400;
+
+  --mia-type-action-size: 14px;
+  --mia-type-action-lh: 1.36;
+  --mia-type-action-weight: 600;
+
+  --mia-type-support-size: 13px;
+  --mia-type-support-lh: 1.42;
+  --mia-type-support-weight: 500;
+
+  --mia-type-caption-size: 12px;
+  --mia-type-caption-lh: 1.38;
+  --mia-type-caption-weight: 500;
+
+  --mia-type-meta-size: 11px;
+  --mia-type-meta-lh: 1.34;
+  --mia-type-meta-weight: 500;
+
+  --mia-type-whisper-size: 10px;
+  --mia-type-whisper-lh: 1.32;
+  --mia-type-whisper-weight: 500;
+
+  --mia-color-conversation: #f4faff;
+  --mia-color-support: rgba(204, 222, 238, 0.9);
+  --mia-color-meta: rgba(176, 200, 222, 0.82);
+  --mia-color-whisper: rgba(158, 186, 210, 0.72);
+  --mia-color-placeholder: rgba(168, 196, 220, 0.68);
+}
+
+.app-mia-page,
+.app-mia-column,
+.mia-chat-root {
+  font-family: var(--mia-font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* —— Nível 1: conversa (MIA) —— */
+.mia-opening-utterance,
+.mia-opening-utterance__lead,
+.mia-opening-utterance__invite,
+.mia-chat-turn--intro .mia-opening-utterance,
+.mia-msg-body,
+.mia-chat-turn--intro .mia-msg-body {
+  font-size: var(--mia-type-conversation-size);
+  line-height: var(--mia-type-conversation-lh);
+  font-weight: var(--mia-type-conversation-weight);
+  color: var(--mia-color-conversation);
+  letter-spacing: -0.01em;
+}
+
+.mia-msg-user {
+  font-size: var(--mia-type-conversation-size);
+  line-height: var(--mia-type-conversation-lh);
+  font-weight: var(--mia-type-input-weight);
+}
+
+.mia-msg-assistant-bubble--hero-opening .mia-opening-utterance {
+  color: var(--mia-color-conversation);
+}
+
+/* —— Input (conversa, não busca) —— */
+.mia-input {
+  font-size: var(--mia-type-input-size);
+  line-height: var(--mia-type-input-lh);
+  font-weight: var(--mia-type-input-weight);
+}
+
+.mia-input::placeholder {
+  font-size: var(--mia-type-support-size);
+  line-height: var(--mia-type-support-lh);
+}
+
+.mia-input-placeholder {
+  font-size: var(--mia-type-support-size);
+  line-height: var(--mia-type-support-lh);
+  font-weight: var(--mia-type-support-weight);
+  color: var(--mia-color-placeholder);
+}
+
+/* —— CTA —— */
+.send-btn {
+  font-size: var(--mia-type-action-size);
+  line-height: var(--mia-type-action-lh);
+  font-weight: var(--mia-type-action-weight);
+  letter-spacing: 0;
+}
+
+/* —— Suporte: chips, loading, typing de chegada —— */
+.suggestion-btn,
+.suggestion-btn--secondary,
+.mia-empty-welcome--after-opening .suggestion-btn--secondary,
+.mia-chat-root--intro .suggestion-btn--secondary,
+.mia-loading-text,
+.mia-opening-presence-text {
+  font-size: var(--mia-type-support-size);
+  line-height: var(--mia-type-support-lh);
+  font-weight: var(--mia-type-support-weight);
+}
+
+.mia-loading-text {
+  font-style: normal;
+  color: var(--mia-color-support);
+}
+
+.suggestion-btn,
+.suggestion-btn--secondary {
+  color: var(--mia-color-support);
+}
+
+/* —— Onboarding secundário —— */
+.mia-empty-welcome-hint,
+.mia-empty-welcome--after-opening .mia-empty-welcome-hint {
+  font-size: var(--mia-type-caption-size);
+  line-height: var(--mia-type-caption-lh);
+  font-weight: var(--mia-type-caption-weight);
+  color: var(--mia-color-meta);
+}
+
+.mia-empty-welcome-title,
+.mia-empty-welcome--after-opening .mia-empty-welcome-title {
+  font-size: var(--mia-type-whisper-size);
+  line-height: var(--mia-type-whisper-lh);
+  font-weight: 600;
+  letter-spacing: 0.55px;
+}
+
+/* —— Header: só identificação —— */
+.mia-chat-header-title {
+  font-size: var(--mia-type-action-size);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mia-chat-header-title .mia-wordmark--md .mia-wordmark-text {
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.mia-chat-header-tagline {
+  font-size: var(--mia-type-caption-size);
+  line-height: var(--mia-type-caption-lh);
+  font-weight: 600;
+  color: #72d4a8;
+}
+
+.mia-chat-root--intro .mia-chat-header-title {
+  font-size: var(--mia-type-meta-size) !important;
+  font-weight: 600;
+}
+
+.mia-chat-root--intro .mia-chat-header-title .mia-wordmark--md {
+  font-size: var(--mia-type-meta-size);
+}
+
+.mia-header-btn,
+.mia-chat-header-actions button {
+  font-size: var(--mia-type-meta-size) !important;
+  font-weight: var(--mia-type-meta-weight);
+}
+
+/* —— Hero + card de confiança —— */
+.teilor-brand-tagline {
+  font-size: var(--mia-type-meta-size);
+  line-height: var(--mia-type-meta-lh);
+  font-weight: var(--mia-type-meta-weight);
+  color: #F4FAFF;
+  font-weight: 600;
+}
+
+.teilor-brand-trust-text {
+  font-size: var(--mia-type-whisper-size);
+  line-height: var(--mia-type-whisper-lh);
+  font-weight: var(--mia-type-whisper-weight);
+}
+
+.teilor-brand-trust-line--primary {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: var(--mia-landing-title-blue);
+}
+
+.teilor-brand-trust-line--secondary {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: var(--mia-landing-title-blue);
+}
+
+body.mia-app-intro .teilor-brand-tagline {
+  font-size: var(--mia-type-whisper-size);
+  line-height: var(--mia-type-whisper-lh);
+}
+
+body.mia-app-intro .teilor-brand-trust-text,
+body.mia-app-intro .teilor-brand-trust-line--primary,
+body.mia-app-intro .teilor-brand-trust-line--secondary {
+  font-size: var(--mia-type-whisper-size);
+  line-height: var(--mia-type-whisper-lh);
+}
+
+/* —— Espaçamentos (respiro premium) —— */
+.mia-chat-turn--intro {
+  gap: 8px;
+}
+
+.mia-msg-assistant-bubble--hero-opening {
+  padding: 13px 14px 12px;
+}
+
+.mia-msg-assistant-row--hero-opening {
+  gap: 10px;
+}
+
+.mia-empty-welcome--after-opening {
+  padding: 6px 6px 2px;
+  margin-top: 4px;
+}
+
+.mia-empty-suggestions,
+.mia-chat-root--intro .mia-empty-suggestions {
+  gap: 5px;
+}
+
+.mia-chat-send-row {
+  margin-top: 6px;
+}
+
+.mia-chat-input-wrap .mia-input {
+  padding: 12px 13px;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --mia-type-conversation-size: 14.5px;
+    --mia-type-conversation-lh: 1.54;
+    --mia-type-input-size: 16px;
+    --mia-type-support-size: 12px;
+    --mia-type-action-size: 14px;
+  }
+
+  .mia-opening-utterance,
+  .mia-chat-turn--intro .mia-opening-utterance {
+    font-size: var(--mia-type-conversation-size);
+    line-height: var(--mia-type-conversation-lh);
+  }
+
+  .mia-input,
+  .mia-input::placeholder {
+    font-size: var(--mia-type-input-size);
+  }
+
+  .mia-input-placeholder {
+    font-size: var(--mia-type-support-size);
+  }
+
+  .mia-chat-root--intro .suggestion-btn--secondary,
+  .suggestion-btn--secondary {
+    font-size: var(--mia-type-support-size);
+    padding: 6px 9px;
+    line-height: var(--mia-type-support-lh);
+  }
+
+  .send-btn {
+    font-size: var(--mia-type-action-size);
+    min-height: 42px;
+  }
+
+  .mia-chat-root--intro .mia-chat-header-title {
+    font-size: var(--mia-type-meta-size) !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .teilor-brand-tagline {
+    font-size: var(--mia-type-meta-size);
+  }
+
+  .teilor-brand-trust-text {
+    font-size: var(--mia-type-whisper-size);
+  }
+}
