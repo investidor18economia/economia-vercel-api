@@ -1794,10 +1794,12 @@ useEffect(() => {
   }
 
   function formatAssistantReplyForDisplay(text = "", { commercialFallback = false } = {}) {
-    if (commercialFallback || isCommercialFallbackReply(text)) {
+    const raw = String(text || "").trim();
+    if (raw) return raw;
+    if (commercialFallback) {
       return COMMERCIAL_FALLBACK_DISPLAY_REPLY;
     }
-    return text;
+    return raw;
   }
 
   /** Mantida por segurança; não usada na bolha principal desde PATCH 3.9. */

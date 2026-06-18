@@ -122,7 +122,7 @@ const VARIANTS = [
   v("curto", "entendi", "entendi", { familyQuery: isAcknowledgementFamilyQuery, anchored: true }),
 
   // composto
-  v("composto", "tlgd mas e bateria?", "entendi mas e bateria"),
+  v("composto", "tlgd mas e bateria?", "ta ligado mas e bateria"),
   v("composto", "kkk blz entendi", "beleza entendi"),
   v("composto", "vc acha q compensa msm?", "voce acha que compensa mesmo"),
   v("composto", "pq nao curti muito?", "por que nao curti muito"),

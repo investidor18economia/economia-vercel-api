@@ -117,12 +117,12 @@ const CASES = [
   c("A15", "sla se pego esse monito", "sei la se pego esse monitor", { group: "A", anchored: P }),
 
   // B — abbreviation + informal (15)
-  c("B1", "tlgd mas e bateria?", "entendi mas e de bateria", { group: "B", anchored: P }),
+  c("B1", "tlgd mas e bateria?", "ta ligado mas e de bateria", { group: "B", anchored: P }),
   c("B2", "sla mano q eu faço?", "sei la mano que eu faco", { group: "B" }),
   c("B3", "blz entao, qual pego?", "beleza entao qual pego", { group: "B", anchored: P, familyQuery: isAcknowledgementFamilyQuery }),
   c("B4", "tmj, mas ainda vale?", "valeu mas ainda vale", { group: "B", anchored: P, fullStack: true, familyQuery: isConfidenceChallengeFamilyQuery }),
   c("B5", "slk esse preço ta pesado dms", "nossa esse preco ta pesado demais", { group: "B", anchored: P }),
-  c("B6", "tlgd, mas continua valendo?", "entendi mas continua valendo", { group: "B", anchored: P, fullStack: true, familyQuery: isConfidenceChallengeFamilyQuery }),
+  c("B6", "tlgd, mas continua valendo?", "ta ligado mas continua valendo", { group: "B", anchored: P, fullStack: true, familyQuery: isConfidenceChallengeFamilyQuery }),
   c("B7", "blz entendi", "beleza entendi", { group: "B", anchored: P, fullStack: true, familyQuery: isAcknowledgementFamilyQuery }),
   c("B8", "sla mano, mas qual o custo beneficio?", "sei la mano mas qual o custo beneficio", { group: "B", anchored: P }),
   c("B9", "vlw mia", "valeu mia", { group: "B", familyQuery: isAcknowledgementFamilyQuery }),
@@ -131,7 +131,7 @@ const CASES = [
   c("B12", "suav, mas e camera?", "suave mas e de camera", { group: "B", anchored: P }),
   c("B13", "demoro mano", "demorou mano", { group: "B", anchored: P, familyQuery: isAcknowledgementFamilyQuery }),
   c("B14", "partiu entao", "fechou entao", { group: "B", anchored: P }),
-  c("B15", "tlgd ne", "entendi", { group: "B", anchored: P, familyQuery: isAcknowledgementFamilyQuery }),
+  c("B15", "tlgd ne", "ta ligado ne", { group: "B", anchored: P, familyQuery: isAcknowledgementFamilyQuery }),
 
   // C — typo + informal (15)
   c("C1", "koe mano, esse ipone presta?", "esse iphone presta", { group: "C" }),
@@ -182,7 +182,7 @@ const CASES = [
   c("F1", "kkkk entendi, mas n curti mto", "entendi mas nao curti muito", { group: "F", anchored: P, fullStack: true, familyQuery: isSoftDisagreementFamilyQuery }),
   c("F2", "vc acha q vale, mas tenho medo d errar", "voce acha que vale mas tenho medo d errar", { group: "F", anchored: P, familyQuery: isAntiRegretFamilyQuery }),
   c("F3", "slk gostei, mas sera q o povo recomenda?", "nossa gostei mas sera que o povo recomenda", { group: "F", anchored: P, familyQuery: isSocialValidationFamilyQuery }),
-  c("F4", "tlgd, mas continua valendo?", "entendi mas continua valendo", { group: "F", anchored: P, fullStack: true, familyQuery: isConfidenceChallengeFamilyQuery }),
+  c("F4", "tlgd, mas continua valendo?", "ta ligado mas continua valendo", { group: "F", anchored: P, fullStack: true, familyQuery: isConfidenceChallengeFamilyQuery }),
   c("F5", "sla mano, mas qual o custo beneficio?", "sei la mano mas qual o custo beneficio", { group: "F", anchored: P }),
   c("F6", "blz entendi, mas n curti mto", "beleza entendi mas nao curti muito", { group: "F", anchored: P, fullStack: true, familyQuery: isSoftDisagreementFamilyQuery }),
   c("F7", "entendi, mas nao curti", "entendi mas nao curti", { group: "F", anchored: P, fullStack: true, familyQuery: isSoftDisagreementFamilyQuery }),
@@ -257,7 +257,7 @@ const CASES = [
   c("J11", "p mim ta caro dms, tem outro?", "para mim ta caro demais tem outro", { group: "J", anchored: P, familyQuery: isAlternativeExplorationFamilyQuery }),
   c("J12", "n sei se esse mause presta", "nao sei se esse mouse presta", { group: "J", anchored: P }),
   c("J13", "kkkk qual fica em segundo?", "qual fica em segundo", { group: "J", anchored: P, familyQuery: isSecondBestDiscoveryFamilyQuery }),
-  c("J14", "tlgd mas n curti mto", "entendi mas nao curti muito", { group: "J", anchored: P, fullStack: true, familyQuery: isSoftDisagreementFamilyQuery }),
+  c("J14", "tlgd mas n curti mto", "ta ligado mas nao curti muito", { group: "J", anchored: P, fullStack: true, familyQuery: isSoftDisagreementFamilyQuery }),
   c("J15", "vc bancaria essa msm?", "voce bancaria essa mesmo", { group: "J", anchored: P, familyQuery: isConfidenceChallengeFamilyQuery }),
 
   // K — guards / protegidos (19)

@@ -40,12 +40,21 @@ export default async function handler(req, res) {
 
   const query = String(req.query.q || "").trim();
   const limit = Number.parseInt(String(req.query.limit || "12"), 10);
+  const mode = String(req.query.mode || "items").trim().toLowerCase();
 
   if (!query) {
     return res.status(400).json({
       ok: false,
       error: "missing_query",
-      hint: "Use ?q=termo&limit=12",
+      hint: "Use ?q=termo&limit=12&mode=items|products",
+    });
+  }
+
+  if (mode !== "items" && mode !== "products") {
+    return res.status(400).json({
+      ok: false,
+      error: "invalid_mode",
+      hint: "Use mode=items or mode=products",
     });
   }
 
@@ -63,6 +72,7 @@ export default async function handler(req, res) {
       query,
       limit: Number.isFinite(limit) ? limit : 12,
       real: true,
+      realOptions: { searchMode: mode },
     });
 
     const payload = {
@@ -72,6 +82,8 @@ export default async function handler(req, res) {
       products: result.products,
       error: result.error,
       siteId: process.env.MERCADOLIVRE_SITE_ID || "MLB",
+      mode,
+      searchMode: result.searchMode ?? mode,
       hasAccessToken: hasMercadoLivreAccessToken(process.env),
       httpStatus: result.httpStatus ?? null,
       httpStatusText: result.httpStatusText ?? null,

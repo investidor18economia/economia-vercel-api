@@ -12,6 +12,9 @@ import {
   classifyMiaTurn,
   isAcknowledgementFamilyQuery,
   isComprehensionFamilyQuery,
+  isComprehensionSuccessFamilyQuery,
+  isComprehensionSemanticFamilyQuery,
+  isConversationalConfusionFamilyQuery,
   isDecisionConfirmationFamilyQuery,
   isAntiRegretFamilyQuery,
   isConfidenceChallengeFamilyQuery,
@@ -31,10 +34,19 @@ import {
 import { normalizeCompoundInput } from "../../lib/miaCompoundInputNormalizer";
 import { deriveConversationalToneProfile } from "../../lib/miaConversationalTone";
 import { applyToneComplianceGuard } from "../../lib/miaToneComplianceGuard";
+import {
+  hasUsableDataLayerContent,
+  resolveCommercialOfferExplanation,
+  shouldForceCommercialProductExplanation,
+} from "../../lib/miaProductExplanationBuilder.js";
 import { mapCognitiveTurnToLegacyIntent, buildCognitiveBridgeAudit, buildCognitiveBridgeImpactAudit, guardContextActionWithCognitiveBridge, buildRoutingModeAlignmentAudit, buildUnifiedCognitiveRouterAudit } from "../../lib/miaCognitiveBridge";
 import { buildFollowUpUnderstandingAudit } from "../../lib/miaFollowUpUnderstandingAudit";
 import { applyCognitiveAuthorityToRoutingDecision } from "../../lib/miaCognitiveAuthority";
 import { applyIntentPreservation } from "../../lib/miaIntentPreservation";
+import {
+  applyProductionFallbackGate,
+  shouldBypassInstitutionalGeneralAnswerFallback,
+} from "../../lib/miaProductionFallbackGate";
 import { shouldUseRichExplanationPath, buildExplanationContext } from "../../lib/miaCognitiveExplanationPath";
 import { buildRichExplanationActivationAudit, logRichExplanationAudit } from "../../lib/miaRichExplanationAudit";
 import { buildExplanationConsistencyAudit, EXPLANATION_CONSISTENCY_FLAGS } from "../../lib/miaExplanationConsistencyAudit"; // PATCH 5.5F
@@ -42,6 +54,12 @@ import { buildRouterResponseComplianceAudit, COMPLIANCE_FLAGS } from "../../lib/
 import { buildResponseContractCoverageAudit, COVERAGE_FLAGS } from "../../lib/miaResponseContractCoverageAudit"; // PATCH 6.4
 import { buildUnknownProductCorrectionAudit, logUnknownProductCorrectionAudit } from "../../lib/miaUnknownProductCorrectionAudit"; // PATCH 5.3C
 import { buildCognitiveFinalAudit, logCognitiveFinalAudit, isCognitiveFinalAuditEnabled } from "../../lib/miaCognitiveAudit";
+import {
+  buildCommercialNoResultReply,
+  resolveCommercialPresentationWinner,
+  shouldResetCommercialOfferContext,
+  commercialOfferMatchesQueryCore,
+} from "../../lib/miaCommercialNewSearchResetGuard.js";
 import {
   extractBudget,
   hasClearNewCommercialSearchIntent,
@@ -80,6 +98,49 @@ import {
   didPriorityFollowUpChangeWinner,
   resolveDecisionEngineWinners
 } from "../../lib/miaDecisionConsistencyFixes";
+import {
+  buildAnchoredDiscussionSetProducts,
+  detectsAnchoredComparisonIntent,
+  mergeDiscussionSetIntoSessionContext,
+} from "../../lib/miaDiscussionSetEnforcement.js";
+import {
+  buildDiscussionSetEstablishmentReply,
+  buildDiscussionSetScopedInstruction,
+  filterRankingSnapshotToAllowedProducts,
+  formatAllowedProductsForPrompt,
+  replyMentionsProductOutsideAllowedSet,
+  resolveAllowedProductsForDecision,
+} from "../../lib/miaRecommendationStabilityGuard.js";
+import {
+  buildContradictionRecoveryReply,
+  detectsReasoningBreakdownSignal,
+} from "../../lib/miaContradictionRecoveryLayer.js";
+import {
+  buildUserConfusionRecoveryReply,
+  detectsExplanationBreakdownSignal,
+} from "../../lib/miaUserConfusionRecoveryLayer.js";
+import { detectsEscalatedUserConfusionSignal } from "../../lib/miaEscalatedConfusionSignals.js";
+import { buildExplicitChangeFromSession, detectsLegitimateDecisionContextChange } from "../../lib/miaExplicitRecommendationChangeProtocol.js";
+import {
+  buildPostChangeRecoveryReply,
+  detectsPostChangeRecoverySignal,
+  hasRecentDecisionChange,
+} from "../../lib/miaPostChangeRecoveryLayer.js";
+import {
+  buildFinalDecisionScopeReply,
+  detectsFinalDecisionScopeQuery,
+  hasActiveFinalDecisionScope,
+} from "../../lib/miaFinalDecisionScopeGuard.js";
+import {
+  buildLegitimateSearchResetAwaitingQueryReply,
+  buildLegitimateSearchResetSessionContext,
+  detectsLegitimateSearchResetIntent,
+  hasActiveCommercialThreadForReset,
+  hasLegitimateSearchResetCommercialTail,
+  applyLegitimateSearchResetToSession,
+  detectsLegitimateSearchResetDiscourse,
+  isLegitimateSearchResetBlocked,
+} from "../../lib/miaLegitimateSearchResetGuard.js";
 // ======================================================
 // MIA MODEL CONFIG — CENTRAL MODEL SETTINGS
 // ======================================================
@@ -18023,10 +18084,14 @@ async function buildDecisionEngineReply(
       }
     : null;
 
+  const scopedProducts =
+    rawProducts.length >= 2 ? rawProducts : products;
+
   // 🧠 DECISION ENGINE — APENAS EXPLICA o vencedor já definido (âncora/sessão).
   const { best, second } = resolveDecisionEngineWinners(
-    products,
-    normalizedAnchor
+    scopedProducts,
+    normalizedAnchor,
+    { allowedProducts: rawProducts.length >= 2 ? rawProducts : null }
   );
 
   if (!best) {
@@ -20481,28 +20546,43 @@ function buildSessionContext(messages = [], sessionContext = {}, currentQuery = 
     sessionContext?.lastCategory ||
     "";
 
-  const inferredProducts = extractProductsFromMessages(messages, categoryHint);
+  const isPostLegitimateSearchReset =
+    sessionContext?.lastInteractionType === "legitimate_search_reset" ||
+    sessionContext?.lastIntent === "legitimate_search_reset";
+
+  const inferredProducts = isPostLegitimateSearchReset
+    ? []
+    : extractProductsFromMessages(messages, categoryHint);
 
     const sessionProducts = Array.isArray(sessionContext?.lastProducts)
     ? sessionContext.lastProducts
     : [];
 
   const inferredCleanProducts = sanitizeRememberedProducts(inferredProducts, categoryHint);
-  const sessionCleanProducts = sanitizeRememberedProducts(sessionProducts, categoryHint);
+  const sessionCleanProducts = isPostLegitimateSearchReset
+    ? []
+    : sanitizeRememberedProducts(sessionProducts, categoryHint);
 
   // Regra de segurança:
   // se o histórico atual tem produtos, ele manda.
   // session_context antigo só entra quando o histórico atual não tiver nada.
-  const rememberedProducts = inferredCleanProducts.length
+  // Após LEGITIMATE_SEARCH_RESET, não reancorar pelo histórico.
+  const rememberedProducts = isPostLegitimateSearchReset
+    ? []
+    : inferredCleanProducts.length
     ? inferredCleanProducts
     : sessionCleanProducts;
 
   const lastBestProductBefore = sessionContext?.lastBestProduct?.product_name || null;
-  const authoritativeBest = pickAuthoritativeLastBestProduct(
+  const authoritativeBest = isPostLegitimateSearchReset
+    ? null
+    : pickAuthoritativeLastBestProduct(
     sessionContext?.lastBestProduct,
     rememberedProducts
   );
-  const authoritativeMentioned = pickAuthoritativeLastProductMentioned(
+  const authoritativeMentioned = isPostLegitimateSearchReset
+    ? ""
+    : pickAuthoritativeLastProductMentioned(
     sessionContext?.lastBestProduct,
     sessionContext?.lastProductMentioned || "",
     rememberedProducts
@@ -20563,6 +20643,16 @@ const context = {
   lastWinnerAdvantages: Array.isArray(sessionContext?.lastWinnerAdvantages) ? sessionContext.lastWinnerAdvantages : [],
   lastWinnerSacrifices: Array.isArray(sessionContext?.lastWinnerSacrifices) ? sessionContext.lastWinnerSacrifices : [],
 
+  // PATCH 8.4C — preserve explicit change history across session rebuilds
+  lastDecisionChange: isPostLegitimateSearchReset
+    ? null
+    : sessionContext?.lastDecisionChange &&
+      typeof sessionContext.lastDecisionChange === "object"
+      ? sessionContext.lastDecisionChange
+      : null,
+  lastPreviousAxis: isPostLegitimateSearchReset ? "" : sessionContext?.lastPreviousAxis || "",
+  lastPreviousPriority: isPostLegitimateSearchReset ? "" : sessionContext?.lastPreviousPriority || "",
+
   // ======================================================
   // SESSION CONTEXT MEMORY REHYDRATION — ETAPA 5.2.5.3.1
   // ======================================================
@@ -20573,13 +20663,17 @@ const context = {
   // - memória argumentativa
   // - pressão de repetição
 
-  lastComparisonProducts: Array.isArray(sessionContext?.lastComparisonProducts)
+  lastComparisonProducts: isPostLegitimateSearchReset
+    ? []
+    : Array.isArray(sessionContext?.lastComparisonProducts)
     ? sessionContext.lastComparisonProducts
     : [],
 
-  lastComparisonQuery: sessionContext?.lastComparisonQuery || "",
+  lastComparisonQuery: isPostLegitimateSearchReset ? "" : sessionContext?.lastComparisonQuery || "",
 
-  comparisonContextLocked: !!sessionContext?.comparisonContextLocked,
+  comparisonContextLocked: isPostLegitimateSearchReset
+    ? false
+    : !!sessionContext?.comparisonContextLocked,
 
   contexts: Array.isArray(sessionContext?.contexts)
     ? sessionContext.contexts
@@ -23376,12 +23470,24 @@ function buildOpenComprehensionFallback() {
   return "Claro. Me diz qual parte ficou confusa que eu explico de um jeito mais simples.";
 }
 
+function buildOpenComprehensionSuccessFallback() {
+  return "Boa, entendi. Quando quiser, me fala o que você está pensando em comprar que eu te ajudo a decidir.";
+}
+
 function buildAnchoredComprehensionFallback(sessionContext = {}) {
   const anchorName = sessionContext?.lastBestProduct?.product_name;
   if (anchorName) {
     return `Claro. Mantemos ${cleanTitle(anchorName)} como referência. Posso explicar a escolha de forma mais simples — quer que eu detalhe o ponto principal?`;
   }
   return "Claro. Posso explicar a escolha de forma mais simples. Quer que eu detalhe o ponto principal?";
+}
+
+function buildAnchoredComprehensionSuccessFallback(sessionContext = {}) {
+  const anchorName = sessionContext?.lastBestProduct?.product_name;
+  if (anchorName) {
+    return `Ótimo, ficou claro então. Mantemos ${cleanTitle(anchorName)} como referência — se quiser, posso detalhar algum ponto ou comparar com outra opção.`;
+  }
+  return "Ótimo, ficou claro então. Mantemos essa escolha como referência — se quiser, posso detalhar algum ponto ou comparar com outra opção.";
 }
 
 function buildOpenSoftDisagreementFallback() {
@@ -24253,16 +24359,36 @@ function formatCommercialPriceDisplay(price) {
   return `R$ ${numeric.toFixed(2).replace(".", ",")}`;
 }
 
-function buildCommercialOnlyFallbackReply(product = {}, query = "") {
-  const productName = cleanTitle(product.product_name || "") || "este produto";
-  const verbalName = resolveMiaVerbalName(productName, query) || productName;
-  const priceText = product.price ? formatCommercialPriceDisplay(product.price) : "";
-  const priceClause = priceText ? ` por ${priceText}` : "";
+function resolveCommercialExplanationOptions(product = {}) {
+  const trustedSpecs = product?.trustedSpecs || null;
+  return {
+    trustedSpecs,
+    hasDataLayer: !!(
+      product?.isDataLayerProduct || hasUsableDataLayerContent(trustedSpecs)
+    ),
+  };
+}
 
-  return (
-    `Encontrei uma oferta real: ${verbalName}${priceClause}.\n\n` +
-    `Isso vem de lojas online via Google Shopping. Como esse item não está no catálogo técnico da MIA, trato como oferta encontrada — não como recomendação profunda baseada em ficha completa.\n\n` +
-    `Se quiser, me conta o uso principal que eu te ajudo a filtrar melhor.`
+function buildCommercialOnlyFallbackReply(product = {}, query = "") {
+  return resolveCommercialOfferExplanation(product, query, resolveCommercialExplanationOptions(product));
+}
+
+function enrichOfferReplyWithProductExplanation(reply = "", product = {}, query = "", options = {}) {
+  if (!product?.product_name) return reply;
+
+  if (
+    options.resetDecision?.shouldReset &&
+    !commercialOfferMatchesQueryCore(product, query)
+  ) {
+    return reply;
+  }
+
+  if (!shouldForceCommercialProductExplanation(product, reply)) return reply;
+
+  return resolveCommercialOfferExplanation(
+    product,
+    query,
+    resolveCommercialExplanationOptions(product)
   );
 }
 
@@ -25244,11 +25370,7 @@ function buildContextDecisionSessionContext(
       sessionContext.lastProducts
     ) || sessionContext.lastBestProduct;
 
-  // PATCH 7.1 — enforceWinnerReferenceInvariant applied on output.
-  // Guarantees lastProductMentioned === lastBestProduct.product_name when
-  // a formal winner exists — prevents alternative products from
-  // contaminating the implicit reference resolution in the next turn.
-  return enforceWinnerReferenceInvariant({
+  let nextSession = {
     ...sessionContext,
     lastQuery: resolvedQuery || query,
     lastIntent: intent || sessionContext.lastIntent || "",
@@ -25264,7 +25386,27 @@ function buildContextDecisionSessionContext(
       anchorBest?.product_name ||
       sessionContext.lastProductMentioned ||
       ""
-  });
+  };
+
+  if (
+    detectsAnchoredComparisonIntent(resolvedQuery || query, {
+      hasActiveAnchor: !!anchorBest?.product_name,
+    })
+  ) {
+    nextSession = mergeDiscussionSetIntoSessionContext(nextSession, {
+      anchorProduct: anchorBest,
+      query: resolvedQuery || query,
+      rememberedProducts: sessionContext.lastProducts || [],
+      preserveExisting: false,
+    });
+    if (Array.isArray(nextSession.lastComparisonProducts) && nextSession.lastComparisonProducts.length >= 2) {
+      nextSession.lastIntent = "comparison";
+      nextSession.lastInteractionType = "comparison";
+    }
+  }
+
+  // PATCH 7.1 — enforceWinnerReferenceInvariant applied on output.
+  return enforceWinnerReferenceInvariant(nextSession);
 }
 
 // ======================================================
@@ -25580,7 +25722,7 @@ if (lockedComparisonContextFromSession) {
 }
 
   const resolvedQuery = contextResolution.standaloneQuery || query;
-  const sessionContext = buildSessionContext(
+  let sessionContext = buildSessionContext(
     conversationMessages,
     req.body?.session_context,
     resolvedQuery
@@ -25622,6 +25764,85 @@ if (lockedComparisonContextFromSession) {
     sessionContext?.lastBestProduct?.product_name ||
     incomingSessionContext?.lastBestProduct?.product_name
   );
+
+  // PATCH 8.5B — Legitimate Search Reset (pre-routing — before commercial search signals)
+  const _hasCommercialThreadForReset = hasActiveCommercialThreadForReset(
+    sessionContext,
+    incomingSessionContext
+  );
+  let _legitimateSearchResetActive =
+    _hasCommercialThreadForReset &&
+    detectsLegitimateSearchResetIntent(query, {
+      hasActiveAnchor: _hasCommercialThreadForReset,
+    });
+  const _legitimateSearchResetCommercialTail =
+    _legitimateSearchResetActive &&
+    hasLegitimateSearchResetCommercialTail(query, resolvedQuery, {
+      detectProductCategory,
+    });
+
+  if (process.env.MIA_DEBUG === "true") {
+    pipelineTracer.patch({
+      legitimate_search_reset_probe: {
+        query,
+        thread: _hasCommercialThreadForReset,
+        discourse: detectsLegitimateSearchResetDiscourse(query),
+        blocked: isLegitimateSearchResetBlocked(query),
+        active: _legitimateSearchResetActive,
+        commercialTail: _legitimateSearchResetCommercialTail,
+        builtLastBest: sessionContext?.lastBestProduct?.product_name || null,
+        incomingLastBest: incomingSessionContext?.lastBestProduct?.product_name || null,
+      },
+    });
+  }
+
+  if (_legitimateSearchResetActive && !_legitimateSearchResetCommercialTail) {
+    const _resetRoutingDecision = {
+      mode: "legitimate_search_reset_hold",
+      conversationAct: "legitimate_search_reset",
+      allowNewSearch: false,
+      allowCommercialFallback: false,
+      allowReplaceWinner: true,
+      allowRerank: false,
+      shouldPreserveAnchor: false,
+      shouldReturnSessionContext: true,
+      responsePathHint: "legitimate_search_reset_awaiting_query",
+      reasons: ["legitimate_search_reset_pre_routing_hold"],
+    };
+    const _resetClearedSession = buildLegitimateSearchResetSessionContext({
+      lastQuery: query,
+    });
+    return respondWithContract(
+      res,
+      pipelineTracer,
+      _resetRoutingDecision,
+      {
+        reply: buildLegitimateSearchResetAwaitingQueryReply(),
+        prices: [],
+        session_context: _resetClearedSession,
+      },
+      "legitimate_search_reset_awaiting_query",
+      {
+        response_path: "legitimate_search_reset_awaiting_query",
+        context_action: "legitimate_search_reset",
+        winner_product: null,
+        winner_source: "legitimate_search_reset_cleared",
+        final_response_product: null,
+        legitimate_search_reset: true,
+      },
+      {
+        sessionBefore: sessionContext || incomingSessionContext || {},
+      }
+    );
+  }
+
+  if (_legitimateSearchResetActive && _legitimateSearchResetCommercialTail) {
+    sessionContext = applyLegitimateSearchResetToSession(
+      sessionContext || incomingSessionContext || {},
+      { lastQuery: resolvedQuery || query }
+    );
+  }
+
   const looksLikeShortPriorityFollowUpEarly =
     !!currentPriorityEarly &&
     !isExplicitComparisonQuery(query) &&
@@ -26070,6 +26291,38 @@ if (lockedComparisonContextFromSession) {
     }
   }
   // ─────────────────────────────────────────────────────────────
+  // PATCH 7.7M / 8.1B.2 — COMPREHENSION response path wiring (before ACK)
+  //
+  // resolveContextQuery() pode preencher directReply institucional antes
+  // do comprehension_flow. Limpar directReply e preservar contexto quando
+  // a família COMPREHENSION já foi reconhecida pelo Router/Routing.
+  // ─────────────────────────────────────────────────────────────
+  {
+    const isComprehensionResponsePath =
+      !earlyClearNewCommercialSearch &&
+      (
+        cognitiveTurnEarly?.signals?.isComprehension === true ||
+        cognitiveTurnEarly?.signals?.isComprehensionSuccess === true ||
+        isComprehensionFamilyQuery(query) ||
+        isComprehensionSuccessFamilyQuery(query) ||
+        isComprehensionSemanticFamilyQuery(query) ||
+        routingDecision?.conversationAct === "comprehension" ||
+        routingDecision?.responsePathHint === "comprehension_reply" ||
+        routingDecision?.responsePathHint === "comprehension_anchored"
+      );
+
+    if (isComprehensionResponsePath) {
+      contextResolution.directReply  = null;
+      contextResolution.clearContext = false;
+      if (!contextResolution.mode || contextResolution.mode === "general_answer") {
+        contextResolution.mode = "comprehension";
+      }
+      if (intent !== "comprehension") {
+        intent = "comprehension";
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
   // PATCH 7.7I — ACKNOWLEDGEMENT response path wiring
   //
   // resolveContextQuery() pode preencher directReply institucional antes
@@ -26079,6 +26332,8 @@ if (lockedComparisonContextFromSession) {
   {
     const isAcknowledgementResponsePath =
       !earlyClearNewCommercialSearch &&
+      !cognitiveTurnEarly?.signals?.isComprehensionSuccess &&
+      !isComprehensionSuccessFamilyQuery(query) &&
       (
         cognitiveTurnEarly?.signals?.isAcknowledgement === true ||
         isAcknowledgementFamilyQuery(query) ||
@@ -26095,35 +26350,6 @@ if (lockedComparisonContextFromSession) {
       }
       if (intent !== "acknowledgement") {
         intent = "acknowledgement";
-      }
-    }
-  }
-  // ─────────────────────────────────────────────────────────────
-  // PATCH 7.7M — COMPREHENSION response path wiring
-  //
-  // resolveContextQuery() pode preencher directReply institucional antes
-  // do comprehension_flow. Limpar directReply e preservar contexto quando
-  // a família COMPREHENSION já foi reconhecida pelo Router/Routing.
-  // ─────────────────────────────────────────────────────────────
-  {
-    const isComprehensionResponsePath =
-      !earlyClearNewCommercialSearch &&
-      (
-        cognitiveTurnEarly?.signals?.isComprehension === true ||
-        isComprehensionFamilyQuery(query) ||
-        routingDecision?.conversationAct === "comprehension" ||
-        routingDecision?.responsePathHint === "comprehension_reply" ||
-        routingDecision?.responsePathHint === "comprehension_anchored"
-      );
-
-    if (isComprehensionResponsePath) {
-      contextResolution.directReply  = null;
-      contextResolution.clearContext = false;
-      if (!contextResolution.mode || contextResolution.mode === "general_answer") {
-        contextResolution.mode = "comprehension";
-      }
-      if (intent !== "comprehension") {
-        intent = "comprehension";
       }
     }
   }
@@ -26351,6 +26577,144 @@ if (lockedComparisonContextFromSession) {
     }
   }
   // ─────────────────────────────────────────────────────────────
+
+  // PATCH 8.4C — Post-Change Recovery (before CSO verbalizer intercepts)
+  const _sessionForPostChangeRecovery =
+    sessionContext || incomingSessionContext || {};
+  const _postChangeRecoveryActive =
+    hasAnchorForRouting &&
+    !earlyClearNewCommercialSearch &&
+    detectsPostChangeRecoverySignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext: _sessionForPostChangeRecovery,
+    });
+
+  if (_postChangeRecoveryActive) {
+    const _postChangeStyle = detectsReasoningBreakdownSignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext: _sessionForPostChangeRecovery,
+    })
+      ? "contradiction"
+      : "comprehension";
+    const _postChangeReply = buildPostChangeRecoveryReply({
+      sessionContext: _sessionForPostChangeRecovery,
+      query: resolvedQuery || query,
+      style: _postChangeStyle,
+    });
+    const _postChangeSessionOut = {
+      ..._sessionForPostChangeRecovery,
+      lastQuery: resolvedQuery || query,
+      lastIntent: "post_change_recovery",
+      lastInteractionType: "post_change_recovery",
+      lastBestProduct: _sessionForPostChangeRecovery.lastBestProduct,
+      lastDecisionChange: _sessionForPostChangeRecovery.lastDecisionChange || null,
+      lastPreviousAxis: _sessionForPostChangeRecovery.lastPreviousAxis || "",
+      lastPreviousPriority: _sessionForPostChangeRecovery.lastPreviousPriority || "",
+      comparisonContextLocked: !!_sessionForPostChangeRecovery.comparisonContextLocked,
+      lastComparisonProducts: _sessionForPostChangeRecovery.lastComparisonProducts || [],
+    };
+
+    return respondWithContract(
+      res,
+      pipelineTracer,
+      routingDecision,
+      {
+        reply: _postChangeReply,
+        prices: [],
+        session_context: _postChangeSessionOut,
+      },
+      "post_change_recovery_reorganize",
+      {
+        response_path: "post_change_recovery_reorganize",
+        context_action: "post_change_recovery",
+        winner_product: pickProductLabelForPipelineDebug(
+          _sessionForPostChangeRecovery.lastBestProduct
+        ),
+        winner_source: "post_change_recovery_current_winner",
+        decision_engine_winner: pickProductLabelForPipelineDebug(
+          _sessionForPostChangeRecovery.lastBestProduct
+        ),
+        final_response_product: pickProductLabelForPipelineDebug(
+          _sessionForPostChangeRecovery.lastBestProduct
+        ),
+        winner_real: pickProductLabelForPipelineDebug(
+          _sessionForPostChangeRecovery.lastBestProduct
+        ),
+        post_change_recovery: true,
+      },
+      {
+        sessionBefore: _sessionForPostChangeRecovery,
+        contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
+        toneProfile: conversationalToneProfile,
+      }
+    );
+  }
+
+  // PATCH 8.4D — Final Decision Scope Guard (before CSO / catalog reopen)
+  const _sessionForFinalScope =
+    sessionContext || incomingSessionContext || {};
+  const _finalDecisionScopeActive =
+    hasAnchorForRouting &&
+    !earlyClearNewCommercialSearch &&
+    !_postChangeRecoveryActive &&
+    detectsFinalDecisionScopeQuery(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext: _sessionForFinalScope,
+    });
+
+  if (_finalDecisionScopeActive) {
+    const _finalScopeReply = buildFinalDecisionScopeReply({
+      sessionContext: _sessionForFinalScope,
+      query: resolvedQuery || query,
+    });
+    const _finalScopeSessionOut = {
+      ..._sessionForFinalScope,
+      lastQuery: resolvedQuery || query,
+      lastIntent: "final_decision_scope",
+      lastInteractionType: "final_decision_scope",
+      lastBestProduct: _sessionForFinalScope.lastBestProduct,
+      lastDecisionChange: _sessionForFinalScope.lastDecisionChange || null,
+      lastPreviousAxis: _sessionForFinalScope.lastPreviousAxis || "",
+      lastPreviousPriority: _sessionForFinalScope.lastPreviousPriority || "",
+      comparisonContextLocked: !!_sessionForFinalScope.comparisonContextLocked,
+      lastComparisonProducts: _sessionForFinalScope.lastComparisonProducts || [],
+    };
+
+    return respondWithContract(
+      res,
+      pipelineTracer,
+      routingDecision,
+      {
+        reply: _finalScopeReply,
+        prices: [],
+        session_context: _finalScopeSessionOut,
+      },
+      "final_decision_scope_reply",
+      {
+        response_path: "final_decision_scope_reply",
+        context_action: "final_decision_scope",
+        winner_product: pickProductLabelForPipelineDebug(
+          _sessionForFinalScope.lastBestProduct
+        ),
+        winner_source: "final_decision_scope_current_winner",
+        decision_engine_winner: pickProductLabelForPipelineDebug(
+          _sessionForFinalScope.lastBestProduct
+        ),
+        final_response_product: pickProductLabelForPipelineDebug(
+          _sessionForFinalScope.lastBestProduct
+        ),
+        winner_real: pickProductLabelForPipelineDebug(
+          _sessionForFinalScope.lastBestProduct
+        ),
+        final_decision_scope: true,
+      },
+      {
+        sessionBefore: _sessionForFinalScope,
+        contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
+        toneProfile: conversationalToneProfile,
+      }
+    );
+  }
 
   // ======================================================
   // CONVERSATIONAL STATE INTERCEPTION — FASE C / FASE D1
@@ -26745,10 +27109,65 @@ if (lockedComparisonContextFromSession) {
   }
   // ─────────────────────────────────────────────────────────────
 
+  // ─────────────────────────────────────────────────────────────
+  // PATCH 8.1B.1 — Production Fallback Gate
+  //
+  // Causa raiz (8.1A): resolveContextQuery preenche directReply institucional e o
+  // early return vence mesmo com família conversacional já reconhecida.
+  // Gate genérico: se Router/Routing já reconheceram família, directReply genérico
+  // não pode vencer. Não expande vocabulário — só respeita detecção existente.
+  // ─────────────────────────────────────────────────────────────
+  let productionFallbackGateResult = null;
+  try {
+    productionFallbackGateResult = applyProductionFallbackGate({
+      query,
+      hasActiveAnchor: hasAnchorForRouting,
+      clearNewCommercialSearch: earlyClearNewCommercialSearch,
+      cognitiveTurn: cognitiveTurnEarly,
+      routingDecision,
+      contextResolution,
+    });
+
+    if (productionFallbackGateResult.contextResolutionPatch) {
+      Object.assign(contextResolution, productionFallbackGateResult.contextResolutionPatch);
+    }
+    if (productionFallbackGateResult.intentPatch) {
+      intent = productionFallbackGateResult.intentPatch;
+    }
+
+    if (process.env.MIA_DEBUG === "true" && productionFallbackGateResult.applied) {
+      pipelineTracer.patch({
+        production_fallback_gate: productionFallbackGateResult.detection,
+      });
+    }
+  } catch (_productionFallbackGateErr) {
+    // Gate não deve quebrar fluxo
+  }
+  // ─────────────────────────────────────────────────────────────
+
   if (
   contextResolution.directReply &&
   !contextResolution.lockedComparisonFollowUp
 ) {
+  const _sessionForDirectReplyGate =
+    sessionContext || incomingSessionContext || {};
+  const _postChangeBeatsDirectReply =
+    hasAnchorForRouting &&
+    !earlyClearNewCommercialSearch &&
+    detectsPostChangeRecoverySignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext: _sessionForDirectReplyGate,
+    });
+  const _finalScopeBeatsDirectReply =
+    hasAnchorForRouting &&
+    !earlyClearNewCommercialSearch &&
+    !_postChangeBeatsDirectReply &&
+    detectsFinalDecisionScopeQuery(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext: _sessionForDirectReplyGate,
+    });
+
+  if (!_postChangeBeatsDirectReply && !_finalScopeBeatsDirectReply) {
     return respondWithContract(
       res,
       pipelineTracer,
@@ -26775,6 +27194,9 @@ if (lockedComparisonContextFromSession) {
       { sessionBefore: req.body?.session_context || {}, toneProfile: conversationalToneProfile }
     );
   }
+
+  contextResolution.directReply = null;
+}
 
   if (contextResolution.needsClarification) {
     return res.status(200).json({
@@ -26839,7 +27261,15 @@ if (
   // PATCH 5.2B — não cair no fallback genérico se a intenção explicativa foi preservada
   !intentPreservationResult?.preservationApplied &&
   // PATCH 7.6L — não apagar âncora quando o Cognitive Router já detectou turno contextual
-  !isAnchoredContextualTurn
+  !isAnchoredContextualTurn &&
+  // PATCH 8.1B.1 — não repetir fallback institucional quando família conversacional já foi reconhecida
+  !shouldBypassInstitutionalGeneralAnswerFallback(
+    productionFallbackGateResult?.detection,
+    {
+      intentPreservationApplied: !!intentPreservationResult?.preservationApplied,
+      isAnchoredContextualTurn,
+    }
+  )
 ) {
   return res.status(200).json({
         reply:
@@ -27079,6 +27509,27 @@ const _cognitiveRoutingSignal56F = cognitiveTurnEarly ? {
   hasActiveAnchor: hasAnchorForRouting,
 } : null;
 
+const _anchorForDiscussionSetRouting = pickAuthoritativeLastBestProduct(
+  rawSessionContext.lastBestProduct || sessionContext.lastBestProduct,
+  sessionContext.lastProducts || rawSessionContext.lastProducts || []
+);
+const _isAnchoredComparisonEstablishing =
+  hasAnchorForRouting &&
+  detectsAnchoredComparisonIntent(resolvedQuery || query, { hasActiveAnchor: true });
+const _prospectiveDiscussionProducts = _isAnchoredComparisonEstablishing
+  ? buildAnchoredDiscussionSetProducts({
+      anchorProduct: _anchorForDiscussionSetRouting,
+      query: resolvedQuery || query,
+      rememberedProducts: sessionContext.lastProducts || rawSessionContext.lastProducts || [],
+    })
+  : [];
+const _comparisonProductsForRouting =
+  rawComparisonProducts.length >= 2
+    ? rawComparisonProducts
+    : _prospectiveDiscussionProducts.length >= 2
+      ? _prospectiveDiscussionProducts
+      : rawComparisonProducts;
+
 routingDecision = buildRoutingDecision({
   userMessage: query,
   resolvedQuery,
@@ -27098,15 +27549,26 @@ routingDecision = buildRoutingDecision({
     looksLikeShortPriorityFollowUp,
     isExplicitComparison:
       isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery),
-    hasComparisonProducts: rawComparisonProducts.length >= 2,
+    hasComparisonProducts: _comparisonProductsForRouting.length >= 2,
+    isAnchoredComparisonEstablishing: _isAnchoredComparisonEstablishing,
+    isConversationalConfusion:
+      !!cognitiveTurnEarly?.signals?.isConversationalConfusion ||
+      isConversationalConfusionFamilyQuery(query, {
+        hasActiveAnchor: hasAnchorForRouting,
+        sessionContext,
+      }) ||
+      isConversationalConfusionFamilyQuery(resolvedQuery, {
+        hasActiveAnchor: hasAnchorForRouting,
+        sessionContext,
+      }),
     isComparisonContextFollowUp:
       isComparisonContextFollowUp(resolvedQuery, {
         ...sessionContext,
-        lastComparisonProducts: rawComparisonProducts
+        lastComparisonProducts: _comparisonProductsForRouting
       }) ||
       isComparisonContextFollowUp(query, {
         ...sessionContext,
-        lastComparisonProducts: rawComparisonProducts
+        lastComparisonProducts: _comparisonProductsForRouting
       }),
     isComparisonFollowUpLocked: isForcedComparisonFollowUp,
     explicitProductOnlyQuery,
@@ -27353,6 +27815,314 @@ const shortPriorityFollowUp =
   !isComparisonFollowUpOverride &&
   looksLikeShortPriorityFollowUp &&
   (hasContextProducts || hasContextBestProduct);
+
+// PATCH 8.3F — Contradiction Recovery Layer
+const _reasoningBreakdownActive =
+  hasAnchorForRouting &&
+  !hasExplicitNewSearchSignal &&
+  (
+    cognitiveTurnEarly?.turnType === "CONVERSATIONAL_CONFUSION" ||
+    routingDecision?.mode === "contradiction_recovery_hold" ||
+    detectsReasoningBreakdownSignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext,
+    })
+  );
+
+if (_reasoningBreakdownActive) {
+  const { allowedProducts: _recoveryAllowed } = resolveAllowedProductsForDecision({
+    sessionContext,
+    query: resolvedQuery || query,
+    anchorProduct: sessionContext.lastBestProduct,
+    catalogProducts: sessionContext.lastProducts || [],
+  });
+  const _recoveryExplanationCtx = buildExplanationContext(
+    sessionContext,
+    sessionContext.lastBestProduct?.product_name || "",
+    activePriority
+  );
+  const _recoveryReply =
+    hasRecentDecisionChange(sessionContext) &&
+    detectsPostChangeRecoverySignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext,
+    })
+      ? buildPostChangeRecoveryReply({
+          sessionContext,
+          query: resolvedQuery || query,
+          style: "contradiction",
+        })
+      : buildContradictionRecoveryReply({
+          sessionContext,
+          allowedProducts: _recoveryAllowed,
+          explanationCtx: _recoveryExplanationCtx,
+          query: resolvedQuery || query,
+        });
+  const _recoverySessionOut = {
+    ...sessionContext,
+    lastQuery: resolvedQuery || query,
+    lastIntent: "contradiction_recovery",
+    lastInteractionType: "contradiction_recovery",
+    lastBestProduct: sessionContext.lastBestProduct,
+    comparisonContextLocked: !!sessionContext.comparisonContextLocked,
+    lastComparisonProducts: sessionContext.lastComparisonProducts || [],
+  };
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply: _recoveryReply,
+      prices: [],
+      session_context: _recoverySessionOut,
+    },
+    "contradiction_recovery_reorganize",
+    {
+      response_path: "contradiction_recovery_reorganize",
+      context_action: "contradiction_recovery",
+      candidate_products: summarizeProductsForPipelineDebug(_recoveryAllowed),
+      winner_product: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      winner_source: "contradiction_recovery_anchor_preserved",
+      decision_engine_winner: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      final_response_product: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      winner_real: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      discussion_set_scoped: _recoveryAllowed.length >= 2,
+    },
+    {
+      sessionBefore: sessionContext,
+      contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
+      toneProfile: conversationalToneProfile,
+    }
+  );
+}
+
+// PATCH 8.3G — User Confusion Recovery Layer (compreensão, não contradição)
+// PATCH 8.5C — escalated tracking loss has same precedence as 8.3G
+const _explanationBreakdownActive =
+  hasAnchorForRouting &&
+  !hasExplicitNewSearchSignal &&
+  !_reasoningBreakdownActive &&
+  (
+    cognitiveTurnEarly?.turnType === "EXPLANATION_REQUEST" ||
+    routingDecision?.mode === "user_confusion_recovery_hold" ||
+    detectsEscalatedUserConfusionSignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+    }) ||
+    detectsExplanationBreakdownSignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext,
+    })
+  );
+
+if (_explanationBreakdownActive) {
+  const { allowedProducts: _confusionAllowed } = resolveAllowedProductsForDecision({
+    sessionContext,
+    query: resolvedQuery || query,
+    anchorProduct: sessionContext.lastBestProduct,
+    catalogProducts: sessionContext.lastProducts || [],
+  });
+  const _confusionExplanationCtx = buildExplanationContext(
+    sessionContext,
+    sessionContext.lastBestProduct?.product_name || "",
+    activePriority
+  );
+  const _confusionReply =
+    hasRecentDecisionChange(sessionContext) &&
+    detectsPostChangeRecoverySignal(resolvedQuery || query, {
+      hasActiveAnchor: true,
+      sessionContext,
+    })
+      ? buildPostChangeRecoveryReply({
+          sessionContext,
+          query: resolvedQuery || query,
+          style: "comprehension",
+        })
+      : buildUserConfusionRecoveryReply({
+          sessionContext,
+          allowedProducts: _confusionAllowed,
+          explanationCtx: _confusionExplanationCtx,
+          query: resolvedQuery || query,
+        });
+  const _confusionSessionOut = {
+    ...sessionContext,
+    lastQuery: resolvedQuery || query,
+    lastIntent: "comprehension_recovery",
+    lastInteractionType: "comprehension_recovery",
+    lastBestProduct: sessionContext.lastBestProduct,
+    comparisonContextLocked: !!sessionContext.comparisonContextLocked,
+    lastComparisonProducts: sessionContext.lastComparisonProducts || [],
+  };
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply: _confusionReply,
+      prices: [],
+      session_context: _confusionSessionOut,
+    },
+    "user_confusion_recovery_simplify",
+    {
+      response_path: "user_confusion_recovery_simplify",
+      context_action: "comprehension_recovery",
+      candidate_products: summarizeProductsForPipelineDebug(_confusionAllowed),
+      winner_product: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      winner_source: "user_confusion_recovery_anchor_preserved",
+      decision_engine_winner: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      final_response_product: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      winner_real: pickProductLabelForPipelineDebug(sessionContext.lastBestProduct),
+      discussion_set_scoped: _confusionAllowed.length >= 2,
+    },
+    {
+      sessionBefore: sessionContext,
+      contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
+      toneProfile: conversationalToneProfile,
+    }
+  );
+}
+
+// PATCH 8.3E — Explicit Recommendation Change Protocol
+const _decisionContextChangeActive =
+  hasAnchorForRouting &&
+  !hasExplicitNewSearchSignal &&
+  !_reasoningBreakdownActive &&
+  !_explanationBreakdownActive &&
+  (
+    routingDecision?.mode === "explicit_recommendation_change" ||
+    detectsLegitimateDecisionContextChange(resolvedQuery || query, {
+      hasActiveAnchor: true,
+    })
+  );
+
+if (_decisionContextChangeActive) {
+  const _changeResult = buildExplicitChangeFromSession({
+    message: resolvedQuery || query,
+    sessionContext,
+    query: resolvedQuery || query,
+  });
+  const _changeSessionOut = {
+    ...(_changeResult.sessionOut || sessionContext),
+    lastQuery: resolvedQuery || query,
+    lastIntent: "decision_context_change",
+    lastInteractionType: "explicit_recommendation_change",
+    lastDecisionReason: `prioridade: ${_changeResult.shift?.newLabel || "recalibrada"}`,
+  };
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply: _changeResult.reply,
+      prices: [],
+      session_context: _changeSessionOut,
+    },
+    "explicit_recommendation_change_reply",
+    {
+      response_path: "explicit_recommendation_change_reply",
+      context_action: "decision_context_change",
+      candidate_products: summarizeProductsForPipelineDebug(
+        _changeResult.rankedProducts || _changeResult.allowedProducts || []
+      ),
+      winner_product: pickProductLabelForPipelineDebug(_changeResult.newWinner),
+      winner_source: _changeResult.winnerChanged
+        ? "explicit_recommendation_change_rerank"
+        : "explicit_recommendation_change_hold",
+      decision_engine_winner: pickProductLabelForPipelineDebug(_changeResult.newWinner),
+      final_response_product: pickProductLabelForPipelineDebug(_changeResult.newWinner),
+      winner_real: pickProductLabelForPipelineDebug(_changeResult.newWinner),
+      winner_changed: _changeResult.winnerChanged,
+      discussion_set_scoped: (_changeResult.allowedProducts || []).length >= 2,
+    },
+    {
+      sessionBefore: sessionContext,
+      contractApply: {
+        proposedBestProduct: _changeResult.newWinner,
+        proposedProducts: _changeResult.rankedProducts,
+        incomingLastBest: req.body?.session_context?.lastBestProduct,
+      },
+      toneProfile: conversationalToneProfile,
+    }
+  );
+}
+
+// PATCH 8.3C — estabelecer comparação ancorada com discussion set escopado
+if (
+  _isAnchoredComparisonEstablishing &&
+  _prospectiveDiscussionProducts.length >= 2 &&
+  !hasExplicitNewSearchSignal &&
+  routingDecision?.allowNewSearch !== true
+) {
+  const _establishCatalog = Array.isArray(sessionContext.lastProducts)
+    ? sessionContext.lastProducts
+    : [];
+  const { allowedProducts: _establishAllowed } = resolveAllowedProductsForDecision({
+    sessionContext,
+    query: resolvedQuery || query,
+    anchorProduct: _anchorForDiscussionSetRouting,
+    catalogProducts: _establishCatalog,
+  });
+  const _establishAnchor = pickAuthoritativeLastBestProduct(
+    rawSessionContext.lastBestProduct || sessionContext.lastBestProduct,
+    _establishCatalog
+  );
+
+  let _establishReply = buildDiscussionSetEstablishmentReply({
+    allowedProducts: _establishAllowed,
+    anchorProduct: _establishAnchor,
+  });
+
+  if (!_establishReply) {
+    _establishReply = await buildDecisionEngineReply(
+      _establishAllowed,
+      activePriority,
+      "",
+      routingDecision.shouldPreserveAnchor ? _establishAnchor : null
+    );
+  }
+
+  const _establishSessionOut = buildContextDecisionSessionContext(sessionContext, {
+    query,
+    resolvedQuery,
+    intent: "comparison",
+    activePriority,
+    contextAction: "comparison",
+    incomingLastBest: req.body?.session_context?.lastBestProduct || null,
+  });
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply: _establishReply,
+      prices: [],
+      session_context: _establishSessionOut,
+    },
+    routingDecision.mode === "anchored_comparison_hold"
+      ? "anchored_comparison_establish"
+      : "discussion_set_establish",
+    {
+      response_path: "discussion_set_establish",
+      context_action: "comparison",
+      candidate_products: summarizeProductsForPipelineDebug(_establishAllowed),
+      winner_product: pickProductLabelForPipelineDebug(_establishAnchor),
+      winner_source: "discussion_set_anchor_preserved",
+      decision_engine_winner: pickProductLabelForPipelineDebug(_establishAnchor),
+      final_response_product: pickProductLabelForPipelineDebug(_establishAnchor),
+      winner_real: pickProductLabelForPipelineDebug(_establishAnchor),
+      discussion_set_scoped: true,
+      allowed_products_count: _establishAllowed.length,
+    },
+    {
+      sessionBefore: sessionContext,
+      contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
+      toneProfile: conversationalToneProfile,
+    }
+  );
+}
 
 if (isComparisonFollowUpOverride) {
   console.warn("🔒 FORCED COMPARISON FOLLOW-UP MODE — usando comparação travada");
@@ -27929,9 +28699,26 @@ const isDecisionIntent =
       isDecisionIntent ||
       contextAction === "analysis"
     ) {
-    const rememberedProducts = Array.isArray(sessionContext.lastProducts)
+    const _catalogProducts = Array.isArray(sessionContext.lastProducts)
       ? sessionContext.lastProducts
       : [];
+    const _decisionAnchorForScope = pickAuthoritativeLastBestProduct(
+      req.body?.session_context?.lastBestProduct || sessionContext.lastBestProduct,
+      _catalogProducts
+    );
+    const {
+      allowedProducts: rememberedProducts,
+      discussionSetActive: _discussionSetActive,
+      finalDecisionScopeActive: _finalDecisionScopeActive = false,
+    } = resolveAllowedProductsForDecision({
+      sessionContext,
+      query: resolvedQuery || query,
+      anchorProduct: _decisionAnchorForScope,
+      catalogProducts: _catalogProducts,
+    });
+    const _discussionSetScopedInstruction = _discussionSetActive
+      ? buildDiscussionSetScopedInstruction(rememberedProducts, _decisionAnchorForScope)
+      : "";
          const preferredProductName =
   isSpecificProductOnlyQuery(resolvedQuery) || isSpecificProductOnlyQuery(query)
     ? resolvedQuery
@@ -27945,13 +28732,22 @@ const isDecisionIntent =
     // This makes "quem ficou em segundo?" / "top 3?" deterministic — the LLM
     // sees the authoritative order and only verbalizes, it does not choose.
     const rememberedProductsText = (() => {
-      const snapshot = sessionContext.lastRankingSnapshot;
+      const snapshot = filterRankingSnapshotToAllowedProducts(
+        sessionContext.lastRankingSnapshot,
+        _discussionSetActive || _finalDecisionScopeActive ? rememberedProducts : []
+      );
       if (Array.isArray(snapshot) && snapshot.length) {
         return snapshot
           .map(item =>
             `${item.rank}. ${item.product_name}${item.price ? ` | ${item.price}` : ""}${item.isWinner ? " [recomendação atual]" : ""}`
           )
           .join("\n");
+      }
+      if (_discussionSetActive && rememberedProducts.length >= 2) {
+        return formatAllowedProductsForPrompt(rememberedProducts, _decisionAnchorForScope);
+      }
+      if (_finalDecisionScopeActive && rememberedProducts.length >= 1) {
+        return formatAllowedProductsForPrompt(rememberedProducts, _decisionAnchorForScope);
       }
       return rememberedProducts.length
         ? rememberedProducts
@@ -28549,7 +29345,7 @@ MENSAGEM ATUAL DO USUÁRIO:
         content: `${MIA_SYSTEM_PROMPT}
 
 ${contextModeInstructions}
-${_cognitiveSignalContextBlock}${_cognitiveSignalBehaviorInstruction ? `\n${_cognitiveSignalBehaviorInstruction}` : ""}`
+${_discussionSetScopedInstruction}${_cognitiveSignalContextBlock}${_cognitiveSignalBehaviorInstruction ? `\n${_cognitiveSignalBehaviorInstruction}` : ""}`
       },
       ...conversationMessages,
       {
@@ -28592,23 +29388,45 @@ ${_cognitiveSignalContextBlock}${_cognitiveSignalBehaviorInstruction ? `\n${_cog
       .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
       .replace(/\n?\s*Se precisar de mais alguma ajuda.*$/i, "")
       .trim();
+
+if (_discussionSetActive || _finalDecisionScopeActive || hasActiveFinalDecisionScope(sessionContext)) {
+  const _outsideMentions = replyMentionsProductOutsideAllowedSet(reply, rememberedProducts);
+  if (_outsideMentions.length > 0) {
+    const _isEstablishingComparisonTurn =
+      _isAnchoredComparisonEstablishing &&
+      detectsAnchoredComparisonIntent(resolvedQuery || query, { hasActiveAnchor: true });
+    let _scopedFallback = null;
+    if (_isEstablishingComparisonTurn) {
+      _scopedFallback = buildDiscussionSetEstablishmentReply({
+        allowedProducts: rememberedProducts,
+        anchorProduct: _decisionAnchorForScope,
+      });
+    }
+    if (!_scopedFallback) {
+      _scopedFallback = buildContextUnknownProductCorrectionReply(
+        _decisionAnchorForScope
+          ? {
+              ..._decisionAnchorForScope,
+              product_name: cleanTitle(_decisionAnchorForScope.product_name),
+            }
+          : null,
+        sessionContext
+      );
+    }
+    if (_scopedFallback) {
+      reply = _scopedFallback;
+    }
+  }
+}
+
       // 🔥 VALIDAÇÃO FINAL — NÃO DEIXA IA INVENTAR PRODUTO
 // ─────────────────────────────────────────────────────────────────────────
 // PATCH 5.3E — Anchor Product Guard Inclusion
 // O guard nunca pode bloquear um produto que foi oficialmente escolhido.
 // Garante que o winner/anchor da decisão esteja sempre em allowedProducts.
 // ─────────────────────────────────────────────────────────────────────────
-const _decisionAnchor = pickAuthoritativeLastBestProduct(
-  req.body?.session_context?.lastBestProduct || sessionContext.lastBestProduct,
-  rememberedProducts
-);
-const _guardAllowedProducts =
-  _decisionAnchor &&
-  !rememberedProducts.some((p) => p.product_name === _decisionAnchor.product_name)
-    ? [...rememberedProducts, _decisionAnchor]
-    : rememberedProducts;
-const _guardAuthorityInclusionApplied =
-  _guardAllowedProducts.length > rememberedProducts.length;
+const _guardAllowedProducts = rememberedProducts;
+const _guardAuthorityInclusionApplied = false;
 // ─────────────────────────────────────────────────────────────────────────
 
 if (responseMentionsUnknownProduct(reply, _guardAllowedProducts)) {
@@ -28623,7 +29441,7 @@ if (responseMentionsUnknownProduct(reply, _guardAllowedProducts)) {
 
     if (contextAction !== "decision") {
     const anchorProduct =
-      _decisionAnchor ||
+      _decisionAnchorForScope ||
       rememberedProducts[0] ||
       rememberedProducts[rememberedProducts.length - 1];
 
@@ -28649,7 +29467,7 @@ if (responseMentionsUnknownProduct(reply, _guardAllowedProducts)) {
           richExplanationActive: !!_richExpPathActivated,
           contextModeSelected: _richExpContextModeSelected || contextAction || "unknown",
           // PATCH 5.3E — campos de autoridade da decisão
-          decisionAuthorityProducts: _decisionAnchor ? [_decisionAnchor] : [],
+          decisionAuthorityProducts: _decisionAnchorForScope ? [_decisionAnchorForScope] : [],
           authorityInclusionApplied: _guardAuthorityInclusionApplied,
         });
         logUnknownProductCorrectionAudit(_unknownProdAudit, pipelineTracer);
@@ -29047,6 +29865,62 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
       });
     }
 
+    if (intent === "comprehension") {
+      const isComprehensionSuccessTurn =
+        isComprehensionSuccessFamilyQuery(query) ||
+        cognitiveTurnEarly?.signals?.isComprehensionSuccess === true;
+
+      const comprehensionMessages = [
+        {
+          role: "system",
+          content: buildMiaSystemPromptByRole("comprehension_reply", conversationalToneProfile)
+        },
+        {
+          role: "user",
+          content: buildUserPrompt({
+            query: resolvedQuery,
+            originalQuery: query,
+            intent,
+            budget,
+            wantsNew,
+            period,
+            products: hasAnchorForRouting ? [sessionContext.lastBestProduct].filter(Boolean) : [],
+            productLimit: hasAnchorForRouting ? 1 : 0,
+            userStyle
+          })
+        }
+      ];
+
+      const aiResponse = await runMiaBrainTask({
+        role: "comprehension_reply",
+        intent,
+        messages: comprehensionMessages,
+        temperature: 0.5,
+        max_tokens: 180,
+        metadata: {
+          source: "comprehension_flow"
+        }
+      });
+
+      const reply =
+        getMiaLLMText(aiResponse) ||
+        (hasAnchorForRouting
+          ? (isComprehensionSuccessTurn
+            ? buildAnchoredComprehensionSuccessFallback(sessionContext)
+            : buildAnchoredComprehensionFallback(sessionContext))
+          : (isComprehensionSuccessTurn
+            ? buildOpenComprehensionSuccessFallback()
+            : buildOpenComprehensionFallback()));
+
+      return res.status(200).json({
+        reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
+        prices: [],
+        session_context: hasAnchorForRouting
+          ? (req.body?.session_context || sessionContext)
+          : (req.body?.session_context || {})
+      });
+    }
+
     if (intent === "acknowledgement") {
       const acknowledgementMessages = [
         {
@@ -29085,54 +29959,6 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
         (hasAnchorForRouting
           ? buildAnchoredAcknowledgementFallback(sessionContext)
           : buildOpenAcknowledgementFallback());
-
-      return res.status(200).json({
-        reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
-      });
-    }
-
-    if (intent === "comprehension") {
-      const comprehensionMessages = [
-        {
-          role: "system",
-          content: buildMiaSystemPromptByRole("comprehension_reply", conversationalToneProfile)
-        },
-        {
-          role: "user",
-          content: buildUserPrompt({
-            query: resolvedQuery,
-            originalQuery: query,
-            intent,
-            budget,
-            wantsNew,
-            period,
-            products: hasAnchorForRouting ? [sessionContext.lastBestProduct].filter(Boolean) : [],
-            productLimit: hasAnchorForRouting ? 1 : 0,
-            userStyle
-          })
-        }
-      ];
-
-      const aiResponse = await runMiaBrainTask({
-        role: "comprehension_reply",
-        intent,
-        messages: comprehensionMessages,
-        temperature: 0.5,
-        max_tokens: 180,
-        metadata: {
-          source: "comprehension_flow"
-        }
-      });
-
-      const reply =
-        getMiaLLMText(aiResponse) ||
-        (hasAnchorForRouting
-          ? buildAnchoredComprehensionFallback(sessionContext)
-          : buildOpenComprehensionFallback());
 
       return res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
@@ -29888,9 +30714,28 @@ const queryLooksLikeNewSearch =
   !!extractBudget(query) ||
   !!detectProductCategory(query);
 
+const commercialOfferReset = shouldResetCommercialOfferContext({
+  currentQuery: resolvedQuery,
+  previousOffer: sessionContext?.lastBestProduct || null,
+  previousQuery: sessionContext?.lastQuery || "",
+  routingDecision,
+  forceLegitimateSearchReset:
+    _legitimateSearchResetActive && _legitimateSearchResetCommercialTail,
+});
+
+if (commercialOfferReset.shouldReset) {
+  console.log("🔄 COMMERCIAL NEW SEARCH RESET GUARD:", commercialOfferReset);
+  pipelineTracer.patch({ commercialOfferReset });
+}
+
+const commercialRankingAnchor = commercialOfferReset.shouldReset
+  ? null
+  : sessionContext.lastBestProduct;
+
 const hasPriorityFollowUp =
   !!currentPriority &&
   !queryLooksLikeNewSearch &&
+  !commercialOfferReset.shouldReset &&
   Array.isArray(sessionContext?.lastProducts) &&
   sessionContext.lastProducts.length > 0;
 
@@ -29942,7 +30787,7 @@ if (hasPriorityFollowUp) {
       resolvedQuery,
       { querySignals: earlyQuerySignals },
       routingDecision,
-      sessionContext.lastBestProduct
+      commercialRankingAnchor
     );
   } else {
     products = cleanAndRankProducts(
@@ -29956,7 +30801,7 @@ if (hasPriorityFollowUp) {
       resolvedQuery,
       { querySignals: earlyQuerySignals },
       routingDecision,
-      sessionContext.lastBestProduct
+      commercialRankingAnchor
     );
   }
 
@@ -30103,7 +30948,9 @@ if (Array.isArray(products) && products.length > 0) {
         {
           proposedBestProduct: proposedBest,
           proposedProducts: mapCommercialDisplayPrices(commercialDisplayProducts),
-          incomingLastBest: sessionContext.lastBestProduct
+          incomingLastBest: commercialOfferReset.shouldReset
+            ? null
+            : sessionContext.lastBestProduct
         }
       );
       commercialFallbackSessionContext.lastProductMentioned =
@@ -30215,13 +31062,47 @@ if (Array.isArray(products) && products.length > 0) {
   }
 
   const displayProducts = products.slice(0, 3);
-  const selectedBestProduct =
-    resolvePresentationWinnerInDisplayList(
+  let selectedBestProduct =
+    resolveCommercialPresentationWinner({
       displayProducts,
-      sessionContext.lastBestProduct,
-      routingDecision.allowReplaceWinner,
-      routingDecision
-    ) || displayProducts[0] || null;
+      currentQuery: resolvedQuery,
+      previousOffer: sessionContext.lastBestProduct,
+      resetDecision: commercialOfferReset,
+      pickWinnerUnderContract,
+      routingDecision,
+    }) || displayProducts[0] || null;
+
+  if (
+    commercialOfferReset.shouldReset &&
+    selectedBestProduct &&
+    !commercialOfferMatchesQueryCore(selectedBestProduct, resolvedQuery)
+  ) {
+    selectedBestProduct = null;
+  }
+
+  if (commercialOfferReset.shouldReset && !selectedBestProduct) {
+    return res.status(200).json(
+      pipelineTracer.enrichResponse(
+        {
+          reply: buildCommercialNoResultReply(resolvedQuery),
+          prices: [],
+          session_context: {
+            ...sessionContext,
+            lastQuery: resolvedQuery,
+            lastCategory: detectProductCategory(resolvedQuery) || "",
+            lastBestProduct: null,
+            lastProducts: [],
+            lastProductMentioned: "",
+            lastInteractionType: "commercial_new_search_no_result",
+          },
+          mia_debug: {
+            commercialOfferReset,
+          },
+        },
+        { response_path: "commercial_new_search_no_result" }
+      )
+    );
+  }
 
   console.log("🚑 RETURN SEGURO LIBERADO:", {
     displayProducts: displayProducts.length,
@@ -30265,6 +31146,19 @@ if (Array.isArray(products) && products.length > 0) {
   if (!safeReply && selectedTitle) {
     const verbalName = resolveMiaVerbalName(selectedTitle, resolvedQuery);
     safeReply = `O ${verbalName} aparece como a opção mais alinhada para essa busca.`;
+  }
+
+  if (selectedBestProduct?.product_name) {
+    safeReply = enrichOfferReplyWithProductExplanation(
+      safeReply,
+      selectedBestProduct,
+      resolvedQuery,
+      {
+        resetDecision: commercialOfferReset,
+        previousOffer: sessionContext.lastBestProduct,
+        previousQuery: sessionContext.lastQuery || "",
+      }
+    );
   }
 
   console.log("🧠 SEARCH COGNITION ATIVO:", {
@@ -30331,7 +31225,9 @@ if (Array.isArray(products) && products.length > 0) {
         thumbnail: p.thumbnail || null,
         source: p.source || "resultado"
       })),
-      incomingLastBest: sessionContext.lastBestProduct
+      incomingLastBest: commercialOfferReset.shouldReset
+        ? null
+        : sessionContext.lastBestProduct
     }
   );
   returnSeguroSessionContext.lastProductMentioned = proposedReturnBest
@@ -30441,6 +31337,30 @@ if (Array.isArray(products) && products.length > 0) {
 if (!Array.isArray(products) || !products.length) {
   console.warn("🚫 Sem produtos mesmo após fallback inteligente");
 
+  if (commercialOfferReset.shouldReset) {
+    return res.status(200).json(
+      pipelineTracer.enrichResponse(
+        {
+          reply: buildCommercialNoResultReply(resolvedQuery),
+          prices: [],
+          session_context: {
+            ...sessionContext,
+            lastQuery: resolvedQuery,
+            lastCategory: detectProductCategory(resolvedQuery) || "",
+            lastBestProduct: null,
+            lastProducts: [],
+            lastProductMentioned: "",
+            lastInteractionType: "commercial_new_search_no_result",
+          },
+          mia_debug: {
+            commercialOfferReset,
+          },
+        },
+        { response_path: "commercial_new_search_no_result" }
+      )
+    );
+  }
+
   if (commercialSearchUnavailable && !hasPriorityFollowUp) {
     const persistentFallbackProducts = await getPersistentCommercialProductsFromSupabase(resolvedQuery, 12);
 
@@ -30465,6 +31385,7 @@ if (!Array.isArray(products) || !products.length) {
 
     if (
     hasPriorityFollowUp &&
+    !commercialOfferReset.shouldReset &&
     !isFreshCommercialSearch &&
     Array.isArray(sessionContext?.lastProducts) &&
     sessionContext.lastProducts.length > 0

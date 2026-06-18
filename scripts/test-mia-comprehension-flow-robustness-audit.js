@@ -1,8 +1,8 @@
 /**
- * PATCH 7.9X-H.1 — COMPREHENSION Flow Robustness Audit (AUDIT ONLY)
+ * PATCH 7.9X-H.1 / 8.1B.2 — COMPREHENSION Flow Robustness Audit (AUDIT ONLY)
  *
  * Full-stack trace: Router → Bridge/Contract → Routing → Response Path → User perception.
- * Separates COMPREHENSION_FAILURE vs COMPREHENSION_SUCCESS (ACK path by design).
+ * SUCCESS and FAILURE both route to comprehension_flow (PATCH 8.1B.2).
  *
  * Usage: node scripts/test-mia-comprehension-flow-robustness-audit.js
  */
@@ -11,6 +11,7 @@ import {
   classifyMiaTurn,
   MIA_TURN_TYPES,
   isComprehensionFamilyQuery,
+  isComprehensionSuccessFamilyQuery,
   isComprehensionSemanticFamilyQuery,
   isAcknowledgementFamilyQuery,
   isSoftDisagreementFamilyQuery,
@@ -178,9 +179,9 @@ function buildIdealComprehensionFailurePreview(hasAnchor) {
 
 function buildIdealComprehensionSuccessPreview(hasAnchor) {
   if (hasAnchor) {
-    return "Perfeito. Mantemos essa escolha como referência. Se quiser, posso explicar melhor ou comparar com outra opção.";
+    return "Ótimo, ficou claro então. Mantemos Produto Recomendado Atual como referência — se quiser, posso detalhar algum ponto ou comparar com outra opção.";
   }
-  return "Boa. Quando quiser, me diz o que você está pensando em comprar e eu te ajudo a decidir.";
+  return "Boa, entendi. Quando quiser, me fala o que você está pensando em comprar que eu te ajudo a decidir.";
 }
 
 function hasComprehensionRoutingHold(routingDecision) {
@@ -254,6 +255,7 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
       confidence: cognitiveTurn.confidence,
       hasActiveAnchor,
       isComprehension: !!cognitiveTurn.signals?.isComprehension,
+      isComprehensionSuccess: !!cognitiveTurn.signals?.isComprehensionSuccess,
       isAcknowledgement: !!cognitiveTurn.signals?.isAcknowledgement,
     },
     signals: {
@@ -290,9 +292,11 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
       idealTurnFailure &&
       cognitiveTurn.turnType !== MIA_TURN_TYPES.NEW_SEARCH
     : isComprehensionSemanticFamilyQuery(message) &&
-      !!cognitiveTurn.signals?.isAcknowledgement &&
+      !!cognitiveTurn.signals?.isComprehensionSuccess &&
+      !!cognitiveTurn.signals?.isComprehension &&
+      !cognitiveTurn.signals?.isAcknowledgement &&
       idealTurnSuccess &&
-      !cognitiveTurn.signals?.isComprehension;
+      cognitiveTurn.turnType !== MIA_TURN_TYPES.NEW_SEARCH;
 
   const routingPassFailure =
     !openedNewSearch &&
@@ -305,7 +309,7 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
 
   const routingPassSuccess =
     !openedNewSearch &&
-    hasAcknowledgementRoutingHold(routingDecision) &&
+    hasComprehensionRoutingHold(routingDecision) &&
     routingDecision.allowNewSearch === false &&
     (hasActiveAnchor
       ? routingDecision.shouldPreserveAnchor === true &&
@@ -318,7 +322,9 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
     !clearNewSearch &&
     (
       cognitiveTurn.signals?.isComprehension === true ||
+      cognitiveTurn.signals?.isComprehensionSuccess === true ||
       isComprehensionFamilyQuery(message) ||
+      isComprehensionSuccessFamilyQuery(message) ||
       hasComprehensionRoutingHold(routingDecision)
     );
 
@@ -333,27 +339,24 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
   const bridgeIntent = bridgeAudit.active ? bridgeAudit.toIntent : legacyIntent;
   const contractPass =
     routingPass &&
-    (isFailure ? handlerComprehensionGate : handlerAcknowledgementGate) &&
+    handlerComprehensionGate &&
     guardResult.contextAction !== "search";
 
   let responsePathFinal = "unknown";
   let finalResponsePreview = "";
   let genericFallbackDetected = false;
   let effectiveIntent = bridgeIntent;
-  let expectedPath = isFailure ? "comprehension_flow" : "acknowledgement_flow";
+  let expectedPath = "comprehension_flow";
 
   if (openedNewSearch) {
     responsePathFinal = "default_product_search";
     finalResponsePreview = "(busca comercial — sem fluxo de compreensão)";
-  } else if (isFailure && handlerComprehensionGate) {
+  } else if (handlerComprehensionGate) {
     responsePathFinal = "comprehension_flow";
     effectiveIntent = "comprehension";
-    finalResponsePreview = buildIdealComprehensionFailurePreview(hasActiveAnchor);
-    genericFallbackDetected = detectGenericConversationalFallback(finalResponsePreview);
-  } else if (isSuccess && handlerAcknowledgementGate) {
-    responsePathFinal = "acknowledgement_flow";
-    effectiveIntent = "acknowledgement";
-    finalResponsePreview = buildIdealComprehensionSuccessPreview(hasActiveAnchor);
+    finalResponsePreview = isFailure
+      ? buildIdealComprehensionFailurePreview(hasActiveAnchor)
+      : buildIdealComprehensionSuccessPreview(hasActiveAnchor);
     genericFallbackDetected = detectGenericConversationalFallback(finalResponsePreview);
   } else if (!hasActiveAnchor && !openedNewSearch) {
     responsePathFinal = "context_resolution_direct_reply_early_return";
@@ -380,7 +383,7 @@ function simulateFullStack(message, hasActiveAnchor, subtype) {
 
   const responsePathPass = responsePathFinal === expectedPath;
   const finalResponsePass =
-    responsePathPass && !genericFallbackDetected && (isFailure ? handlerComprehensionGate : handlerAcknowledgementGate);
+    responsePathPass && !genericFallbackDetected && handlerComprehensionGate;
 
   const userPerception = assessUserPerception({
     subtype,
@@ -493,10 +496,10 @@ function classifyLeaks(ctx) {
         type: "ROUTER_LEAK",
         detail: "COMPREHENSION_FAILURE não reconhecido — falha de compreensão não capturada",
       });
-    } else if (isSuccess && !ctx.cognitiveTurn.signals?.isAcknowledgement) {
+    } else if (isSuccess && !ctx.cognitiveTurn.signals?.isComprehensionSuccess) {
       leaks.push({
         type: "ROUTER_LEAK",
-        detail: "COMPREHENSION_SUCCESS não reconhecido via acknowledgement bridge",
+        detail: "COMPREHENSION_SUCCESS não reconhecido — isComprehensionSuccess ausente",
       });
     } else if (isFailure && !ctx.idealTurnFailure) {
       leaks.push({
@@ -516,17 +519,17 @@ function classifyLeaks(ctx) {
     }
   }
 
-  if (ctx.routerPass && isSuccess && ctx.routingPassSuccess) {
+  if (ctx.routerPass && isSuccess && !ctx.routingPassSuccess) {
     leaks.push({
-      type: "ARCHITECTURAL_DESIGN_ACCEPTED",
-      detail: "COMPREHENSION_SUCCESS usa acknowledgement routing hold por design (7.9X-H)",
+      type: "ROUTING_LEAK",
+      detail: "COMPREHENSION_SUCCESS sem comprehension routing hold",
     });
   }
 
-  if (ctx.routerPass && isSuccess && ctx.responsePathPass && ctx.responsePathFinal === "acknowledgement_flow") {
+  if (ctx.routerPass && isSuccess && ctx.responsePathFinal === "acknowledgement_flow") {
     leaks.push({
-      type: "ARCHITECTURAL_DESIGN_ACCEPTED",
-      detail: "COMPREHENSION_SUCCESS usa acknowledgement_flow por design — resposta curta/natural",
+      type: "RESPONSE_PATH_LEAK",
+      detail: "COMPREHENSION_SUCCESS caiu em acknowledgement_flow (colisão ACK)",
     });
   }
 
@@ -563,10 +566,10 @@ function classifyLeaks(ctx) {
     });
   }
 
-  if (ctx.routerPass && isSuccess && ctx.handlerAcknowledgementGate && !ctx.responsePathPass) {
+  if (ctx.routerPass && isSuccess && ctx.handlerComprehensionGate && !ctx.responsePathPass) {
     leaks.push({
       type: "RESPONSE_PATH_LEAK",
-      detail: `Success gate true mas path=${ctx.responsePathFinal} (esperado acknowledgement_flow)`,
+      detail: `Success gate true mas path=${ctx.responsePathFinal} (esperado comprehension_flow)`,
     });
   }
 
@@ -615,24 +618,23 @@ function summarizeSubset(records) {
 
 function printFlowMap() {
   console.log("── FASE 1 — Mapa do fluxo COMPREHENSION ──\n");
-  console.log("1. Classificação (lib/miaCognitiveRouter.js PATCH 7.7K / 7.9X-H)");
+  console.log("1. Classificação (lib/miaCognitiveRouter.js PATCH 7.7K / 8.1B.2)");
   console.log("   • detectsComprehensionFailureSignal → signals.isComprehension (FAILURE)");
-  console.log("   • detectsNaturalPositiveComprehensionSignal → via detectsAcknowledgementSignal (SUCCESS)");
+  console.log("   • detectsNaturalPositiveComprehensionSignal → signals.isComprehensionSuccess + isComprehension");
   console.log("   • resolveTurnType: FAILURE → CONVERSATIONAL (cold) | EXPLANATION_REQUEST (anchored)");
-  console.log("   • resolveTurnType: SUCCESS → REACTION + isAcknowledgement\n");
+  console.log("   • resolveTurnType: SUCCESS → REACTION/CONVERSATIONAL + comprehension (ACK excluído)\n");
   console.log("2. Bridge / Contract");
   console.log("   • FAILURE: EXPLANATION_REQUEST ancorado → contextAction=decision (legacy)");
-  console.log("   • SUCCESS: REACTION → acknowledgement bridge (design 7.9X-H)\n");
+  console.log("   • SUCCESS: REACTION → comprehension response path (8.1B.2)\n");
   console.log("3. Routing (lib/miaRoutingDecisionContract.js)");
-  console.log("   • FAILURE cold: comprehension hold (~620)");
-  console.log("   • FAILURE anchored: cognitive_explanation_anchored (~369) ANTES do hold comprehension");
-  console.log("   • SUCCESS: acknowledgement hold (~591)\n");
-  console.log("4. Response Path (pages/api/chat-gpt4o.js PATCH 7.7M)");
-  console.log("   • FAILURE: isComprehension | family query | routing hold → comprehension_flow");
-  console.log("   • SUCCESS: isAcknowledgement | family query → acknowledgement_flow\n");
+  console.log("   • FAILURE cold: comprehension hold");
+  console.log("   • FAILURE anchored: cognitive_explanation_anchored ANTES do hold comprehension");
+  console.log("   • SUCCESS: comprehension hold ANTES de acknowledgement\n");
+  console.log("4. Response Path (pages/api/chat-gpt4o.js PATCH 7.7M / 8.1B.2)");
+  console.log("   • FAILURE + SUCCESS: isComprehension | isComprehensionSuccess → comprehension_flow\n");
   console.log("5. Resposta final");
   console.log("   • FAILURE: comprehension_reply — simplifica/reexplica");
-  console.log("   • SUCCESS: acknowledgement_reply — continuidade natural\n");
+  console.log("   • SUCCESS: comprehension_reply — confirma entendimento (não ACK curto)\n");
 }
 
 function evaluatePositive(group, phrase, hasActiveAnchor, subtype) {
@@ -830,7 +832,7 @@ if (fullRobust) {
     console.log(`   FAILURE routing ${pct(failureStats.routing, failureStats.total)}% — cognitive_explanation precede comprehension hold (anchored).`);
   }
   if (successFullScore < 100) {
-    console.log(`   SUCCESS full ${pct(successStats.final, successStats.total)}% — verificar acknowledgement bridge.`);
+    console.log(`   SUCCESS full ${pct(successStats.final, successStats.total)}% — verificar comprehension response path (8.1B.2).`);
   }
 }
 

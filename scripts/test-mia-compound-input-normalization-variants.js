@@ -52,7 +52,7 @@ const VARIANTS = [
 
   // informal (10)
   v("informal", "slk mano q sansung é melhor?", "qual samsung"),
-  v("informal", "tlgd mas e bateria?", "entendi mas e de bateria"),
+  v("informal", "tlgd mas e bateria?", "ta ligado mas e de bateria"),
   v("informal", "koe mano esse ipone presta?", "e ai esse iphone presta"),
   v("informal", "vish esse monito caro", "nossa esse monitor caro"),
   v("informal", "eita notbook pesado", "nossa notebook pesado"),
