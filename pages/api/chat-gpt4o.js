@@ -39,6 +39,10 @@ import {
   resolveCommercialOfferExplanation,
   shouldForceCommercialProductExplanation,
 } from "../../lib/miaProductExplanationBuilder.js";
+import {
+  buildSpecialistDecisionExplanation,
+  shouldApplySpecialistDecisionExplanation,
+} from "../../lib/miaSpecialistDecisionExplanationLayer.js";
 import { mapCognitiveTurnToLegacyIntent, buildCognitiveBridgeAudit, buildCognitiveBridgeImpactAudit, guardContextActionWithCognitiveBridge, buildRoutingModeAlignmentAudit, buildUnifiedCognitiveRouterAudit } from "../../lib/miaCognitiveBridge";
 import { buildFollowUpUnderstandingAudit } from "../../lib/miaFollowUpUnderstandingAudit";
 import { applyCognitiveAuthorityToRoutingDecision } from "../../lib/miaCognitiveAuthority";
@@ -31135,6 +31139,13 @@ if (Array.isArray(products) && products.length > 0) {
     }
   });
 
+  // PATCH 5.5 — enrich decision memory from real computed pipeline data
+  const _decisionMemEnrich = buildDecisionMemoryEnrichment({
+    searchCognition,
+    searchScoreEngine,
+    activePriority
+  });
+
   let safeReply = sanitizeMiaSearchReply(
     renderMiaSearchReplyFromBlocks(
       searchCognition.narrativeBlocks,
@@ -31148,7 +31159,36 @@ if (Array.isArray(products) && products.length > 0) {
     safeReply = `O ${verbalName} aparece como a opção mais alinhada para essa busca.`;
   }
 
-  if (selectedBestProduct?.product_name) {
+  let specialistDecisionExplanationApplied = false;
+
+  if (
+    selectedBestProduct?.product_name &&
+    shouldApplySpecialistDecisionExplanation({
+      responsePath: "return_seguro",
+      commercialOfferReset,
+      sessionContext,
+      routingDecision,
+      query: resolvedQuery,
+    })
+  ) {
+    const specialistExplanation = buildSpecialistDecisionExplanation({
+      query: resolvedQuery,
+      budget: extractBudget(resolvedQuery) ?? extractBudget(query),
+      category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+      product: selectedBestProduct,
+      searchCognition,
+      decisionMemory: _decisionMemEnrich,
+      querySignals: earlyQuerySignals,
+      activePriority: activePriority || currentPriority || "",
+    });
+
+    if (specialistExplanation.ok && specialistExplanation.text) {
+      safeReply = specialistExplanation.text;
+      specialistDecisionExplanationApplied = true;
+    }
+  }
+
+  if (selectedBestProduct?.product_name && !specialistDecisionExplanationApplied) {
     safeReply = enrichOfferReplyWithProductExplanation(
       safeReply,
       selectedBestProduct,
@@ -31168,7 +31208,8 @@ if (Array.isArray(products) && products.length > 0) {
     contextKey: searchCognition.contextKey,
     primaryArchetype: searchCognition.primaryArchetype,
     assertiveness: searchCognition.assertiveness,
-    rankingNudge: selectedBestProduct?.archetypeRankingNudge || 0
+    rankingNudge: selectedBestProduct?.archetypeRankingNudge || 0,
+    specialistDecisionExplanationApplied
   });
 
   const selectedIdentity = resolveMiaProductIdentity(selectedTitle);
@@ -31182,13 +31223,6 @@ if (Array.isArray(products) && products.length > 0) {
         source: selectedBestProduct.source || "resultado"
       }
     : null;
-
-  // PATCH 5.5 — enrich decision memory from real computed pipeline data
-  const _decisionMemEnrich = buildDecisionMemoryEnrichment({
-    searchCognition,
-    searchScoreEngine,
-    activePriority
-  });
 
   const returnSeguroSessionContext = applyContractToSessionContext(
     {
@@ -31278,7 +31312,8 @@ if (Array.isArray(products) && products.length > 0) {
             batteryShield: !!searchCognition.source?.batteryShield,
             rankingProfile: searchCognition.source?.rankingProfile || "",
             rankingBreakdown: searchCognition.source?.rankingBreakdown || null
-          }
+          },
+          specialistDecisionExplanationApplied
         },
         session_context: returnSeguroSessionContext
       },
