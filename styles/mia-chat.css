@@ -2150,10 +2150,22 @@ body.mia-hub-panel-open {
   line-height: 1.65;
   color: #F4FAFF;
   font-size: 15px;
-  white-space: pre-wrap;
+  white-space: pre-line;
   overflow-wrap: break-word;
   word-break: break-word;
   scroll-margin-top: 10px;
+}
+.mia-msg-body--structured {
+  white-space: normal;
+}
+.mia-msg-paragraph {
+  margin: 0 0 12px;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.mia-msg-paragraph:last-child {
+  margin-bottom: 0;
 }
 .mia-msg-body--with-card {
   margin-top: 8px;
@@ -2557,6 +2569,10 @@ body.mia-hub-panel-open {
     color: #F4FAFF;
     font-size: 15px;
     line-height: 1.65;
+    white-space: pre-line;
+  }
+  .mia-msg-paragraph {
+    margin-bottom: 10px;
   }
   .mia-msg-body--with-card {
     color: #E8F4FC;

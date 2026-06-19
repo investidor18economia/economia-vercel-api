@@ -26,6 +26,10 @@ import {
 } from "../lib/miaOpeningSystem";
 import { getCognitiveLoadingFallbackState } from "../lib/miaCognitiveLoading.js";
 import {
+  shouldUseStructuredParagraphs,
+  splitAssistantParagraphs,
+} from "../lib/miaFrontendParagraphRendering.js";
+import {
   buildEstimatedSavingsMessage,
   markPremiumSavingsShown,
   shouldShowPremiumSavingsOnSearch
@@ -1848,6 +1852,21 @@ useEffect(() => {
     return source || "";
   }
 
+  function renderAssistantBodyContent(text = "") {
+    const raw = String(text || "");
+    if (!raw) return null;
+
+    if (!shouldUseStructuredParagraphs(raw)) {
+      return raw;
+    }
+
+    return splitAssistantParagraphs(raw).map((paragraph, index) => (
+      <p key={`mia-paragraph-${index}`} className="mia-msg-paragraph">
+        {paragraph}
+      </p>
+    ));
+  }
+
   function isProductFavorited(prod) {
     return Boolean(findProductByIdentity(favorites, prod));
   }
@@ -2802,7 +2821,17 @@ function detectPriorityFromText(text = "") {
                       />
                     )}
 
-                  <div className={`mia-msg-body${item.offerCard ? " mia-msg-body--with-card" : ""}${item.isMiaOpening ? " mia-msg-body--opening" : ""}`}>
+                  {(() => {
+                    const assistantBodyText = resolveAssistantBodyText(item, i, {
+                      typing,
+                      revealText,
+                      historyLength: history.length,
+                    });
+                    const structuredParagraphs =
+                      !item.isMiaOpening && shouldUseStructuredParagraphs(assistantBodyText);
+
+                    return (
+                  <div className={`mia-msg-body${item.offerCard ? " mia-msg-body--with-card" : ""}${item.isMiaOpening ? " mia-msg-body--opening" : ""}${structuredParagraphs ? " mia-msg-body--structured" : ""}`}>
                     {item.isMiaOpening ? (
                       <div className="mia-opening-moment">
                         <p className="mia-opening-utterance">
@@ -2814,13 +2843,11 @@ function detectPriorityFromText(text = "") {
                         </p>
                       </div>
                     ) : (
-                      resolveAssistantBodyText(item, i, {
-                        typing,
-                        revealText,
-                        historyLength: history.length
-                      })
+                      renderAssistantBodyContent(assistantBodyText)
                     )}
                   </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
