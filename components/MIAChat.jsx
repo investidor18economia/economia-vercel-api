@@ -34,9 +34,14 @@ import {
   markPremiumSavingsShown,
   shouldShowPremiumSavingsOnSearch
 } from "../lib/miaEstimatedSavings";
+import { resolveOfferCardPresentation } from "../lib/miaCommercialFallbackDisplay.js";
 import MIAEstimatedSavingsNotice from "./MIAEstimatedSavingsNotice";
 import MIAHowItWorksPanel from "./MIAHowItWorksPanel";
-
+import {
+  trackMiaEvent,
+  detectAnalyticsCategory,
+  trackMiaSessionStarted
+} from "../lib/analytics";
 const PLACEHOLDER_PHRASES = [
   "Estou pensando em comprar um celular até R$ 2.000",
   "Qual notebook faz sentido para trabalhar?",
@@ -165,7 +170,9 @@ export default function MIAChat() {
       10
     );
   }, []);
-
+  useEffect(() => {
+    trackMiaSessionStarted();
+  }, []);
   function incrementSessionSearchCount() {
     sessionSearchCount.current += 1;
     if (typeof window !== "undefined") {
@@ -1724,6 +1731,9 @@ useEffect(() => {
     if (/magalu/.test(lower)) return { primary: "Magalu", secondary: null, isFallback: false };
     if (/carrefour/.test(lower)) return { primary: "Carrefour", secondary: null, isFallback: false };
     if (/casas\s*bahia/.test(lower)) return { primary: "Casas Bahia", secondary: null, isFallback: false };
+    if (/data layer mia|query_product_anchor/i.test(lower)) {
+      return { primary: "Data Layer MIA", secondary: null, isFallback: false };
+    }
 
     if (isObscureStoreSource(raw)) return fallback;
 
@@ -2043,6 +2053,21 @@ useEffect(() => {
             productsRaw.length > 0 ? productsRaw[0] : null,
             pergunta
           );
+          if (cardProduct) {
+            trackMiaEvent("mia_recommendation_shown", {
+              query_text: pergunta || "",
+              category: detectAnalyticsCategory(pergunta),
+              product_name: cardProduct.name || cardProduct.title || null,
+              product_brand: cardProduct.brand || null,
+              product_id: cardProduct.id || null,
+              recommendation_name: cardProduct.name || cardProduct.title || null,
+              user_id: user ? user.id : null,
+              metadata: {
+                has_offer_card: true,
+                products_count: productsRaw.length
+              }
+            });
+          }
           const commercialFallback = resolveCommercialFallbackFlag(data);
           const displayResponse = formatAssistantReplyForDisplay(finalResponse, {
             commercialFallback: commercialFallback && !!cardProduct
@@ -2142,8 +2167,17 @@ useEffect(() => {
     // ✅ ETAPA A: histórico para contexto
     const messagesForApi = buildMessagesForApi(history, pergunta);
 
+    trackMiaEvent("mia_question_sent", {
+      query_text: pergunta || "",
+      category: detectAnalyticsCategory(pergunta),
+      user_id: user ? user.id : null,
+      metadata: {
+        has_image: !!imageToSend
+      }
+    });
+    
     try {
-const resp = await fetch("/api/chat-gpt4o", {
+      const resp = await fetch("/api/chat-gpt4o", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -2187,6 +2221,21 @@ const resp = await fetch("/api/chat-gpt4o", {
         productsRaw.length > 0 ? productsRaw[0] : null,
         pergunta
       );
+      if (cardProduct) {
+        trackMiaEvent("mia_recommendation_shown", {
+          query_text: pergunta || "",
+          category: detectAnalyticsCategory(pergunta),
+          product_name: cardProduct.product_name || cardProduct.name || cardProduct.title || null,
+          product_brand: cardProduct.brand || null,
+          product_id: cardProduct.id || null,
+          recommendation_name: cardProduct.product_name || cardProduct.name || cardProduct.title || null,
+          user_id: user ? user.id : null,
+          metadata: {
+            has_offer_card: true,
+            products_count: productsRaw.length
+          }
+        });
+      }
       const commercialFallback = resolveCommercialFallbackFlag(data);
       const displayResponse = formatAssistantReplyForDisplay(finalResponse, {
         commercialFallback: commercialFallback && !!cardProduct
@@ -2322,6 +2371,19 @@ function detectPriorityFromText(text = "") {
           if (findProductByIdentity(prev, newFav)) return prev;
           return [newFav, ...prev.filter((f) => f.id !== newFav.id)];
         });
+        trackMiaEvent("favorite_created", {
+          category: detectAnalyticsCategory(prod.product_name || prod.title || prod.name || ""),
+          product_name: prod.product_name || prod.name || prod.title || null,
+          product_brand: prod.brand || null,
+          product_id: prod.id || null,
+          offer_store: prod.source || prod.store || null,
+          offer_price: prod.numericPrice || prod.price || null,
+          offer_url: prod.link || null,
+          user_id: actingUser ? actingUser.id : null,
+          metadata: {
+            action_source: "offer_card"
+          }
+        });
         showActionToast("⭐ Produto favoritado!", "success");
       } else {
         showActionToast("Não consegui favoritar agora. Tente de novo.", "error");
@@ -2380,7 +2442,23 @@ function detectPriorityFromText(text = "") {
     if (data.data?.[0]) {
       upsertAlert(data.data[0], actingUser.id);
     }
-
+    
+    trackMiaEvent("price_alert_created", {
+      category: detectAnalyticsCategory(prod.product_name || prod.title || prod.name || ""),
+      product_name: prod.product_name || prod.name || prod.title || null,
+      product_brand: prod.brand || null,
+      product_id: prod.id || null,
+      offer_store: prod.source || prod.store || null,
+      offer_price: numericPrice || null,
+      offer_url: prod.link || null,
+      user_id: actingUser ? actingUser.id : null,
+      metadata: {
+        action_source: targetOverride != null ? "alert_form" : "offer_card",
+        target_price: targetPrice || null,
+        current_price: numericPrice || null
+      }
+    });
+    
     return true;
   }
 
@@ -2714,12 +2792,22 @@ function detectPriorityFromText(text = "") {
                     const cardTitle = getOfferCardTitle(offerCard);
                     const galleryImages = getOfferCardImages(offerCard);
                     const imageUrl = galleryImages[0] || "";
-                    const priceUnavailable = offerCardPriceIsUnavailable(offerCard.price);
-                    const storeDisplay = formatStoreDisplay(offerCard.source || "");
+                    const presentation = resolveOfferCardPresentation(offerCard);
+                    const priceUnavailable = presentation.priceUnavailable;
+                    const storeDisplay = presentation.useDataLayerPresentation
+                      ? {
+                          primary: presentation.sourceLabel,
+                          secondary: priceUnavailable ? null : presentation.subtitle,
+                          isFallback: true,
+                        }
+                      : formatStoreDisplay(offerCard.source || "");
 
                     return (
                     <div className="mia-offer-card product-card-hover">
                       <span className="mia-offer-card-badge">Oferta selecionada</span>
+                      {presentation.badge && (
+                        <p className="mia-offer-card-data-layer-badge">{presentation.badge}</p>
+                      )}
                       <div className="mia-offer-card-main">
                         <OfferCardMedia
                           src={imageUrl}
@@ -2730,12 +2818,15 @@ function detectPriorityFromText(text = "") {
                         <div className="mia-offer-card-info">
                           <p className="mia-offer-card-name">{cardTitle}</p>
                           <div className="mia-offer-card-price-block">
-                            {!priceUnavailable && (
-                              <span className="mia-offer-card-price-label">Valor encontrado</span>
+                            {presentation.priceLabel && (
+                              <span className="mia-offer-card-price-label">{presentation.priceLabel}</span>
                             )}
                             <p className={`mia-offer-card-price${priceUnavailable ? " mia-offer-card-price--unavailable" : ""}`}>
-                              {formatPrice(offerCard.price)}
+                              {priceUnavailable ? presentation.priceText : formatPrice(offerCard.price)}
                             </p>
+                            {priceUnavailable && presentation.subtitle && (
+                              <p className="mia-offer-card-price-subtitle">{presentation.subtitle}</p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2745,7 +2836,9 @@ function detectPriorityFromText(text = "") {
                           {storeDisplay.isFallback ? (
                             <>
                               <span className="mia-offer-card-source-primary">{storeDisplay.primary}</span>
-                              <span className="mia-offer-card-source-secondary">{storeDisplay.secondary}</span>
+                              {storeDisplay.secondary && (
+                                <span className="mia-offer-card-source-secondary">{storeDisplay.secondary}</span>
+                              )}
                             </>
                           ) : (
                             <>
@@ -2756,18 +2849,32 @@ function detectPriorityFromText(text = "") {
                         </p>
                       </div>
                       {offerCard.link ? (
-                        <a
-                          className="mia-offer-card-cta"
-                          href={offerCard.link}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
+                       <a
+                       className="mia-offer-card-cta"
+                       href={offerCard.link}
+                       target="_blank"
+                       rel="noreferrer"
+                       onClick={() => {
+                         trackMiaEvent("offer_click", {
+                           category: detectAnalyticsCategory(offerCard.product_name || offerCard.title || ""),
+                           product_name: offerCard.product_name || offerCard.name || offerCard.title || null,
+                           product_brand: offerCard.brand || null,
+                           product_id: offerCard.id || null,
+                           offer_store: offerCard.source || offerCard.store || null,
+                           offer_price: offerCard.numericPrice || offerCard.price || null,
+                           offer_url: offerCard.link || null,
+                           metadata: {
+                             button_text: "Ver oferta"
+                           }
+                         });
+                       }}
+                     >
                           Ver oferta
                           <span className="mia-offer-card-cta-arrow" aria-hidden="true">→</span>
                         </a>
                       ) : (
                         <span className="mia-offer-card-cta mia-offer-card-cta--unavailable" aria-disabled="true">
-                          Link indisponível
+                          {presentation.ctaText || "Nenhuma oferta atual encontrada"}
                         </span>
                       )}
                       <div className="mia-offer-card-actions">

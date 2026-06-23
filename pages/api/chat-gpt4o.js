@@ -1,5 +1,9 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { fetchGoogleShoppingLegacyResult } from "../../lib/productSourceAdapter/adapters/googleShoppingAdapter.js";
+import {
+  executeCommercialRuntimeShadow,
+  isCommercialRuntimeShadowEnabled,
+} from "../../lib/productSourceAdapter/commercialRuntimeShadow.js";
 import axios from "axios";
 import { supabase } from "../../lib/supabaseClient";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
@@ -100,6 +104,32 @@ import {
   shouldResetCommercialOfferContext,
   commercialOfferMatchesQueryCore,
 } from "../../lib/miaCommercialNewSearchResetGuard.js";
+import {
+  applySpecificProductLockToProducts,
+  bootstrapSpecificProductLock,
+  enforceSpecificProductLockWinner,
+  isGenericProductSearchQuery,
+  logSpecificProductLockAudit,
+  resolveSpecificProductLock,
+  scoreStrongSpecificProductMatch,
+} from "../../lib/miaSpecificProductResolutionLock.js";
+import {
+  applyFirstAnswerResponseContract,
+  logFirstAnswerStructureContractAudit,
+  sanitizeDisplaySource,
+  shouldApplyFirstAnswerResponseContract,
+} from "../../lib/miaFirstAnswerResponseContract.js";
+import {
+  applyCommercialFallbackDisplayToPrices,
+  logCommercialApiExhaustionFallbackAudit,
+} from "../../lib/miaCommercialFallbackDisplay.js";
+import {
+  buildComparisonUnresolvedFallbackReply,
+  extractComparisonTermsFromQuery,
+  findMissingComparisonTerms,
+  isDirectComparisonQuery,
+  logComparisonFlowCrashGuardAudit,
+} from "../../lib/miaComparisonFlowCrashGuard.js";
 import {
   extractBudget,
   hasClearNewCommercialSearchIntent,
@@ -1179,6 +1209,76 @@ function scoreDataLayerSpec(spec = {}, query = "") {
   }
 
   return score;
+}
+
+function buildDataLayerProductFromSpecs(specs = {}, categoryHint = "") {
+  const productName = cleanTitle(specs.official_name || specs.product_name || "");
+  return {
+    product_name: productName,
+    price: null,
+    link: null,
+    thumbnail: null,
+    source: "Data Layer MIA",
+    provider: "product_specs",
+    category: specs.category || categoryHint || "",
+    trustedSpecs: specs,
+    scoreEngine: buildScoreEngineFromSpecs(specs),
+    familyKey: getProductFamilyKey(productName) || normalizeProductKey(productName),
+    normalizedName: normalizeProductKey(productName),
+    isDataLayerProduct: true,
+  };
+}
+
+async function resolveSpecificProductLockForPipeline({
+  query = "",
+  products = [],
+  dataLayerProducts = [],
+  categoryHint = "",
+} = {}) {
+  const resolveIdentity = (q) => resolveMiaProductIdentity(q);
+
+  let lock = bootstrapSpecificProductLock({
+    query,
+    products,
+    resolveIdentity,
+  });
+  if (lock.active) return lock;
+
+  if (dataLayerProducts.length) {
+    lock = bootstrapSpecificProductLock({
+      query,
+      products: dataLayerProducts,
+      resolveIdentity,
+    });
+    if (lock.active) return lock;
+  }
+
+  if (isGenericProductSearchQuery(query)) {
+    return lock;
+  }
+
+  const identity = resolveMiaProductIdentity(query);
+  const anchorName = cleanTitle(identity?.officialName || "");
+  if (!anchorName) return lock;
+
+  const exactSpecs = await getProductSpecsFromSupabase(anchorName, categoryHint);
+  if (
+    exactSpecs?.official_name &&
+    normalizeProductKey(exactSpecs.official_name) === normalizeProductKey(anchorName)
+  ) {
+    const exactProduct = buildDataLayerProductFromSpecs(exactSpecs, categoryHint);
+    lock = resolveSpecificProductLock({
+      query,
+      products: [exactProduct, ...products],
+    });
+    if (lock.active) return lock;
+  }
+
+  return bootstrapSpecificProductLock({
+    query,
+    products,
+    resolveIdentity,
+  });
 }
 
 async function searchUniversalDataLayer(query = "", {
@@ -14483,106 +14583,7 @@ function getProductFamilyKey(title = "") {
 // - Não faz busca ampla nova.
 // - Não deixa Redmi/Outro produto entrar aleatoriamente.
 
-function extractComparisonTermsFromQuery(query = "") {
-  const raw = String(query || "").trim();
-
-  if (!raw) return [];
-
-  const cleanComparisonTerm = (part = "") =>
-    cleanTitle(part)
-      .replace(/\b(qual|quais|quem|melhor|pior|vale|mais|menos|tem|pena|entre|comparar|compare|comparação|comparacao)\b/gi, " ")
-      .replace(/\b(celular|smartphone|telefone|aparelho|modelo|opção|opcao)\b/gi, " ")
-      .replace(/\b(bateria|autonomia|carga|tomada|desempenho|performance|camera|câmera|foto|fotos|video|vídeo|tela|display|armazenamento|memoria|memória|espaço|espaco|custo|beneficio|benefício)\b/gi, " ")
-      .replace(/[,:;()]/g, " ")
-      .replace(/[?!.]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const normalizeTerms = (parts = []) => {
-    const seen = new Set();
-
-    return parts
-      .map((part) => cleanComparisonTerm(part))
-      .filter((part) => part.length >= 2)
-      .filter((part) => {
-        const key = normalizeProductKey(part);
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, 4);
-  };
-
-  const normalizedRaw = raw
-    .replace(/\s+x\s+/gi, " vs ")
-    .replace(/\s+contra\s+/gi, " vs ")
-    .replace(/\s+versus\s+/gi, " vs ");
-
-  const hasDirectComparisonConnector =
-    /\b(ou|vs|versus|contra)\b/i.test(normalizedRaw);
-
-  if (hasDirectComparisonConnector) {
-    const terms = normalizeTerms(
-      normalizedRaw
-        .replace(/[?!.]/g, " ")
-        .split(/\b(?:ou|vs|versus|contra)\b/i)
-    );
-
-    if (terms.length >= 2) {
-      console.log("🔎 COMPARISON TERMS EXTRAÍDOS:", {
-        query: raw,
-        terms
-      });
-
-      return terms;
-    }
-  }
-
-  const looksLikeMoreQuestion =
-    /\b(qual|quais|quem)\b/i.test(raw) &&
-    /\b(mais|melhor|maior|dura|aguenta|vale)\b/i.test(raw);
-
-  if (looksLikeMoreQuestion && /\bentre\b/i.test(raw) && /\se\s/i.test(raw)) {
-    const afterEntre = raw.split(/\bentre\b/i).pop() || "";
-    const beforeQuestion = afterEntre.split(/\b(?:qual|quais|quem)\b/i)[0] || "";
-
-    const terms = normalizeTerms(
-      beforeQuestion
-        .replace(/[?!.]/g, " ")
-        .split(/\s+\be\b\s+/i)
-    );
-
-    if (terms.length >= 2) {
-      console.log("🔎 COMPARISON TERMS EXTRAÍDOS ENTRE/E:", {
-        query: raw,
-        terms
-      });
-
-      return terms;
-    }
-  }
-
-  if (looksLikeMoreQuestion && /\se\s/i.test(raw)) {
-    const beforeQuestion = raw.split(/\b(?:qual|quais|quem)\b/i)[0] || "";
-
-    const terms = normalizeTerms(
-      beforeQuestion
-        .replace(/[?!.]/g, " ")
-        .split(/\s+\be\b\s+/i)
-    );
-
-    if (terms.length >= 2) {
-      console.log("🔎 COMPARISON TERMS EXTRAÍDOS E:", {
-        query: raw,
-        terms
-      });
-
-      return terms;
-    }
-  }
-
-  return [];
-}
+// extractComparisonTermsFromQuery — PATCH 10.1E: lib/miaComparisonFlowCrashGuard.js
 
 // ======================================================
 // CONTEXTUAL AXIS ENGINE — ETAPA 4.6.34.3
@@ -17728,6 +17729,8 @@ function isExplicitComparisonQuery(query = "") {
   const q = normalizeQuery(query || "");
 
   if (!q) return false;
+
+  if (isDirectComparisonQuery(query)) return true;
 
   const terms = extractComparisonTermsFromQuery(query);
 
@@ -24516,7 +24519,9 @@ function mapCommercialDisplayPrices(products = []) {
     price: p.price || null,
     link: p.link || null,
     thumbnail: p.thumbnail || null,
-    source: p.source || "resultado"
+    source: sanitizeDisplaySource(p.source || "resultado"),
+    offer_status: p.offer_status || (p.link ? "available" : "offer_pending"),
+    specificProductQueryAnchor: !!p.specificProductQueryAnchor,
   }));
 }
 
@@ -25349,6 +25354,7 @@ function respondWithContract(
     toneProfile = null,
     specialistPresentation = null,
     preserveSpecialistPresentation = false,
+    firstAnswerContext = null,
   } = {}
 ) {
   const violation = checkContractViolation(responsePath, routingDecision);
@@ -25421,6 +25427,73 @@ function respondWithContract(
           guard: wirePreservation.guard || null,
           error: wirePreservation.error || null,
         },
+      });
+    }
+  }
+
+  if (body.reply || (Array.isArray(body.prices) && body.prices.length)) {
+    const firstAnswerResult = applyFirstAnswerResponseContract({
+      reply: body.reply || "",
+      prices: Array.isArray(body.prices) ? body.prices : [],
+      presentation: specialistPresentation || firstAnswerContext?.presentation || null,
+      responsePath,
+      query: firstAnswerContext?.query || "",
+      winnerProduct: firstAnswerContext?.winnerProduct || null,
+      rankedCandidates: firstAnswerContext?.rankedCandidates || [],
+      primaryAxis: firstAnswerContext?.primaryAxis || "",
+      querySignals: firstAnswerContext?.querySignals || {},
+      specificProductLockActive: !!firstAnswerContext?.specificProductLockActive,
+      specificProductQueryAnchor: !!firstAnswerContext?.specificProductQueryAnchor,
+      dataLayerPrimary: !!firstAnswerContext?.dataLayerPrimary,
+      category: firstAnswerContext?.category || "",
+      intent: firstAnswerContext?.intent || "",
+      activePriority: firstAnswerContext?.activePriority || "",
+      sessionContext: firstAnswerContext?.sessionContext || null,
+      routingDecision: firstAnswerContext?.routingDecision || null,
+      isFollowUp: !!firstAnswerContext?.isFollowUp,
+    });
+
+    body = {
+      ...body,
+      reply: firstAnswerResult.reply,
+      prices: firstAnswerResult.prices,
+    };
+
+    if (firstAnswerResult.audit?.applied || firstAnswerResult.audit?.removedTechnicalSource) {
+      pipelineTracer.patch({
+        first_answer_structure_contract: firstAnswerResult.audit,
+      });
+    }
+    if (firstAnswerResult.comparativeRunnerUp) {
+      pipelineTracer.patch({
+        comparative_runner_up: firstAnswerResult.comparativeRunnerUp,
+      });
+    }
+    if (firstAnswerResult.genericQueryClarificationClosing) {
+      pipelineTracer.patch({
+        generic_query_clarification_closing: firstAnswerResult.genericQueryClarificationClosing,
+      });
+    }
+    logFirstAnswerStructureContractAudit(firstAnswerResult.audit);
+  }
+
+  if (Array.isArray(body.prices) && body.prices.length) {
+    const commercialFallbackDisplay = applyCommercialFallbackDisplayToPrices(body.prices, {
+      winner: body.prices[0]?.product_name || "",
+      category: firstAnswerContext?.category || "",
+      dataLayerPrimary: !!firstAnswerContext?.dataLayerPrimary,
+      specificProductQueryAnchor: !!firstAnswerContext?.specificProductQueryAnchor,
+      commercialStatus:
+        body.mia_debug?.commercialStatus ||
+        body.prices[0]?.offer_status ||
+        body.prices[0]?.commercialStatus ||
+        "",
+    });
+    body = { ...body, prices: commercialFallbackDisplay.prices };
+    if (commercialFallbackDisplay.audit?.applied) {
+      logCommercialApiExhaustionFallbackAudit(commercialFallbackDisplay.audit);
+      pipelineTracer.patch({
+        commercial_api_exhaustion_fallback: commercialFallbackDisplay.audit,
       });
     }
   }
@@ -27458,6 +27531,9 @@ const explicitProductOnlyQuery = isSpecificProductOnlyQuery(resolvedQuery);
     ? `${resolvedQuery} preço`
     : resolvedQuery;
 
+let decisionResult = null;
+let specificProductLock = null;
+
 const activePriority =
   currentPriority ||
   (explicitProductOnlyQuery ? "" : sessionContext.lastPriority) ||
@@ -28366,7 +28442,7 @@ const followUpComparisonPriority = comparisonIntentMode.priority || "";
   if (lockedComparisonFollowUpProducts.length >= 2) {
        const comparisonRole = "comparison_reply";
 
-    const decisionResult = await runMiaComparisonBrainTask({
+    decisionResult = await runMiaComparisonBrainTask({
       products: lockedComparisonFollowUpProducts,
       priority: followUpComparisonPriority,
       query: resolvedQuery,
@@ -28578,7 +28654,7 @@ if (isComparisonContextFollowUp(resolvedQuery, sessionContext)) {
     "";
 
   if (lockedComparisonFollowUpProducts.length >= 2) {
-    const decisionResult = await decideComparison({
+    decisionResult = await decideComparison({
       products: lockedComparisonFollowUpProducts,
       priority: followUpComparisonPriority,
       query: resolvedQuery,
@@ -28708,7 +28784,7 @@ if (isComparisonContextFollowUp(resolvedQuery, sessionContext)) {
       "";
 
     if (lockedProducts.length >= 2) {
-      const decisionResult = await decideComparison({
+      decisionResult = await decideComparison({
         products: lockedProducts,
         priority: followUpPriority,
         query: resolvedQuery,
@@ -30632,8 +30708,60 @@ const lockedComparisonProducts = await Promise.all(
   dedupeCommercialProductsForComparison(items.filter(Boolean))
 );
 
+const comparisonTerms = extractComparisonTermsFromQuery(resolvedQuery);
+const missingComparisonTermsBeforeDecision = findMissingComparisonTerms(
+  comparisonTerms,
+  lockedComparisonProducts
+);
+
+if (
+  comparisonTerms.length >= 2 &&
+  (lockedComparisonProducts.length < 2 || missingComparisonTermsBeforeDecision.length > 0)
+) {
+  logComparisonFlowCrashGuardAudit({
+    applied: true,
+    query: resolvedQuery,
+    detectedComparison: true,
+    resolvedProductsCount: lockedComparisonProducts.length,
+    resolvedProducts: lockedComparisonProducts.map((p) => p.product_name).filter(Boolean),
+    missingProducts: missingComparisonTermsBeforeDecision,
+    winner: null,
+    responsePath: "comparison_early_not_found",
+    preventedCrash: true,
+    fallbackUsed: true,
+    errorBeforeGuard: null,
+  });
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply: buildComparisonUnresolvedFallbackReply({
+        query: resolvedQuery,
+        resolvedTerms: comparisonTerms,
+        missingTerms: missingComparisonTermsBeforeDecision,
+      }),
+      prices: [],
+      session_context: {
+        ...sessionContext,
+        lastQuery: resolvedQuery,
+        lastIntent: "comparison",
+        lastPriority: comparisonPriority || "",
+        lastTopic: resolvedQuery,
+        lastInteractionType: "comparison",
+        lastComparisonQuery: resolvedQuery,
+      },
+    },
+    "comparison_early_not_found",
+    {},
+    { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+  );
+}
+
   if (lockedComparisonProducts.length >= 2) {
-    const decisionResult = await decideComparison({
+    try {
+    decisionResult = await decideComparison({
       products: lockedComparisonProducts,
       priority: comparisonPriority,
       query: resolvedQuery,
@@ -30817,7 +30945,67 @@ return respondWithContract(
   },
   { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
 );
+    } catch (comparisonFlowError) {
+      logComparisonFlowCrashGuardAudit({
+        applied: true,
+        query: resolvedQuery,
+        detectedComparison: true,
+        resolvedProductsCount: lockedComparisonProducts.length,
+        resolvedProducts: lockedComparisonProducts.map((p) => p.product_name).filter(Boolean),
+        missingProducts: [],
+        winner: null,
+        responsePath: "comparison_flow_crash_guard",
+        preventedCrash: true,
+        fallbackUsed: true,
+        errorBeforeGuard: comparisonFlowError?.message || String(comparisonFlowError),
+      });
+
+      return respondWithContract(
+        res,
+        pipelineTracer,
+        routingDecision,
+        {
+          reply: buildComparisonUnresolvedFallbackReply({
+            query: resolvedQuery,
+            resolvedTerms: extractComparisonTermsFromQuery(resolvedQuery),
+          }),
+          prices: [],
+          session_context: {
+            ...sessionContext,
+            lastQuery: resolvedQuery,
+            lastIntent: "comparison",
+            lastPriority: comparisonPriority || "",
+            lastTopic: resolvedQuery,
+            lastInteractionType: "comparison",
+            lastComparisonQuery: resolvedQuery,
+          },
+        },
+        "comparison_flow_crash_guard",
+        {},
+        { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+      );
+    }
   }
+
+  const missingComparisonTerms = extractComparisonTermsFromQuery(resolvedQuery);
+  logComparisonFlowCrashGuardAudit({
+    applied: true,
+    query: resolvedQuery,
+    detectedComparison: true,
+    resolvedProductsCount: lockedComparisonProducts.length,
+    resolvedProducts: lockedComparisonProducts.map((p) => p.product_name).filter(Boolean),
+    missingProducts: missingComparisonTerms.filter(
+      (term) =>
+        !lockedComparisonProducts.some((product) =>
+          normalizeProductKey(product.product_name || "").includes(normalizeProductKey(term))
+        )
+    ),
+    winner: null,
+    responsePath: "comparison_early_not_found",
+    preventedCrash: true,
+    fallbackUsed: true,
+    errorBeforeGuard: null,
+  });
 
   return respondWithContract(
     res,
@@ -30825,7 +31013,10 @@ return respondWithContract(
     routingDecision,
     {
     reply:
-      "Consigo comparar, mas não encontrei esses dois modelos com segurança no catálogo da MIA ainda. Me manda os nomes um pouco mais completos, tipo “Galaxy A15 ou Moto G84”, que eu comparo direto.",
+      buildComparisonUnresolvedFallbackReply({
+        query: resolvedQuery,
+        resolvedTerms: missingComparisonTerms,
+      }),
     prices: [],
     session_context: {
       ...sessionContext,
@@ -30937,6 +31128,12 @@ const hasPriorityFollowUp =
   sessionContext.lastProducts.length > 0;
 
 let finalProducts = [];
+let dataLayerProductsResolved = [];
+let categoryHintResolved =
+  categoryFromContext ||
+  detectProductCategory(resolvedQuery) ||
+  detectProductCategory(query) ||
+  "";
 
 if (hasPriorityFollowUp) {
   console.log("🔒 FOLLOW-UP DE PRIORIDADE — usando produtos anteriores");
@@ -30950,11 +31147,13 @@ if (hasPriorityFollowUp) {
     detectProductCategory(query) ||
     (earlyQuerySignals.longTerm ? "phone" : "") ||
     "";
+  categoryHintResolved = categoryHint;
 
   const dataLayerProducts = await searchUniversalDataLayer(resolvedQuery, {
     limit: 12,
     categoryHint
   });
+  dataLayerProductsResolved = dataLayerProducts;
 
   console.log("🧠 DATA LAYER PRODUCTS:", {
     count: dataLayerProducts.length,
@@ -31046,9 +31245,25 @@ if (hasPriorityFollowUp) {
 }
     
     console.log("🧪 CHECKPOINT 2 — antes da trava de produto específico");
-// 🔒 TRAVA DE PRODUTO ESPECÍFICO
-// Se o usuário pediu um produto específico, não aceitar outro modelo/família.
-if (explicitProductOnlyQuery && Array.isArray(products) && products.length > 0) {
+// 🔒 PATCH 10.1A — Specific Product Resolution Lock
+specificProductLock = await resolveSpecificProductLockForPipeline({
+  query: resolvedQuery,
+  products,
+  dataLayerProducts: dataLayerUsedAsPrimarySource ? dataLayerProductsResolved : [],
+  categoryHint: categoryHintResolved,
+});
+if (specificProductLock.active) {
+  const lockedProducts = applySpecificProductLockToProducts(products, specificProductLock);
+  products = lockedProducts.products;
+  logSpecificProductLockAudit({
+    active: true,
+    query: resolvedQuery,
+    lock: specificProductLock,
+    beforeWinner: products[1]?.product_name || null,
+    afterWinner: products[0]?.product_name || null,
+    preventedReplacement: lockedProducts.changed,
+  });
+} else if (explicitProductOnlyQuery && Array.isArray(products) && products.length > 0) {
   const specificProducts = products.filter((product) =>
     productMatchesQueryMention(product, resolvedQuery)
   );
@@ -31110,11 +31325,45 @@ if (Array.isArray(products) && products.length > 0) {
           anchor_product_before: pickProductLabelForPipelineDebug(anchorBeforeFallback)
         });
       } else {
-      const selectedBestProduct = commercialDisplayProducts[0];
+      let commercialDisplayLocked = commercialDisplayProducts;
+      if (!specificProductLock?.active) {
+        specificProductLock = await resolveSpecificProductLockForPipeline({
+          query: resolvedQuery,
+          products: commercialDisplayProducts,
+          dataLayerProducts: [],
+          categoryHint:
+            detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+        });
+      }
+      if (specificProductLock?.active) {
+        commercialDisplayLocked = applySpecificProductLockToProducts(
+          commercialDisplayProducts,
+          specificProductLock
+        ).products;
+      }
+
+      let selectedBestProduct =
+        commercialDisplayLocked[0] || commercialDisplayProducts[0] || null;
+      const commercialLockWinner = enforceSpecificProductLockWinner({
+        lock: specificProductLock,
+        selectedBestProduct,
+        products: commercialDisplayLocked,
+      });
+      selectedBestProduct = commercialLockWinner.selectedBestProduct;
+      if (specificProductLock?.active) {
+        logSpecificProductLockAudit({
+          active: true,
+          query: resolvedQuery,
+          lock: specificProductLock,
+          beforeWinner: commercialDisplayProducts[0]?.product_name || null,
+          afterWinner: commercialLockWinner.afterWinner,
+          preventedReplacement: commercialLockWinner.preventedReplacement,
+        });
+      }
 
       console.log("🛒 COMMERCIAL-ONLY FALLBACK ATIVO:", {
         query: resolvedQuery,
-        displayProducts: commercialDisplayProducts.length,
+        displayProducts: commercialDisplayLocked.length,
         selectedBestProduct: selectedBestProduct?.product_name || null
       });
 
@@ -31144,7 +31393,7 @@ if (Array.isArray(products) && products.length > 0) {
         routingDecision,
         {
           proposedBestProduct: proposedBest,
-          proposedProducts: mapCommercialDisplayPrices(commercialDisplayProducts),
+          proposedProducts: mapCommercialDisplayPrices(commercialDisplayLocked),
           incomingLastBest: commercialOfferReset.shouldReset
             ? null
             : sessionContext.lastBestProduct
@@ -31166,7 +31415,7 @@ if (Array.isArray(products) && products.length > 0) {
             commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
             resolvedQuery
           ),
-          prices: mapCommercialDisplayPrices(commercialDisplayProducts),
+          prices: mapCommercialDisplayPrices(commercialDisplayLocked),
           mia_debug: {
             commercialOnlyFallback: true,
             dataLayerUsed: false,
@@ -31193,7 +31442,7 @@ if (Array.isArray(products) && products.length > 0) {
           final_response_product: pickProductLabelForPipelineDebug(
             commercialFallbackSessionContext.lastBestProduct
           ),
-          candidate_products: summarizeProductsForPipelineDebug(commercialDisplayProducts),
+          candidate_products: summarizeProductsForPipelineDebug(commercialDisplayLocked),
           fallback_attempted: true,
           fallback_blocked: false,
           session_context_preserved: true
@@ -31202,10 +31451,31 @@ if (Array.isArray(products) && products.length > 0) {
           sessionBefore: sessionContext,
           contractApply: {
             proposedBestProduct: proposedBest,
-            proposedProducts: mapCommercialDisplayPrices(commercialDisplayProducts),
+            proposedProducts: mapCommercialDisplayPrices(commercialDisplayLocked),
             incomingLastBest: sessionContext.lastBestProduct
           },
           toneProfile: conversationalToneProfile,
+          firstAnswerContext: {
+            query: resolvedQuery,
+            winnerProduct:
+              commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+            presentation: null,
+            rankedCandidates: Array.isArray(commercialDisplayLocked)
+              ? commercialDisplayLocked.slice(0, 12)
+              : [],
+            primaryAxis: activePriority || "",
+            querySignals: earlyQuerySignals,
+            specificProductLockActive: !!specificProductLock?.active,
+            specificProductQueryAnchor: !!specificProductLock?.lockedProduct?.specificProductQueryAnchor,
+            dataLayerPrimary: false,
+            category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+            intent,
+            activePriority: activePriority || "",
+            sessionContext,
+            routingDecision,
+            isFollowUp:
+              !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
+          },
         }
       );
       }
@@ -31250,6 +31520,21 @@ if (Array.isArray(products) && products.length > 0) {
       "post_ranking"
     );
     products = [...enrichedDisplayCandidates, ...products.slice(3)];
+    if (specificProductLock?.active) {
+      const refreshedLock = applySpecificProductLockToProducts(products, specificProductLock);
+      products = refreshedLock.products;
+    } else {
+      specificProductLock = await resolveSpecificProductLockForPipeline({
+        query: resolvedQuery,
+        products,
+        dataLayerProducts: dataLayerUsedAsPrimarySource ? dataLayerProductsResolved : [],
+        categoryHint: categoryHintResolved,
+      });
+      if (specificProductLock.active) {
+        const refreshedLock = applySpecificProductLockToProducts(products, specificProductLock);
+        products = refreshedLock.products;
+      }
+    }
     console.log("💰 DISPLAY PRODUCTS PÓS-ENRICH:", {
       first: products[0]?.product_name || null,
       firstPrice: products[0]?.price || null,
@@ -31258,7 +31543,25 @@ if (Array.isArray(products) && products.length > 0) {
     });
   }
 
-  const displayProducts = products.slice(0, 3);
+  if (
+    specificProductLock?.active &&
+    specificProductLock.lockedProduct?.specificProductQueryAnchor
+  ) {
+    const enrichedAnchor = await enrichDataLayerProductsWithCommercialOffers(
+      [specificProductLock.lockedProduct],
+      1,
+      "specific_product_lock"
+    );
+    if (enrichedAnchor[0]) {
+      specificProductLock = {
+        ...specificProductLock,
+        lockedProduct: enrichedAnchor[0],
+      };
+      products = applySpecificProductLockToProducts(products, specificProductLock).products;
+    }
+  }
+
+  let displayProducts = products.slice(0, 3);
   let selectedBestProduct =
     resolveCommercialPresentationWinner({
       displayProducts,
@@ -31268,6 +31571,26 @@ if (Array.isArray(products) && products.length > 0) {
       pickWinnerUnderContract,
       routingDecision,
     }) || displayProducts[0] || null;
+
+  const lockWinnerBefore = selectedBestProduct?.product_name || displayProducts[0]?.product_name || null;
+  const enforcedWinner = enforceSpecificProductLockWinner({
+    lock: specificProductLock,
+    selectedBestProduct,
+    products: displayProducts,
+  });
+  selectedBestProduct = enforcedWinner.selectedBestProduct;
+  if (specificProductLock?.active) {
+    const refreshedDisplay = applySpecificProductLockToProducts(displayProducts, specificProductLock);
+    displayProducts = refreshedDisplay.products.slice(0, 3);
+    logSpecificProductLockAudit({
+      active: true,
+      query: resolvedQuery,
+      lock: specificProductLock,
+      beforeWinner: lockWinnerBefore,
+      afterWinner: enforcedWinner.afterWinner,
+      preventedReplacement: enforcedWinner.preventedReplacement,
+    });
+  }
 
   if (
     commercialOfferReset.shouldReset &&
@@ -31433,19 +31756,26 @@ if (Array.isArray(products) && products.length > 0) {
 
   let intentDiscoveryApplied = false;
   const replyBeforeIntentDiscovery = safeReply;
-  const intentDiscoveryResult = appendUserIntentDiscovery({
-    reply: safeReply,
-    query: resolvedQuery,
-    category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
-    primaryAxis: searchCognition.primaryAxis || activePriority || currentPriority || "",
-    activePriority: activePriority || currentPriority || "",
-    querySignals: earlyQuerySignals,
-    searchCognition,
-    routingDecision,
-    intent,
-    sessionContext,
-    responsePath: "return_seguro",
-  });
+  const intentDiscoveryResult =
+    shouldApplyFirstAnswerResponseContract("return_seguro")
+      ? {
+          applied: false,
+          reply: safeReply,
+          meta: { suppressed: true, reason: "deferred_to_first_answer_closing" },
+        }
+      : appendUserIntentDiscovery({
+          reply: safeReply,
+          query: resolvedQuery,
+          category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          primaryAxis: searchCognition.primaryAxis || activePriority || currentPriority || "",
+          activePriority: activePriority || currentPriority || "",
+          querySignals: earlyQuerySignals,
+          searchCognition,
+          routingDecision,
+          intent,
+          sessionContext,
+          responsePath: "return_seguro",
+        });
 
   if (intentDiscoveryResult.applied && intentDiscoveryResult.reply) {
     safeReply = intentDiscoveryResult.reply;
@@ -31738,6 +32068,24 @@ if (Array.isArray(products) && products.length > 0) {
 
   const selectedIdentity = resolveMiaProductIdentity(selectedTitle);
 
+  // PATCH Comercial 4E-A — Commercial Runtime Shadow (observation only; never alters reply/prices/winner)
+  if (isCommercialRuntimeShadowEnabled() && selectedBestProduct) {
+    try {
+      const shadowExecution = await executeCommercialRuntimeShadow({
+        query: resolvedQuery,
+        winner: selectedBestProduct,
+        legacyOffer: selectedBestProduct,
+      });
+      if (shadowExecution?.diagnostics && !shadowExecution.skipped) {
+        pipelineTracer.patch({
+          commercial_runtime_shadow: shadowExecution.diagnostics,
+        });
+      }
+    } catch {
+      // Shadow failure must never affect legacy commercial flow
+    }
+  }
+
   const proposedReturnBest = selectedBestProduct
     ? {
         product_name: cleanTitle(selectedBestProduct.product_name || ""),
@@ -31939,6 +32287,24 @@ if (Array.isArray(products) && products.length > 0) {
         specialistPresentation,
         preserveSpecialistPresentation:
           !!(specialistDecisionExplanationApplied && specialistPresentation?.tradeoff?.gains?.length),
+        firstAnswerContext: {
+          query: resolvedQuery,
+          winnerProduct: selectedBestProduct || returnSeguroSessionContext.lastBestProduct,
+          presentation: specialistPresentation,
+          rankedCandidates: Array.isArray(products) ? products.slice(0, 12) : displayProducts,
+          primaryAxis: searchCognition.primaryAxis || activePriority || "",
+          querySignals: earlyQuerySignals,
+          specificProductLockActive: !!specificProductLock?.active,
+          specificProductQueryAnchor: !!specificProductLock?.lockedProduct?.specificProductQueryAnchor,
+          dataLayerPrimary: dataLayerUsedAsPrimarySource,
+          category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          intent,
+          activePriority: activePriority || currentPriority || "",
+          sessionContext,
+          routingDecision,
+          isFollowUp:
+            !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
+        },
       }
     );
 }
@@ -32526,7 +32892,7 @@ if (isComparison && comparisonProducts.length >= 2) {
 
   const comparisonRole = "comparison_reply";
 
-  const decisionResult = await runMiaComparisonBrainTask({
+  decisionResult = await runMiaComparisonBrainTask({
   products: safeComparisonProducts,
   priority: comparisonPriority,
   query: resolvedQuery,
@@ -33492,7 +33858,7 @@ const displayProducts =
       ? safeFinalProducts.slice(0, 3)
       : emergencyDisplayProducts;
 
-const selectedBestProduct =
+let selectedBestProduct =
   pickWinnerUnderContract(
     displayProducts,
     sessionContext.lastBestProduct,
@@ -33500,6 +33866,36 @@ const selectedBestProduct =
   ) ||
   displayProducts[0] ||
   null;
+
+if (!specificProductLock?.active && Array.isArray(products) && products.length > 0) {
+  specificProductLock = await resolveSpecificProductLockForPipeline({
+    query: resolvedQuery,
+    products,
+    dataLayerProducts: [],
+    categoryHint:
+      detectProductCategory(resolvedQuery) ||
+      sessionContext.lastCategory ||
+      "",
+  });
+}
+
+const finalWinnerBefore = selectedBestProduct?.product_name || displayProducts[0]?.product_name || null;
+const finalEnforcedWinner = enforceSpecificProductLockWinner({
+  lock: specificProductLock,
+  selectedBestProduct,
+  products: displayProducts.length ? displayProducts : products,
+});
+selectedBestProduct = finalEnforcedWinner.selectedBestProduct;
+if (specificProductLock?.active) {
+  logSpecificProductLockAudit({
+    active: true,
+    query: resolvedQuery,
+    lock: specificProductLock,
+    beforeWinner: finalWinnerBefore,
+    afterWinner: finalEnforcedWinner.afterWinner,
+    preventedReplacement: finalEnforcedWinner.preventedReplacement,
+  });
+}
 
 console.log("✅ PRONTO PARA RESPONDER AO FRONT:", {
   replyLength: String(reply || "").length,
@@ -33611,7 +34007,28 @@ return respondWithContract(
       final_response_product: pickProductLabelForPipelineDebug(selectedBestProduct),
       candidate_products: summarizeProductsForPipelineDebug(displayProducts)
     },
-        { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+        {
+          sessionBefore: sessionContext,
+          toneProfile: conversationalToneProfile,
+          firstAnswerContext: {
+            query: resolvedQuery,
+            winnerProduct: selectedBestProduct,
+            presentation: null,
+            rankedCandidates: Array.isArray(displayProducts) ? displayProducts.slice(0, 12) : [],
+            primaryAxis: activePriority || "",
+            querySignals: earlyQuerySignals,
+            specificProductLockActive: !!specificProductLock?.active,
+            specificProductQueryAnchor: !!specificProductLock?.lockedProduct?.specificProductQueryAnchor,
+            dataLayerPrimary: false,
+            category: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+            intent,
+            activePriority: activePriority || "",
+            sessionContext,
+            routingDecision,
+            isFollowUp:
+              !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
+          },
+        }
   );
 }
 } catch (err) {
