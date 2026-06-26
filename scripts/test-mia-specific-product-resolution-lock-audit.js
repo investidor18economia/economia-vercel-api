@@ -120,6 +120,29 @@ assert(
   bootstrapLock.matchSource === "query_identity_anchor"
 );
 
+console.log("\n── Accessory intent guard (4E-A.2) ──");
+const accessoryBootstrap = bootstrapSpecificProductLock({
+  query: "pelicula iphone 13",
+  products: [iphone15],
+  resolveIdentity: () => ({ officialName: "iPhone 13" }),
+});
+assert("accessory query does not activate lock", !accessoryBootstrap.active);
+assert(
+  "accessory query blocked by guard",
+  accessoryBootstrap.reason === "accessory_intent_guard"
+);
+assert(
+  "accessory query does not anchor main product",
+  accessoryBootstrap.matchSource !== "query_identity_anchor"
+);
+
+const accessoryResolve = resolveSpecificProductLock({
+  query: "capa iphone 13",
+  products: [iphone15],
+});
+assert("accessory resolve inactive", !accessoryResolve.active);
+assert("iPhone 15 main product lock still works", lockIphone15.active);
+
 console.log("\n── Winner enforcement ──");
 const wrongWinner = enforceSpecificProductLockWinner({
   lock: lockIphone15,

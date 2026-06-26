@@ -34,9 +34,14 @@ import {
   markPremiumSavingsShown,
   shouldShowPremiumSavingsOnSearch
 } from "../lib/miaEstimatedSavings";
-import { resolveOfferCardPresentation } from "../lib/miaCommercialFallbackDisplay.js";
+import { resolveOfferCardPresentationWithTrustLabels } from "../lib/miaCommercialCardTrustLabels.js";
 import MIAEstimatedSavingsNotice from "./MIAEstimatedSavingsNotice";
 import MIAHowItWorksPanel from "./MIAHowItWorksPanel";
+import MIACommercialTransparencyNotice from "./MIACommercialTransparencyNotice";
+import {
+  extractKnowledgeMetadataFromApiResponse,
+  MIA_HOW_IT_WORKS_AUDIT_ANCHOR,
+} from "../lib/miaCommercialKnowledgeTransparency.js";
 import {
   trackMiaEvent,
   detectAnalyticsCategory,
@@ -136,6 +141,7 @@ export default function MIAChat() {
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const [howItWorksPanelOpen, setHowItWorksPanelOpen] = useState(false);
+  const [howItWorksScrollAnchor, setHowItWorksScrollAnchor] = useState(null);
   const [feedPanelOpen, setFeedPanelOpen] = useState(false);
   const [profileEditPanelOpen, setProfileEditPanelOpen] = useState(false);
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
@@ -1885,6 +1891,23 @@ useEffect(() => {
     return Boolean(findProductByIdentity(watches, prod));
   }
 
+  function openHowItWorksAuditSection() {
+    panelReturnToMenuRef.current = true;
+    setFavoritesPanelOpen(false);
+    setAlertsPanelOpen(false);
+    setProfilePanelOpen(false);
+    setSettingsPanelOpen(false);
+    setHelpPanelOpen(false);
+    setFeedPanelOpen(false);
+    setHistoryPanelOpen(false);
+    setHowItWorksScrollAnchor(MIA_HOW_IT_WORKS_AUDIT_ANCHOR);
+    setHowItWorksPanelOpen(true);
+  }
+
+  function handleHowItWorksScrollAnchorHandled() {
+    setHowItWorksScrollAnchor(null);
+  }
+
   function finishAssistantReveal(displayResponse, hasOfferCard, currentRequestId) {
     if (hasOfferCard) {
       if (requestIdRef.current !== currentRequestId) return;
@@ -1904,6 +1927,7 @@ useEffect(() => {
     resposta,
     cardProduct = null,
     commercialFallback = false,
+    knowledgeMetadata = null,
     turnId = null
   } = {}) {
     const offerCard = cardProduct || null;
@@ -1913,7 +1937,8 @@ useEffect(() => {
       turnId,
       offerCard,
       price: offerCard,
-      commercialFallback: !!commercialFallback
+      commercialFallback: !!commercialFallback,
+      knowledgeMetadata: knowledgeMetadata || null
     };
   }
 
@@ -2082,6 +2107,7 @@ useEffect(() => {
               resposta: displayResponse,
               cardProduct,
               commercialFallback: commercialFallback && !!cardProduct,
+              knowledgeMetadata: extractKnowledgeMetadataFromApiResponse(data),
               turnId: currentRequestId
             });
             if (idx !== -1) nh[nh.length - 1 - idx] = finalMsg;
@@ -2254,6 +2280,7 @@ useEffect(() => {
           resposta: displayResponse,
           cardProduct,
           commercialFallback: commercialFallback && !!cardProduct,
+          knowledgeMetadata: extractKnowledgeMetadataFromApiResponse(data),
           turnId: currentRequestId
         });
         if (idx !== -1) nh[nh.length - 1 - idx] = finalMsg;
@@ -2792,7 +2819,10 @@ function detectPriorityFromText(text = "") {
                     const cardTitle = getOfferCardTitle(offerCard);
                     const galleryImages = getOfferCardImages(offerCard);
                     const imageUrl = galleryImages[0] || "";
-                    const presentation = resolveOfferCardPresentation(offerCard);
+                    const presentation = resolveOfferCardPresentationWithTrustLabels(
+                      offerCard,
+                      item.knowledgeMetadata
+                    );
                     const priceUnavailable = presentation.priceUnavailable;
                     const storeDisplay = presentation.useDataLayerPresentation
                       ? {
@@ -2806,7 +2836,15 @@ function detectPriorityFromText(text = "") {
                     <div className="mia-offer-card product-card-hover">
                       <span className="mia-offer-card-badge">Oferta selecionada</span>
                       {presentation.badge && (
-                        <p className="mia-offer-card-data-layer-badge">{presentation.badge}</p>
+                        <p
+                          className={`mia-offer-card-data-layer-badge${
+                            presentation.trustLabelMode === "governed_fallback"
+                              ? " mia-offer-card-trust-badge--assisted"
+                              : ""
+                          }`}
+                        >
+                          {presentation.badge}
+                        </p>
                       )}
                       <div className="mia-offer-card-main">
                         <OfferCardMedia
@@ -2955,6 +2993,11 @@ function detectPriorityFromText(text = "") {
                   </div>
                     );
                   })()}
+
+                  <MIACommercialTransparencyNotice
+                    knowledgeMetadata={item.knowledgeMetadata}
+                    onLearnMore={openHowItWorksAuditSection}
+                  />
                 </div>
               </div>
             )}
@@ -3378,7 +3421,11 @@ function detectPriorityFromText(text = "") {
           )}
 
           {howItWorksPanelOpen && (
-            <MIAHowItWorksPanel onClose={closeHubPanelFromDrawer} />
+            <MIAHowItWorksPanel
+              onClose={closeHubPanelFromDrawer}
+              scrollToAnchor={howItWorksScrollAnchor}
+              onScrollAnchorHandled={handleHowItWorksScrollAnchorHandled}
+            />
           )}
 
           {settingsPanelOpen && (

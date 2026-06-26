@@ -4,6 +4,12 @@ import {
   executeCommercialRuntimeShadow,
   isCommercialRuntimeShadowEnabled,
 } from "../../lib/productSourceAdapter/commercialRuntimeShadow.js";
+import {
+  buildCommercialRuntimeActivationDiagnostics,
+  resolveAndApplyCommercialRuntimeActivation,
+} from "../../lib/productSourceAdapter/commercialRuntimeActivation.js";
+import { isCommercialRuntimeControlled } from "../../lib/productSourceAdapter/commercialRuntimeMode.js";
+import { buildCommercialShadowDiagnosticReport } from "../../lib/productSourceAdapter/commercialShadowDiagnosticSummary.js";
 import axios from "axios";
 import { supabase } from "../../lib/supabaseClient";
 import { callOpenAI, getOpenAIText } from "../../lib/openai";
@@ -44,6 +50,11 @@ import {
   resolveCommercialOfferExplanation,
   shouldForceCommercialProductExplanation,
 } from "../../lib/miaProductExplanationBuilder.js";
+import { attachCommercialKnowledgeMetadataToChatResponse } from "../../lib/miaCommercialKnowledgeTransparencyPayload.js";
+import {
+  buildFallbackCandidateIsolationDiagnostics,
+  filterDataLayerCandidatesForCommercialFallback,
+} from "../../lib/commercial/nonDataLayerFallbackCandidateIsolation.js";
 import { isEvidenceInjectionUseful } from "../../lib/miaDataLayerEvidenceInjectionLayer.js";
 import { INSIGHT_MARKER_PATTERN } from "../../lib/miaExpertInsightGenerationLayer.js";
 import {
@@ -24525,6 +24536,42 @@ function mapCommercialDisplayPrices(products = []) {
   }));
 }
 
+async function applyCommercialRuntimeActivationToResponsePrices({
+  query = "",
+  prices = [],
+  winnerProduct = null,
+  pipelineTracer = null,
+} = {}) {
+  const basePrices = Array.isArray(prices) ? prices : [];
+  if (!basePrices.length) {
+    return basePrices;
+  }
+
+  try {
+    const { prices: activatedPrices, activation } =
+      await resolveAndApplyCommercialRuntimeActivation({
+        query,
+        prices: basePrices,
+        winnerProduct: winnerProduct || basePrices[0] || null,
+      });
+
+    if (activation && pipelineTracer) {
+      pipelineTracer.patch({
+        commercial_runtime_activation: buildCommercialRuntimeActivationDiagnostics(activation),
+        ...(activation.accessoryRuntimeDiagnostics
+          ? {
+              commercial_accessory_runtime_enforcement: activation.accessoryRuntimeDiagnostics,
+            }
+          : {}),
+      });
+    }
+
+    return activatedPrices;
+  } catch {
+    return basePrices;
+  }
+}
+
 // ======================================================
 // ARCHETYPE RANKING NUDGE — Step 2
 // ======================================================
@@ -25497,6 +25544,11 @@ function respondWithContract(
       });
     }
   }
+
+  body = attachCommercialKnowledgeMetadataToChatResponse(body, {
+    winnerProduct: firstAnswerContext?.winnerProduct || null,
+    dataLayerPrimary: !!firstAnswerContext?.dataLayerPrimary,
+  });
 
   const contractExtras = {
     ...buildContractPipelineExtras({
@@ -31149,11 +31201,34 @@ if (hasPriorityFollowUp) {
     "";
   categoryHintResolved = categoryHint;
 
-  const dataLayerProducts = await searchUniversalDataLayer(resolvedQuery, {
+  const dataLayerProductsRaw = await searchUniversalDataLayer(resolvedQuery, {
     limit: 12,
     categoryHint
   });
+
+  const dataLayerIsolation = filterDataLayerCandidatesForCommercialFallback({
+    query: resolvedQuery,
+    candidates: dataLayerProductsRaw,
+    categoryHint,
+    detectedVertical: categoryHint,
+  });
+
+  const dataLayerProducts = dataLayerIsolation.candidates;
   dataLayerProductsResolved = dataLayerProducts;
+
+  pipelineTracer.patch({
+    non_data_layer_fallback_candidate_isolation: buildFallbackCandidateIsolationDiagnostics(
+      dataLayerIsolation
+    ),
+  });
+
+  if (dataLayerIsolation.applied) {
+    console.warn("🛡️ NON-DATA-LAYER FALLBACK ISOLATION:", {
+      query: resolvedQuery,
+      reason: dataLayerIsolation.reason,
+      blocked: dataLayerIsolation.blockedDataLayerCandidate,
+    });
+  }
 
   console.log("🧠 DATA LAYER PRODUCTS:", {
     count: dataLayerProducts.length,
@@ -31406,6 +31481,14 @@ if (Array.isArray(products) && products.length > 0) {
             ""
         );
 
+      const commercialFallbackPrices = await applyCommercialRuntimeActivationToResponsePrices({
+        query: resolvedQuery,
+        prices: mapCommercialDisplayPrices(commercialDisplayLocked),
+        winnerProduct:
+          commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+        pipelineTracer,
+      });
+
       return respondWithContract(
         res,
         pipelineTracer,
@@ -31415,7 +31498,7 @@ if (Array.isArray(products) && products.length > 0) {
             commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
             resolvedQuery
           ),
-          prices: mapCommercialDisplayPrices(commercialDisplayLocked),
+          prices: commercialFallbackPrices,
           mia_debug: {
             commercialOnlyFallback: true,
             dataLayerUsed: false,
@@ -32069,7 +32152,11 @@ if (Array.isArray(products) && products.length > 0) {
   const selectedIdentity = resolveMiaProductIdentity(selectedTitle);
 
   // PATCH Comercial 4E-A — Commercial Runtime Shadow (observation only; never alters reply/prices/winner)
-  if (isCommercialRuntimeShadowEnabled() && selectedBestProduct) {
+  if (
+    isCommercialRuntimeShadowEnabled() &&
+    !isCommercialRuntimeControlled() &&
+    selectedBestProduct
+  ) {
     try {
       const shadowExecution = await executeCommercialRuntimeShadow({
         query: resolvedQuery,
@@ -32079,6 +32166,11 @@ if (Array.isArray(products) && products.length > 0) {
       if (shadowExecution?.diagnostics && !shadowExecution.skipped) {
         pipelineTracer.patch({
           commercial_runtime_shadow: shadowExecution.diagnostics,
+          commercial_shadow_diagnostic_summary: buildCommercialShadowDiagnosticReport({
+            shadowExecution,
+            winner: selectedBestProduct,
+            legacyOffer: selectedBestProduct,
+          }),
         });
       }
     } catch {
@@ -32162,21 +32254,28 @@ if (Array.isArray(products) && products.length > 0) {
   const dataLayerEvidenceApplied = isEvidenceInjectionUseful(safeReply);
   const expertInsightApplied = INSIGHT_MARKER_PATTERN.test(safeReply);
 
+  const commercialDisplayPrices = await applyCommercialRuntimeActivationToResponsePrices({
+    query: resolvedQuery,
+    prices: displayProducts.map((p) => ({
+      product_name:
+        resolveMiaProductIdentity(cleanTitle(p.product_name || "")).officialName ||
+        cleanTitle(p.product_name || ""),
+      price: p.price || null,
+      link: p.link || null,
+      thumbnail: p.thumbnail || null,
+      source: p.source || "resultado",
+    })),
+    winnerProduct: selectedBestProduct,
+    pipelineTracer,
+  });
+
   return respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
       {
         reply: safeReply,
-        prices: displayProducts.map((p) => ({
-          product_name:
-            resolveMiaProductIdentity(cleanTitle(p.product_name || "")).officialName ||
-            cleanTitle(p.product_name || ""),
-          price: p.price || null,
-          link: p.link || null,
-          thumbnail: p.thumbnail || null,
-          source: p.source || "resultado"
-        })),
+        prices: commercialDisplayPrices,
         mia_debug: {
           querySignals: earlyQuerySignals,
           archetypeSignals: searchVerticalContext?.archetypeSignals || [],
@@ -33973,19 +34072,26 @@ const finalSessionContext = {
     : sessionContext.lastComparisonQuery || ""
 };
 
+const legacyCommercialPrices = await applyCommercialRuntimeActivationToResponsePrices({
+  query: resolvedQuery,
+  prices: displayProducts.map((p) => ({
+    product_name: cleanTitle(p.product_name),
+    price: p.price,
+    link: p.link,
+    thumbnail: p.thumbnail,
+    source: p.source
+  })),
+  winnerProduct: selectedBestProduct,
+  pipelineTracer,
+});
+
 return respondWithContract(
   res,
   pipelineTracer,
   routingDecision,
     {
       reply,
-      prices: displayProducts.map((p) => ({
-        product_name: cleanTitle(p.product_name),
-        price: p.price,
-        link: p.link,
-        thumbnail: p.thumbnail,
-        source: p.source
-      })),
+      prices: legacyCommercialPrices,
       session_context: applyContractToSessionContext(
         finalSessionContext,
         routingDecision,

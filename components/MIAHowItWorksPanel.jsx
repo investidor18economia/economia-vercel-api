@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 function SectionDivider() {
   return <div className="mia-how-divider" role="separator" aria-hidden="true" />;
 }
@@ -24,7 +26,35 @@ function CrossItem({ children }) {
   );
 }
 
-export default function MIAHowItWorksPanel({ onClose }) {
+function AuditStatusItem({ status = "building", children }) {
+  const mark = status === "audited" ? "✅" : "☑️";
+  return (
+    <li className={`mia-how-audit-item mia-how-audit-item--${status}`}>
+      <span className="mia-how-audit-mark" aria-hidden="true">
+        {mark}
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+export default function MIAHowItWorksPanel({ onClose, scrollToAnchor = null, onScrollAnchorHandled }) {
+  useEffect(() => {
+    if (!scrollToAnchor) return undefined;
+
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(scrollToAnchor);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      if (typeof onScrollAnchorHandled === "function") {
+        onScrollAnchorHandled();
+      }
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [scrollToAnchor, onScrollAnchorHandled]);
+
   return (
     <div
       className="mia-side-panel mia-side-panel--how-it-works mia-how-hub mia-hub-panel"
@@ -217,6 +247,28 @@ export default function MIAHowItWorksPanel({ onClose }) {
           <p className="mia-how-body mia-how-body--emphasis">
             Porque uma boa recomendação só funciona quando existe confiança.
           </p>
+        </section>
+
+        <SectionDivider />
+
+        <section className="mia-how-section" id="auditoria">
+          <h2 className="mia-how-section-title">🧠 Como a MIA audita os produtos</h2>
+          <p className="mia-how-body">
+            A MIA só trata uma categoria como conhecimento confiável depois de organizar,
+            validar e revisar os dados.
+          </p>
+          <p className="mia-how-body">
+            Enquanto uma categoria ainda está em construção, a MIA pode usar fontes comerciais
+            e fallback governado para ajudar na decisão, mas mostra isso com transparência.
+          </p>
+          <ul className="mia-how-audit-list" aria-label="Status de auditoria por categoria">
+            <AuditStatusItem status="audited">Smartphones/celulares — auditado</AuditStatusItem>
+            <AuditStatusItem status="building">Notebooks — em construção</AuditStatusItem>
+            <AuditStatusItem status="building">PCs gamer — em construção</AuditStatusItem>
+            <AuditStatusItem status="building">TVs — em construção</AuditStatusItem>
+            <AuditStatusItem status="building">Monitores — em construção</AuditStatusItem>
+            <AuditStatusItem status="building">Acessórios — em construção</AuditStatusItem>
+          </ul>
         </section>
 
         <SectionDivider />

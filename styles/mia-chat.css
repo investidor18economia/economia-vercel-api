@@ -950,6 +950,10 @@ body.mia-hub-panel-open {
   line-height: 1.35;
   color: #5FD68A;
 }
+.mia-offer-card-trust-badge--assisted {
+  color: #8FAEC8;
+  font-weight: 500;
+}
 .mia-offer-card-store {
   display: flex;
   align-items: flex-start;
@@ -5614,4 +5618,73 @@ button.mia-alerts-hub-empty-cta {
     margin-right: auto;
     max-width: 480px;
   }
+}
+
+.mia-commercial-transparency-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: rgba(208, 228, 244, 0.88);
+}
+
+.mia-commercial-transparency-notice__icon {
+  flex-shrink: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mia-commercial-transparency-notice__text {
+  margin: 0;
+}
+
+.mia-commercial-transparency-notice__link {
+  color: #00C6FF;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mia-commercial-transparency-notice__link:hover,
+.mia-commercial-transparency-notice__link:focus-visible {
+  color: #7B61FF;
+  text-decoration: underline;
+  outline: none;
+}
+
+.mia-how-audit-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mia-how-audit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14.5px;
+  line-height: 1.58;
+  color: #EEF6FC;
+}
+
+.mia-how-audit-mark {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mia-how-audit-item--audited .mia-how-audit-mark {
+  color: #7EE8B8;
+}
+
+.mia-how-audit-item--building .mia-how-audit-mark {
+  color: #9CC7E8;
+}
+
+#auditoria {
+  scroll-margin-top: 18px;
 }
