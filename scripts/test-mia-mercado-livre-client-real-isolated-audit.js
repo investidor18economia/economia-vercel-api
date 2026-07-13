@@ -101,13 +101,18 @@ async function assertHttpDiagnostics(status, statusText, body) {
   });
 
   assert(!result.ok, `expected http failure for ${status}`);
-  assert(result.error === "http_error", "expected http_error");
+  const expectedError =
+    status === 429 ? "rate_limited" : status === 401 || status === 403 ? "http_forbidden" : "http_error";
+  assert(result.error === expectedError, `expected ${expectedError}`);
   assert(result.httpStatus === status, `httpStatus should be ${status}`);
   assert(result.status === status, "status alias preserved");
   assert(result.httpStatusText === statusText, `httpStatusText should be ${statusText}`);
   assert(typeof result.safeErrorBodyPreview === "string", "safeErrorBodyPreview missing");
   assert(result.requestUrl?.includes("/sites/MLB/search"), "requestUrl missing search path");
   assert(!result.requestUrl?.includes(TEST_SECRET), "secret must not appear in requestUrl");
+  if (status === 403 || status === 401) {
+    assert(!!result.safeForbiddenDiagnostics?.classification, "forbidden diagnostics missing");
+  }
   assertNoSensitiveLeak(result);
   return result;
 }
@@ -216,9 +221,10 @@ test("403 with bearer token stays diagnosed and token is redacted", async () => 
     },
   });
 
-  assert(result.error === "http_error", "expected http_error");
+  assert(result.error === "http_forbidden", "expected http_forbidden");
   assert(result.httpStatus === 403, "403 status preserved");
   assert(result.safeErrorBodyPreview.includes("forbidden"), "403 body preview preserved");
+  assert(!!result.safeForbiddenDiagnostics?.classification, "403 classification missing");
   assert(!result.safeErrorBodyPreview.includes(TEST_ACCESS_TOKEN), "token redacted in preview");
   assertNoSensitiveLeak(result);
 });
@@ -282,7 +288,7 @@ test("adapter real mode forwards HTTP diagnostics to caller", async () => {
   });
 
   assert(!result.ok, "adapter should fail on http error");
-  assert(result.error === "http_error", "expected http_error");
+  assert(result.error === "http_forbidden", "expected http_forbidden");
   assert(result.httpStatus === 403, "httpStatus forwarded");
   assert(result.httpStatusText === "Forbidden", "httpStatusText forwarded");
   assert(result.requestUrl?.includes("/sites/MLB/search"), "requestUrl forwarded");

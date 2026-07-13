@@ -3,12 +3,14 @@
  *
  * Usage:
  *   node scripts/test-mia-apify-mercadolivre-client-isolated-audit.js
- *   node scripts/test-mia-apify-mercadolivre-client-isolated-audit.js --http
+ *   node scripts/test-mia-apify-mercadolivre-client-isolated-audit.js --http --allow-paid-external
  */
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import { enforceDevManualScriptCommercialExecution } from "../lib/commercial/devCommercialCostGuard.js";
 
 import {
   APIFY_MERCADOLIVRE_ACTOR_ID,
@@ -373,6 +375,7 @@ for (const spec of CASES) {
 }
 
 if (process.argv.includes("--http")) {
+  enforceDevManualScriptCommercialExecution();
   console.log("\n── HTTP smoke (requires dev server + APIFY_API_TOKEN) ──");
   const cases = ["iPhone 13", "Galaxy A55", "Notebook Lenovo"];
 

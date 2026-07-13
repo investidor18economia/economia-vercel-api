@@ -3,24 +3,15 @@
  */
 
 import {
+  isDevEndpointAllowed,
+  resolveDevCommercialEndpointGuard,
+} from "../../../lib/commercial/devCommercialCostGuard.js";
+import {
   hasMercadoLivreAccessToken,
   probeMercadoLivreProductFlow,
   redactMercadoLivreSecrets,
   validateMercadoLivreEnv,
 } from "../../../lib/productSourceAdapter/adapters/mercadoLivreClient.js";
-
-function isDevEndpointAllowed(req) {
-  if (process.env.NODE_ENV !== "production") return true;
-
-  const secret = String(process.env.DEV_API_SECRET || "").trim();
-  if (!secret) return false;
-
-  const provided = String(
-    req.headers["x-dev-api-secret"] || req.query.secret || ""
-  ).trim();
-
-  return provided === secret;
-}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -42,6 +33,26 @@ export default async function handler(req, res) {
       ok: false,
       error: "missing_product_id",
       hint: "Use ?productId=MLB1234567890",
+    });
+  }
+
+  const endpointGuard = resolveDevCommercialEndpointGuard(req, {
+    invocationSource: "dev_mercadolivre_product_flow",
+    providerId: "mercadolivre_public",
+    billingTier: "free_external",
+    endpoint: "mercadolivre-product-flow",
+    plannedRequest: { productId, sampleLimit },
+    endpointLevelDryRun: true,
+  });
+
+  if (endpointGuard.blocked) {
+    return res.status(endpointGuard.statusCode).json(endpointGuard.body);
+  }
+
+  if (endpointGuard.shouldReturnDryRunResponse) {
+    return res.status(200).json({
+      ...endpointGuard.body,
+      hasAccessToken: hasMercadoLivreAccessToken(process.env),
     });
   }
 

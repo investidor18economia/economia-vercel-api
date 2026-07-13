@@ -19,19 +19,11 @@ import {
   getCommercialRuntimeMode,
 } from "../../../lib/productSourceAdapter/commercialRuntimeMode.js";
 import { normalizeLegacyCommercialOfferForShadow } from "../../../lib/productSourceAdapter/commercialRuntimeShadow.js";
-
-function isDevEndpointAllowed(req) {
-  if (process.env.NODE_ENV !== "production") return true;
-
-  const secret = String(process.env.DEV_API_SECRET || "").trim();
-  if (!secret) return false;
-
-  const provided = String(
-    req.headers["x-dev-api-secret"] || req.query.secret || ""
-  ).trim();
-
-  return provided === secret;
-}
+import {
+  isDevEndpointAllowed,
+  resolveDevCommercialEndpointGuard,
+} from "../../../lib/commercial/devCommercialCostGuard.js";
+import { COMMERCIAL_PROVIDER_IDS } from "../../../lib/productSourceAdapter/commercialProviderRegistry.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -58,8 +50,35 @@ export default async function handler(req, res) {
 
   const mode = getCommercialRuntimeMode(req.query.mode);
 
+  const endpointGuard = resolveDevCommercialEndpointGuard(req, {
+    invocationSource: "dev_commercial_runtime_activation",
+    providerId: COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING,
+    endpoint: "commercial-runtime-activation",
+    plannedRequest: { query, limit: 5, mode },
+    endpointLevelDryRun: true,
+  });
+
+  if (endpointGuard.blocked) {
+    return res.status(endpointGuard.statusCode).json(endpointGuard.body);
+  }
+
+  if (endpointGuard.shouldReturnDryRunResponse) {
+    return res.status(200).json({
+      ...endpointGuard.body,
+      modeVersion: COMMERCIAL_RUNTIME_MODE_VERSION,
+      activationVersion: COMMERCIAL_RUNTIME_ACTIVATION_VERSION,
+      mode,
+      usedNewPipeline: false,
+      fallbackToLegacy: true,
+      officialOffer: null,
+      legacyOffer: null,
+      newPipelineOffer: null,
+    });
+  }
+
   try {
-    const legacyResult = await fetchGoogleShoppingLegacyResult(query, 5);
+    const costGuardContext = endpointGuard.costGuardContext;
+    const legacyResult = await fetchGoogleShoppingLegacyResult(query, 5, { costGuardContext });
     const legacyProduct = legacyResult.products?.[0] || null;
     const legacyCard = mapLegacyProductToCardShape(legacyProduct);
 
@@ -68,6 +87,7 @@ export default async function handler(req, res) {
       legacyOffer: legacyProduct,
       winnerProduct: legacyProduct,
       mode,
+      costGuardContext,
     });
 
     const diagnostics = buildCommercialRuntimeActivationDiagnostics(activation);

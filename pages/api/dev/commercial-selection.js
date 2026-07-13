@@ -6,6 +6,7 @@
 
 import { fetchGoogleShoppingAdapterResult } from "../../../lib/productSourceAdapter/adapters/googleShoppingAdapter.js";
 import { searchApifyMercadoLivreProducts } from "../../../lib/productSourceAdapter/adapters/apifyMercadoLivreClient.js";
+import { isDevEndpointAllowed, resolveDevCommercialEndpointGuard } from "../../../lib/commercial/devCommercialCostGuard.js";
 import {
   clampMergeLimitPerProvider,
   mergeCommercialOfferBundle,
@@ -15,19 +16,6 @@ import {
   COMMERCIAL_SELECTION_ENGINE_VERSION,
   selectCommercialOffers,
 } from "../../../lib/productSourceAdapter/commercialSelectionEngine.js";
-
-function isDevEndpointAllowed(req) {
-  if (process.env.NODE_ENV !== "production") return true;
-
-  const secret = String(process.env.DEV_API_SECRET || "").trim();
-  if (!secret) return false;
-
-  const provided = String(
-    req.headers["x-dev-api-secret"] || req.query.secret || ""
-  ).trim();
-
-  return provided === secret;
-}
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -55,10 +43,33 @@ export default async function handler(req, res) {
     });
   }
 
+  const endpointGuard = resolveDevCommercialEndpointGuard(req, {
+    invocationSource: "dev_commercial_selection",
+    providerId: "google_shopping",
+    endpoint: "commercial-selection",
+    plannedRequest: { query, limit },
+    endpointLevelDryRun: true,
+  });
+
+  if (endpointGuard.blocked) {
+    return res.status(endpointGuard.statusCode).json(endpointGuard.body);
+  }
+
+  if (endpointGuard.shouldReturnDryRunResponse) {
+    return res.status(200).json({
+      ...endpointGuard.body,
+      selectionVersion: COMMERCIAL_SELECTION_ENGINE_VERSION,
+      query,
+      selectedOffer: null,
+      offers: [],
+    });
+  }
+
   try {
+    const costGuardContext = endpointGuard.costGuardContext;
     const [googleResult, apifyResult] = await Promise.all([
-      fetchGoogleShoppingAdapterResult({ query, limit }),
-      searchApifyMercadoLivreProducts(query, limit),
+      fetchGoogleShoppingAdapterResult({ query, limit, costGuardContext }),
+      searchApifyMercadoLivreProducts(query, limit, { costGuardContext }),
     ]);
 
     const merged = mergeCommercialOfferBundle({

@@ -1,5 +1,7 @@
 import { fetchSerpPrices } from "../../lib/prices";
 import { fetchGoogleShoppingLegacyResult } from "../../lib/productSourceAdapter/adapters/googleShoppingAdapter.js";
+import { fetchMercadoLivreCommercialAdapterResult } from "../../lib/productSourceAdapter/adapters/mercadoLivreAdapter.js";
+import { isMercadoLivreCommercialProviderRuntimeEnabled } from "../../lib/productSourceAdapter/commercialProviderRegistry.js";
 import {
   executeCommercialRuntimeShadow,
   isCommercialRuntimeShadowEnabled,
@@ -8,6 +10,39 @@ import {
   buildCommercialRuntimeActivationDiagnostics,
   resolveAndApplyCommercialRuntimeActivation,
 } from "../../lib/productSourceAdapter/commercialRuntimeActivation.js";
+import {
+  buildAccessoryWinnerPropagationDiagnostics,
+  sanitizeAccessoryCommercialPayload,
+} from "../../lib/commercial/accessoryCognitiveWinnerPropagationGuard.js";
+import {
+  buildGovernedFallbackPayload,
+} from "../../lib/commercial/governedFallbackPayloadBuilder.js";
+import {
+  buildUniversalGovernedFallbackReasoning,
+} from "../../lib/commercial/universalGovernedFallbackReasoning.js";
+import {
+  resolveUniversalFallbackPromptContractVerbalization,
+} from "../../lib/commercial/universalFallbackPromptContract.js";
+import {
+  buildCommercialFallbackPipelineObservabilityPatch,
+} from "../../lib/commercial/commercialFallbackProductionPipeline.js";
+import {
+  buildCommercialRequestDedupTracePatch,
+  createCommercialRequestDedupContext,
+  enterCommercialRequestDedupContext,
+} from "../../lib/commercial/commercialRequestDeduplication.js";
+import {
+  buildUniversalCommercialCacheTracePatch,
+} from "../../lib/commercial/universalCommercialCache.js";
+import {
+  buildConditionalProviderFetchTracePatch,
+} from "../../lib/commercial/conditionalProviderFetch.js";
+import {
+  buildProviderBudgetCircuitTracePatch,
+} from "../../lib/commercial/providerBudgetCircuitBreaker.js";
+import {
+  buildUniversalCategorySignals,
+} from "../../lib/commercial/universalCategorySignalLibrary.js";
 import { isCommercialRuntimeControlled } from "../../lib/productSourceAdapter/commercialRuntimeMode.js";
 import { buildCommercialShadowDiagnosticReport } from "../../lib/productSourceAdapter/commercialShadowDiagnosticSummary.js";
 import axios from "axios";
@@ -1469,88 +1504,41 @@ function normalizeCommercialSearchKey(query = "", limit = 12) {
   return `${normalizeQuery(query)}::${limit}`;
 }
 async function fetchFromMercadoLivreProvider(query = "", limit = 12) {
-  try {
-    const url =
-      `https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-
-    const response = await axios.get(url, {
-  timeout: 10000,
-  validateStatus: () => true,
-  headers: {
-    "Accept": "application/json",
-    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-    "User-Agent":
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-  }
-});
-
-if (response.status === 403) {
-  console.warn("🚫 MERCADO LIVRE 403 — provider bloqueado pela origem/Vercel");
-  return {
-    provider: "mercadolivre",
-    ok: false,
-    products: [],
-    error: "forbidden"
-  };
-}
-
-if (response.status === 429) {
-  return {
-    provider: "mercadolivre",
-    ok: false,
-    products: [],
-    error: "rate_limited"
-  };
-}
-
-if (response.status < 200 || response.status >= 300) {
-  console.warn("⚠️ MERCADO LIVRE STATUS INVÁLIDO:", response.status);
-  return {
-    provider: "mercadolivre",
-    ok: false,
-    products: [],
-    error: "provider_error"
-  };
-}
-
-const data = response.data || {};
-
-    
-    const results = Array.isArray(data?.results) ? data.results : [];
-    console.log("🟢 ML RAW RESULTS:", results.length);
-console.log("🟢 ML RAW FIRST:", results[0]?.title, results[0]?.price, results[0]?.permalink);
-
-   const products = normalizeProviderProducts(
-  results.map((item) => ({
-    title: item.title || "",
-    price: item.price ? `R$ ${Number(item.price).toFixed(2).replace(".", ",")}` : null,
-    numericPrice: item.price || null,
-    permalink: item.permalink || null,
-    thumbnail: item.thumbnail || null,
-    source: "Mercado Livre"
-  })),
-  "mercadolivre",
-  query,
-  limit
-);
-console.log("🟢 ML PRODUCTS NORMALIZADOS:", products.length);
-console.log("🟢 ML FIRST NORMALIZADO:", products[0]);
-    console.log("🔥 ML PRODUCTS FINAL:", products.length);
-console.log("🔥 ML PRODUCT 1:", products[0]);
-    return {
-      provider: "mercadolivre",
-      ok: products.length > 0,
-      products,
-      error: products.length > 0 ? null : "empty_results"
-    };
-  } catch (err) {
-    console.error("❌ PROVIDER MERCADO LIVRE ERRO COMPLETO:", err);
-
+  if (!isMercadoLivreCommercialProviderRuntimeEnabled()) {
     return {
       provider: "mercadolivre",
       ok: false,
       products: [],
-      error: "provider_error"
+      error: "provider_disabled",
+    };
+  }
+
+  try {
+    const result = await fetchMercadoLivreCommercialAdapterResult({
+      query,
+      limit,
+      invocationLayer: "chat_gpt4o_legacy_commercial_router",
+    });
+
+    const products = normalizeProviderProducts(
+      Array.isArray(result?.products) ? result.products : [],
+      "mercadolivre",
+      query,
+      limit
+    );
+
+    return {
+      provider: "mercadolivre",
+      ok: result?.ok === true,
+      products,
+      error: result?.error || null,
+    };
+  } catch (err) {
+    return {
+      provider: "mercadolivre",
+      ok: false,
+      products: [],
+      error: String(err?.message || "provider_error").slice(0, 120),
     };
   }
 }
@@ -24541,6 +24529,8 @@ async function applyCommercialRuntimeActivationToResponsePrices({
   prices = [],
   winnerProduct = null,
   pipelineTracer = null,
+  governedPayloadContext = null,
+  commercialRequestDedupContext = null,
 } = {}) {
   const basePrices = Array.isArray(prices) ? prices : [];
   if (!basePrices.length) {
@@ -24555,18 +24545,55 @@ async function applyCommercialRuntimeActivationToResponsePrices({
         winnerProduct: winnerProduct || basePrices[0] || null,
       });
 
-    if (activation && pipelineTracer) {
-      pipelineTracer.patch({
-        commercial_runtime_activation: buildCommercialRuntimeActivationDiagnostics(activation),
-        ...(activation.accessoryRuntimeDiagnostics
-          ? {
-              commercial_accessory_runtime_enforcement: activation.accessoryRuntimeDiagnostics,
-            }
-          : {}),
-      });
+    const selectedOfferTitle =
+      activation?.officialOffer?.product_name ||
+      activation?.accessoryEnforcement?.selectedOfferAfter?.title ||
+      "";
+
+    const propagation = sanitizeAccessoryCommercialPayload({
+      query,
+      winnerProduct: winnerProduct || basePrices[0] || null,
+      prices: activatedPrices,
+      selectedOfferTitle,
+    });
+    const finalPrices = propagation.prices;
+
+    const governedPayload = buildGovernedFallbackPayload({
+      query,
+      selectedProduct: finalPrices?.[0] || null,
+      hasDataLayer: governedPayloadContext?.hasDataLayer,
+      categoryHint: governedPayloadContext?.categoryHint || "",
+      responsePath: governedPayloadContext?.responsePath || "",
+      commercialRuntimeActivation: activation,
+      cognitiveWinnerProduct:
+        governedPayloadContext?.cognitiveWinnerProduct || winnerProduct || basePrices[0] || null,
+      relatedProductRole: governedPayloadContext?.relatedProductRole || "cognitive_context_reference",
+      relatedProductSource: governedPayloadContext?.relatedProductSource || "commercial_runtime_input",
+      routing: governedPayloadContext?.routing || null,
+    });
+    const governedFallbackReasoning = buildUniversalGovernedFallbackReasoning(governedPayload);
+    const universalCategorySignals = buildUniversalCategorySignals({
+      query,
+      governedFallbackPayload: governedPayload,
+      universalGovernedFallbackReasoning: governedFallbackReasoning,
+    });
+
+    if (pipelineTracer) {
+      pipelineTracer.patch(
+        buildCommercialFallbackPipelineObservabilityPatch({
+          payload: governedPayload,
+          reasoning: governedFallbackReasoning,
+          signals: universalCategorySignals,
+          activationDiagnostics: buildCommercialRuntimeActivationDiagnostics(activation),
+          ...(activation.accessoryRuntimeDiagnostics
+            ? { accessoryRuntimeDiagnostics: activation.accessoryRuntimeDiagnostics }
+            : {}),
+          propagationDiagnostics: buildAccessoryWinnerPropagationDiagnostics(propagation),
+        })
+      );
     }
 
-    return activatedPrices;
+    return finalPrices;
   } catch {
     return basePrices;
   }
@@ -25413,7 +25440,7 @@ function respondWithContract(
       responsePath,
       routingDecision: routingDecisionToTrace(routingDecision)
     });
-    return { blocked: true, violation };
+    return;
   }
 
   let body = ensureSessionContextOnPayload(payload, routingDecision, fallbackSession);
@@ -25633,7 +25660,7 @@ function respondWithContract(
       )
     })
   );
-  return { blocked: false };
+  return;
 }
 
 function buildContextDecisionSessionContext(
@@ -25831,26 +25858,34 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
-  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return void res.status(405).json({ error: "Method not allowed" });
   }
 
   const clientKey = (req.headers["x-api-key"] || "").toString();
   if (!API_SHARED_KEY || clientKey !== API_SHARED_KEY) {
-    return res.status(401).json({ error: "invalid_api_key" });
+    return void res.status(401).json({ error: "invalid_api_key" });
   }
 
     const { text, image_base64 } = req.body || {};
   const query = (text || "").trim();
   const pipelineTracer = createMiaChatPipelineTracer(query);
+  const commercialRequestDedupContext = createCommercialRequestDedupContext({
+    requestId: `chat-${Date.now()}`,
+  });
+  enterCommercialRequestDedupContext(commercialRequestDedupContext);
+  pipelineTracer.commercialRequestDedupContext = commercialRequestDedupContext;
   const imageBase64 = String(image_base64 || "").trim();
   const hasImage = imageBase64.length > 100;
   const conversationMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
 
   if (!query && !hasImage) {
-    return res.status(400).json({
+    return void res.status(400).json({
       reply: "Me manda o que você quer comprar ou envia uma imagem do produto que eu te ajudo.",
       prices: []
     });
@@ -25861,7 +25896,7 @@ export default async function handler(req, res) {
       const identified = await identifyProductFromImage(imageBase64, query);
 
       if (!identified?.searchQuery) {
-        return res.status(200).json({
+        return void res.status(200).json({
           reply:
             "Não consegui identificar esse produto com segurança pela imagem. Tenta enviar outra foto mais nítida ou me diz o nome do produto.",
           prices: []
@@ -25877,7 +25912,7 @@ export default async function handler(req, res) {
       console.log("📸 Produto identificado pela imagem:", identified);
       console.log("🔎 Busca gerada pela imagem:", imageSearchQuery);
 
-      let imageProducts = await fetchSerpPrices(imageSearchQuery, 10);
+      let imageProducts = await fetchGoogleShoppingLegacyResult(imageSearchQuery, 10);
 
       imageProducts = Array.isArray(imageProducts)
         ? imageProducts
@@ -25888,7 +25923,7 @@ export default async function handler(req, res) {
         : [];
 
       if (!imageProducts.length) {
-        return res.status(200).json({
+        return void res.status(200).json({
           reply:
             `Identifiquei como: ${identified.productName || identified.searchQuery}.\n\n` +
             "Mas não encontrei ofertas boas agora. Tenta mandar outra foto ou escrever o modelo exato.",
@@ -25907,7 +25942,7 @@ export default async function handler(req, res) {
 
       const bestImageProduct = imageProducts[0];
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply:
           `Pela imagem, parece ser: ${identified.productName || identified.searchQuery}.\n\n` +
           `Achei algumas ofertas relacionadas. A melhor opção que apareceu agora foi ${cleanTitle(bestImageProduct.product_name)}.`,
@@ -25943,7 +25978,7 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error("Erro no fluxo de imagem:", err);
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply:
           "Tive um problema ao analisar essa imagem. Tenta enviar de novo ou escrever o nome do produto.",
         prices: []
@@ -26095,7 +26130,7 @@ if (lockedComparisonContextFromSession) {
     const _resetClearedSession = buildLegitimateSearchResetSessionContext({
       lastQuery: query,
     });
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       _resetRoutingDecision,
@@ -26897,7 +26932,7 @@ if (lockedComparisonContextFromSession) {
       lastComparisonProducts: _sessionForPostChangeRecovery.lastComparisonProducts || [],
     };
 
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -26963,7 +26998,7 @@ if (lockedComparisonContextFromSession) {
       lastComparisonProducts: _sessionForFinalScope.lastComparisonProducts || [],
     };
 
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -27267,7 +27302,7 @@ if (lockedComparisonContextFromSession) {
         console.log("🗣️ VERBALIZER L3 (deterministic) used");
       }
 
-      return respondWithContract(
+      return void respondWithContract(
         res,
         pipelineTracer,
         routingDecision,
@@ -27451,7 +27486,7 @@ if (lockedComparisonContextFromSession) {
     });
 
   if (!_postChangeBeatsDirectReply && !_finalScopeBeatsDirectReply) {
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -27482,7 +27517,7 @@ if (lockedComparisonContextFromSession) {
 }
 
   if (contextResolution.needsClarification) {
-    return res.status(200).json({
+    return void res.status(200).json({
       reply: contextResolution.clarificationMessage,
       prices: [],
       session_context: req.body?.session_context || {}
@@ -27554,7 +27589,7 @@ if (
     }
   )
 ) {
-  return res.status(200).json({
+  return void res.status(200).json({
         reply:
       intent === "casual_chat"
         ? buildCasualSocialReply(resolvedQuery)
@@ -28167,7 +28202,7 @@ if (_reasoningBreakdownActive) {
     lastComparisonProducts: sessionContext.lastComparisonProducts || [],
   };
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -28253,7 +28288,7 @@ if (_explanationBreakdownActive) {
     lastComparisonProducts: sessionContext.lastComparisonProducts || [],
   };
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -28309,7 +28344,7 @@ if (_decisionContextChangeActive) {
     lastDecisionReason: `prioridade: ${_changeResult.shift?.newLabel || "recalibrada"}`,
   };
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -28391,7 +28426,7 @@ if (
     incomingLastBest: req.body?.session_context?.lastBestProduct || null,
   });
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -28536,7 +28571,7 @@ const followUpComparisonPriority = comparisonIntentMode.priority || "";
       winner: decisionResult?.winner || lockedComparisonFollowUpProducts[0]
     });
 
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -28723,7 +28758,7 @@ const serializedLockedComparisonWinner =
     decisionResult?.winner || lockedComparisonFollowUpProducts[0]
   ])[0] || serializedLockedComparisonFollowUpProducts[0] || null;
 
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -28846,7 +28881,7 @@ if (isComparisonContextFollowUp(resolvedQuery, sessionContext)) {
         }
       });
 
-      return respondWithContract(
+      return void respondWithContract(
         res,
         pipelineTracer,
         routingDecision,
@@ -28953,7 +28988,7 @@ lastComparisonQuery: sessionContext.lastComparisonQuery || sessionContext.lastQu
     winnerChanged: priorityFollowUpWinnerChanged
   });
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -30025,7 +30060,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           )
         : decisionWinnerProduct;
 
-    return respondWithContract(
+    return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
@@ -30127,7 +30162,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? llmReply
           : null) || buildAboutMiaDeterministicFallback(resolvedQuery || query);
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30175,7 +30210,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredGreetingFallback(sessionContext)
           : buildFallbackReply(intent, null, period));
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30231,7 +30266,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
             ? buildOpenComprehensionSuccessFallback()
             : buildOpenComprehensionFallback()));
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30279,7 +30314,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAcknowledgementFallback(sessionContext)
           : buildOpenAcknowledgementFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30327,7 +30362,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSoftDisagreementFallback(sessionContext)
           : buildOpenSoftDisagreementFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30375,7 +30410,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredDecisionConfirmationFallback(sessionContext)
           : buildOpenDecisionConfirmationFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30423,7 +30458,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAntiRegretFallback(sessionContext)
           : buildOpenAntiRegretFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30471,7 +30506,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredConfidenceChallengeFallback(sessionContext)
           : buildOpenConfidenceChallengeFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30519,7 +30554,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSocialValidationFallback(sessionContext)
           : buildOpenSocialValidationFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30567,7 +30602,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSecondBestDiscoveryFallback(sessionContext)
           : buildOpenSecondBestDiscoveryFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30615,7 +30650,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAlternativeExplorationFallback(sessionContext)
           : buildOpenAlternativeExplorationFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30663,7 +30698,7 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredConstraintChangeFallback(sessionContext)
           : buildOpenConstraintChangeFallback());
 
-      return res.status(200).json({
+      return void res.status(200).json({
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
         prices: [],
         session_context: hasAnchorForRouting
@@ -30784,7 +30819,7 @@ if (
     errorBeforeGuard: null,
   });
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -30909,7 +30944,7 @@ if (
   }
 }
 
-return respondWithContract(
+return void respondWithContract(
   res,
   pipelineTracer,
   routingDecision,
@@ -31012,7 +31047,7 @@ return respondWithContract(
         errorBeforeGuard: comparisonFlowError?.message || String(comparisonFlowError),
       });
 
-      return respondWithContract(
+      return void respondWithContract(
         res,
         pipelineTracer,
         routingDecision,
@@ -31059,7 +31094,7 @@ return respondWithContract(
     errorBeforeGuard: null,
   });
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -31096,7 +31131,7 @@ if (shouldSkipCommercialProductPipeline(routingDecision)) {
     ? `Sigo com ${cleanTitle(anchor.product_name)} como referência. Me diz se quer aprofundar esse produto ou mudar algum critério.`
     : "Me diz o que você quer ajustar na recomendação anterior.";
 
-  return respondWithContract(
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -31487,18 +31522,106 @@ if (Array.isArray(products) && products.length > 0) {
         winnerProduct:
           commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
         pipelineTracer,
+        governedPayloadContext: {
+          hasDataLayer: false,
+          categoryHint:
+            detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          responsePath: "commercial_only_fallback",
+          cognitiveWinnerProduct: selectedBestProduct,
+          relatedProductRole: "cognitive_context_reference",
+          relatedProductSource: "commercial_display_locked",
+        },
       });
 
-      return respondWithContract(
+      const commercialFallbackPropagation = sanitizeAccessoryCommercialPayload({
+        query: resolvedQuery,
+        winnerProduct: selectedBestProduct,
+        prices: commercialFallbackPrices,
+        reply: buildCommercialOnlyFallbackReply(
+          commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+          resolvedQuery
+        ),
+        rankedCandidates: commercialDisplayLocked,
+        selectedOfferTitle: commercialFallbackPrices[0]?.product_name || "",
+        responsePath: "commercial_only_fallback",
+      });
+
+      if (commercialFallbackPropagation.blocked) {
+        if (commercialFallbackPropagation.winnerProductForCommercial) {
+          commercialFallbackSessionContext.lastBestProduct =
+            commercialFallbackPropagation.winnerProductForCommercial;
+          commercialFallbackSessionContext.lastProductMentioned = cleanTitle(
+            commercialFallbackPropagation.winnerProductForCommercial.product_name || ""
+          );
+        } else {
+          commercialFallbackSessionContext.lastBestProduct = null;
+          commercialFallbackSessionContext.lastProductMentioned = "";
+        }
+        pipelineTracer.patch({
+          accessory_cognitive_winner_propagation: buildAccessoryWinnerPropagationDiagnostics(
+            commercialFallbackPropagation
+          ),
+        });
+      }
+
+      const commercialFallbackPricesFinal =
+        commercialFallbackPropagation.prices || commercialFallbackPrices;
+
+      const governedFallbackContractVerbalization =
+        resolveUniversalFallbackPromptContractVerbalization({
+          query: resolvedQuery,
+          payloadInput: {
+            query: resolvedQuery,
+            selectedProduct:
+              commercialFallbackPricesFinal?.[0] ||
+              commercialFallbackSessionContext.lastBestProduct ||
+              selectedBestProduct,
+            hasDataLayer: false,
+            categoryHint:
+              detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+            responsePath: "commercial_only_fallback",
+            cognitiveWinnerProduct: selectedBestProduct,
+            relatedProductRole: "cognitive_context_reference",
+            relatedProductSource: "commercial_display_locked",
+          },
+        });
+
+      if (governedFallbackContractVerbalization.applied) {
+        const fallbackSignals = buildUniversalCategorySignals({
+          query: resolvedQuery,
+          governedFallbackPayload: governedFallbackContractVerbalization.payload,
+          universalGovernedFallbackReasoning: governedFallbackContractVerbalization.reasoning,
+        });
+
+        pipelineTracer.patch(
+          buildCommercialFallbackPipelineObservabilityPatch({
+            payload: governedFallbackContractVerbalization.payload,
+            reasoning: governedFallbackContractVerbalization.reasoning,
+            signals: fallbackSignals,
+            contract: governedFallbackContractVerbalization.contract,
+            contractDiagnostics: governedFallbackContractVerbalization.diagnostics,
+            propagationDiagnostics: buildAccessoryWinnerPropagationDiagnostics(
+              commercialFallbackPropagation
+            ),
+          })
+        );
+      }
+
+      const commercialFallbackReply = governedFallbackContractVerbalization.applied
+        ? governedFallbackContractVerbalization.reply
+        : commercialFallbackPropagation.reply ||
+          buildCommercialOnlyFallbackReply(
+            commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+            resolvedQuery
+          );
+
+      return void respondWithContract(
         res,
         pipelineTracer,
         routingDecision,
         {
-          reply: buildCommercialOnlyFallbackReply(
-            commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
-            resolvedQuery
-          ),
-          prices: commercialFallbackPrices,
+          reply: commercialFallbackReply,
+          prices: commercialFallbackPricesFinal,
           mia_debug: {
             commercialOnlyFallback: true,
             dataLayerUsed: false,
@@ -31541,11 +31664,15 @@ if (Array.isArray(products) && products.length > 0) {
           firstAnswerContext: {
             query: resolvedQuery,
             winnerProduct:
-              commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+              commercialFallbackPropagation.winnerProductForCommercial ||
+              commercialFallbackSessionContext.lastBestProduct ||
+              selectedBestProduct,
             presentation: null,
-            rankedCandidates: Array.isArray(commercialDisplayLocked)
-              ? commercialDisplayLocked.slice(0, 12)
-              : [],
+            rankedCandidates: commercialFallbackPropagation.rankedCandidates?.length
+              ? commercialFallbackPropagation.rankedCandidates
+              : Array.isArray(commercialDisplayLocked)
+                ? commercialDisplayLocked.slice(0, 12)
+                : [],
             primaryAxis: activePriority || "",
             querySignals: earlyQuerySignals,
             specificProductLockActive: !!specificProductLock?.active,
@@ -31570,7 +31697,7 @@ if (Array.isArray(products) && products.length > 0) {
     intent !== "comparison" &&
     !routingDecision.allowNewSearch
   ) {
-    return res.status(200).json(
+    return void res.status(200).json(
       pipelineTracer.enrichResponse(
         {
           reply: buildMiaSearchGuideReply(resolvedQuery, earlyQuerySignals),
@@ -31684,7 +31811,7 @@ if (Array.isArray(products) && products.length > 0) {
   }
 
   if (commercialOfferReset.shouldReset && !selectedBestProduct) {
-    return res.status(200).json(
+    return void res.status(200).json(
       pipelineTracer.enrichResponse(
         {
           reply: buildCommercialNoResultReply(resolvedQuery),
@@ -32171,6 +32298,19 @@ if (Array.isArray(products) && products.length > 0) {
             winner: selectedBestProduct,
             legacyOffer: selectedBestProduct,
           }),
+          ...(shadowExecution.pipelineResult?.trace?.costGuardTrace || {}),
+          ...(shadowExecution.pipelineResult?.trace?.commercial_request_deduplication
+            ? {
+                commercial_request_deduplication:
+                  shadowExecution.pipelineResult.trace.commercial_request_deduplication,
+              }
+            : {}),
+          ...(shadowExecution.pipelineResult?.trace?.conditional_provider_fetch
+            ? {
+                conditional_provider_fetch:
+                  shadowExecution.pipelineResult.trace.conditional_provider_fetch,
+              }
+            : {}),
         });
       }
     } catch {
@@ -32267,9 +32407,20 @@ if (Array.isArray(products) && products.length > 0) {
     })),
     winnerProduct: selectedBestProduct,
     pipelineTracer,
+    commercialRequestDedupContext,
   });
 
-  return respondWithContract(
+  const commercialRequestDedupTracePatch = buildCommercialRequestDedupTracePatch(
+    commercialRequestDedupContext
+  );
+  if (commercialRequestDedupTracePatch) {
+    pipelineTracer.patch(commercialRequestDedupTracePatch);
+  }
+  pipelineTracer.patch(buildUniversalCommercialCacheTracePatch());
+  pipelineTracer.patch(buildConditionalProviderFetchTracePatch());
+  pipelineTracer.patch(buildProviderBudgetCircuitTracePatch());
+
+  return void respondWithContract(
     res,
     pipelineTracer,
     routingDecision,
@@ -32411,7 +32562,7 @@ if (!Array.isArray(products) || !products.length) {
   console.warn("🚫 Sem produtos mesmo após fallback inteligente");
 
   if (commercialOfferReset.shouldReset) {
-    return res.status(200).json(
+    return void res.status(200).json(
       pipelineTracer.enrichResponse(
         {
           reply: buildCommercialNoResultReply(resolvedQuery),
@@ -32448,7 +32599,7 @@ if (!Array.isArray(products) || !products.length) {
       console.warn("🧩 FALLBACK COMERCIAL LOCAL ATIVADO:", localFallbackProducts.length);
       products = localFallbackProducts;
     } else {
-      return res.status(200).json({
+      return void res.status(200).json({
         reply:
           "Não consegui buscar ofertas reais agora. Melhor eu não te recomendar um produto no chute.\n\nTenta novamente em alguns instantes que eu faço a busca certinha com preço e opção real.",
         prices: []
@@ -32681,7 +32832,7 @@ let rankedProducts = rankingSmartBase
         for (const part of parts) {
   if (isDecisionIntent) continue; // 🔥 trava
 
-  const results = await fetchSerpPrices(part.trim(), 3);
+  const results = await fetchGoogleShoppingLegacyResult(part.trim(), 3);
   const categorySafeResults = filterProductsByLockedCategory(results, resolvedQuery);
   const safeResults = results.filter(p => productMatchesCategory(p, categoryFromContext));
   fallbackProducts.push(...safeResults);
@@ -33040,7 +33191,7 @@ console.log("🧠 PERSISTENT ARGUMENT MEMORY UPDATE:", {
     decisionResult?.miaArgumentMemoryUpdate?.repetitionPressure || "low"
 });
 
-return respondWithContract(
+return void respondWithContract(
   res,
   pipelineTracer,
   routingDecision,
@@ -33312,7 +33463,7 @@ if (!finalProducts || finalProducts.length === 0) {
   const impossiblePurchase = detectImpossiblePurchase(resolvedQuery);
 
   if (impossiblePurchase) {
-    return res.status(200).json({
+    return void res.status(200).json({
       reply: impossiblePurchase.reply,
       prices: [],
       session_context: {
@@ -33477,7 +33628,7 @@ if (weakPurchaseRange) {
     `Entre o que apareceu, o card abaixo foi a opção mais próxima que encontrei, mas eu trataria como alternativa com ressalvas — não como recomendação forte.`;
 
   // 🔒 TRAVA PARA NÃO SOBRESCREVER O ALERTA
-  return res.status(200).json({
+  return void res.status(200).json({
     reply,
     prices: productsToShow,
     session_context: {
@@ -34085,7 +34236,7 @@ const legacyCommercialPrices = await applyCommercialRuntimeActivationToResponseP
   pipelineTracer,
 });
 
-return respondWithContract(
+return void respondWithContract(
   res,
   pipelineTracer,
   routingDecision,
@@ -34140,7 +34291,7 @@ return respondWithContract(
 } catch (err) {
   console.error("chat-gpt4o.js error:", err);
 
-    return res.status(500).json({
+    return void res.status(500).json({
       reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
       prices: []
     });

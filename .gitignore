@@ -1,8 +1,16 @@
-node_modules/
+﻿node_modules/
 .next/
-.env.local
+.vercel/
+
+.env
+.env.*
+!.env.example
+
+tmp/
 
 *.log
+*.pem
+*.key
 
 audit-matrix-after-stderr.txt
 audit-matrix-output-after.json

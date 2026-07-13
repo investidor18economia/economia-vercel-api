@@ -1,34 +1,23 @@
 /**
- * PATCH Comercial 2D — inicia OAuth Mercado Livre (isolado)
+ * PATCH Comercial 05J.4 — inicia OAuth Mercado Livre (state-protected)
  */
 
-import {
-  buildMercadoLivreAuthorizationUrl,
-  validateMercadoLivreOAuthEnv,
-} from "../../../../lib/productSourceAdapter/adapters/mercadoLivreOAuth.js";
+import { buildMercadoLivreOAuthStartResult } from "../../../../lib/productSourceAdapter/adapters/mercadoLivreOAuth.js";
 
 export default function handler(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ ok: false, error: "method_not_allowed" });
+    return res.status(405).json({ ok: false, errorCode: "method_not_allowed" });
   }
 
-  const validation = validateMercadoLivreOAuthEnv(process.env);
-  if (!validation.ok) {
-    return res.status(503).json({
-      ok: false,
-      error: "missing_env",
-      missing: validation.missing,
-    });
+  const result = buildMercadoLivreOAuthStartResult({ env: process.env });
+
+  for (const [headerName, headerValue] of Object.entries(result.headers || {})) {
+    if (headerValue != null) res.setHeader(headerName, headerValue);
   }
 
-  const authorization = buildMercadoLivreAuthorizationUrl(process.env);
-  if (!authorization.ok || !authorization.url) {
-    return res.status(503).json({
-      ok: false,
-      error: authorization.error || "authorization_url_failed",
-    });
+  if (result.body) {
+    return res.status(result.statusCode).json(result.body);
   }
 
-  res.writeHead(302, { Location: authorization.url });
-  res.end();
+  return res.status(result.statusCode).end();
 }

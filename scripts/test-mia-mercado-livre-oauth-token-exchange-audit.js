@@ -182,8 +182,8 @@ test("oauth routes are isolated and cognitive/commercial flow untouched", () => 
     "utf8"
   );
 
-  assert(startRoute.includes("buildMercadoLivreAuthorizationUrl"), "start uses oauth builder");
-  assert(callbackRoute.includes("exchangeMercadoLivreAuthorizationCode"), "callback exchanges code");
+  assert(startRoute.includes("buildMercadoLivreOAuthStartResult"), "start uses secure oauth builder");
+  assert(callbackRoute.includes("processMercadoLivreOAuthCallback"), "callback uses secure oauth processor");
   assert(!startRoute.includes("MERCADOLIVRE_CLIENT_SECRET"), "start must not expose secret literal");
   assert(!callbackRoute.includes("MERCADOLIVRE_CLIENT_SECRET"), "callback must not expose secret literal");
 

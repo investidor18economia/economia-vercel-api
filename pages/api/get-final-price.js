@@ -1,6 +1,12 @@
 // pages/api/get-final-price.js
 import { createClient } from "@supabase/supabase-js";
-import { fetchSerpPrices } from "../../lib/prices"; // já tem no projeto
+import { fetchGoogleShoppingAdapterResult } from "../../lib/productSourceAdapter/adapters/googleShoppingAdapter.js";
+import {
+  evaluateDevCommercialExecutionPermission,
+} from "../../lib/commercial/devCommercialCostGuard.js";
+import { buildFunctionalProviderCostGuardContext } from "../../lib/commercial/providerCostGuard.js";
+import { getCommercialRuntimeMode } from "../../lib/productSourceAdapter/commercialRuntimeMode.js";
+import { COMMERCIAL_PROVIDER_IDS } from "../../lib/productSourceAdapter/commercialProviderRegistry.js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,11 +29,43 @@ export default async function handler(req, res) {
     // function to normalize name for matching
     const normalize = s => (s || "").toString().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
+    const isProduction = String(process.env.NODE_ENV || "").toLowerCase() === "production";
+
+    async function fetchSerpPricesWithCommercialGuard(searchQuery, limit = 5) {
+      const costGuardContext = buildFunctionalProviderCostGuardContext({
+        invocationSource: "get_final_price",
+        runtimeMode: getCommercialRuntimeMode(),
+      });
+
+      if (!isProduction) {
+        const permission = evaluateDevCommercialExecutionPermission({
+          req,
+          providerId: COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING,
+          invocationSource: "dev_get_final_price",
+          isNonProductionExternalCall: true,
+          plannedRequest: { query: searchQuery, limit },
+        });
+
+        if (permission.shouldReturnDryRun === true) {
+          return [];
+        }
+      }
+
+      const adapterResult = await fetchGoogleShoppingAdapterResult({
+        query: searchQuery,
+        limit,
+        costGuardContext,
+        invocationLayer: "get_final_price",
+      }).catch(() => ({ ok: false, products: [] }));
+
+      return Array.isArray(adapterResult?.products) ? adapterResult.products : [];
+    }
+
     // If items not provided, query SerpAPI to get a single product price candidate
     let searchItems = items;
     if (!searchItems || searchItems.length === 0) {
       // try fetchSerpPrices, return best single product
-      const serp = await fetchSerpPrices(query || "", 5).catch(()=>[]);
+      const serp = await fetchSerpPricesWithCommercialGuard(query || "", 5);
       if (serp && serp.length) {
         searchItems = serp.slice(0,1).map(p => ({ name: p.product_name || p.title || query, qty: 1, price: p.price }));
       } else {
@@ -56,7 +94,7 @@ export default async function handler(req, res) {
           chosen = { price: Number(it.price), name: it.name };
         } else {
           // fallback: try SerpAPI per item (cheap, optional)
-          const serpRes = await fetchSerpPrices(it.name, 5).catch(()=>[]);
+          const serpRes = await fetchSerpPricesWithCommercialGuard(it.name, 5);
           if (serpRes && serpRes.length) {
             // attempt to find candidate in same marketplace via link or store name
             const candidate = serpRes.find(p => (p.source||"").toLowerCase().includes(m.name.toLowerCase())) || serpRes[0];
