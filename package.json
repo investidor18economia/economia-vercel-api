@@ -13,7 +13,10 @@
     "test:mia:11b4:mobile": "node scripts/test-mia-11b4-browser-validation.mjs --group mobile",
     "test:mia:11b4:browser": "node scripts/test-mia-11b4-browser-validation.mjs",
     "test:mia:11b4:all": "node scripts/test-mia-11b4-runner-observability.js && node scripts/test-mia-11b4-final-conversational-validation.mjs && node scripts/test-mia-11b4-browser-validation.mjs",
-    "test:mia:11c:polish": "node scripts/test-mia-conversation-polish.js"
+    "test:mia:11c:polish": "node scripts/test-mia-conversation-polish.js",
+    "test:mia:12b:rate-limit": "node scripts/test-mia-perimeter-rate-limit.js",
+    "test:mia:12b:proxy": "node scripts/test-mia-mia-chat-proxy-contract.js",
+    "test:mia:12b:perimeter": "node scripts/test-mia-perimeter-rate-limit.js && node scripts/test-mia-mia-chat-proxy-contract.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

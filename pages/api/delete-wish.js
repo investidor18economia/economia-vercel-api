@@ -14,13 +14,6 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  // optional internal protection
-  const clientKey = req.headers["x-api-key"] || "";
-  if (process.env.API_SHARED_KEY && clientKey !== process.env.API_SHARED_KEY) {
-    // allow if not set, but if set require it
-    return res.status(403).json({ error: "invalid_api_key" });
-  }
-
   try {
     const { id, user_id } = req.body || {};
     if (!id) return res.status(400).json({ error: "id is required" });

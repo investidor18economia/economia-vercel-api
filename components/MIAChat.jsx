@@ -1156,7 +1156,6 @@ useEffect(() => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": MIA_API_KEY,
         },
         body: JSON.stringify({
           text: text || "",
@@ -1182,8 +1181,6 @@ useEffect(() => {
     "Quer que eu ache um custo-benefício top? 🔍",
     "Posso monitorar outros preços pra você! 🔔"
   ];
-
-  const MIA_API_KEY = "minha_chave_181199";
 
   function mapWishToFavorite(wish = {}) {
     return {
@@ -1443,7 +1440,6 @@ useEffect(() => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": MIA_API_KEY,
         },
         body: JSON.stringify({
           id: favorite.id,
@@ -1468,9 +1464,7 @@ useEffect(() => {
 
   useEffect(() => {
     if (user?.id) {
-      fetch(`/api/list-wish?user_id=${encodeURIComponent(user.id)}`, {
-        headers: { "x-api-key": MIA_API_KEY }
-      })
+      fetch(`/api/list-wish?user_id=${encodeURIComponent(user.id)}`)
         .then((r) => r.json())
         .then((data) => {
           if (data.success) {
@@ -2034,11 +2028,10 @@ useEffect(() => {
         const messagesForApi = buildMessagesForApi(history, pergunta);
 
         try {
-          const resp = await fetch("/api/chat-gpt4o", {
+          const resp = await fetch("/api/mia-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": "minha_chave_181199"
         },
        body: JSON.stringify({
   text: pergunta || "",
@@ -2203,11 +2196,10 @@ useEffect(() => {
     });
     
     try {
-      const resp = await fetch("/api/chat-gpt4o", {
+      const resp = await fetch("/api/mia-chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": "minha_chave_181199"
         },
         body: JSON.stringify({
   text: pergunta || "",
@@ -2367,7 +2359,6 @@ function detectPriorityFromText(text = "") {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": MIA_API_KEY
         },
         body: JSON.stringify({
           user_id: actingUser.id,
@@ -2446,7 +2437,6 @@ function detectPriorityFromText(text = "") {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": MIA_API_KEY
       },
       body: JSON.stringify({
         user_id: actingUser.id,

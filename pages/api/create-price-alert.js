@@ -4,16 +4,9 @@ import {
   normalizePriceAlertProductKey,
 } from "../../lib/miaPriceAlertsSafety.js";
 
-const API_SHARED_KEY = process.env.API_SHARED_KEY;
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const clientKey = (req.headers["x-api-key"] || "").toString();
-  if (!API_SHARED_KEY || clientKey !== API_SHARED_KEY) {
-    return res.status(401).json({ error: "invalid_api_key" });
   }
 
   try {

@@ -95,7 +95,7 @@ async function runViewportCases(viewportLabel, viewport, groupName) {
         const input = page.locator(".mia-input");
         await input.waitFor({ state: "visible", timeout: 30000 });
         const respP = page.waitForResponse(
-          (r) => r.url().includes("/api/chat-gpt4o") && r.request().method() === "POST",
+          (r) => r.url().includes("/api/mia-chat") && r.request().method() === "POST",
           { timeout: TIMEOUTS.BROWSER_RESPONSE }
         );
         await input.fill(text);
