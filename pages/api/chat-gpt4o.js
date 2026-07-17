@@ -150,6 +150,8 @@ import {
   intentRecognitionToTrace,
   recognizeMiaIntent,
   MIA_INTERACTION_MODES,
+  detectConversationalEntityMentionFrame,
+  shouldTreatCategoryMentionAsCommercialSignal,
 } from "../../lib/miaIntentRecognitionLayer.js";
 import {
   applyIntentAuthorityToPipeline,
@@ -27908,7 +27910,10 @@ if (lockedComparisonContextFromSession) {
       wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
       newBudgetInOriginalMessage: !!budgetRawQueryEarly,
       newCategoryInOriginalMessage:
-        !!detectProductCategory(query) && !sessionContext.lastCategory,
+        shouldTreatCategoryMentionAsCommercialSignal(query, {
+          hasBudget: !!budgetRawQueryEarly,
+          hasCategory: !!detectProductCategory(query),
+        }) && !sessionContext.lastCategory,
       priorityChangeReopen: contextResolution.mode === "priority_change_reopen",
       lockedComparisonFollowUp: !!contextResolution.lockedComparisonFollowUp
     }
@@ -27973,7 +27978,10 @@ if (lockedComparisonContextFromSession) {
         wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
         newBudgetInOriginalMessage: !!budgetRawQueryEarly,
         newCategoryInOriginalMessage:
-          !!detectProductCategory(query) && !sessionContext.lastCategory,
+          shouldTreatCategoryMentionAsCommercialSignal(query, {
+            hasBudget: !!budgetRawQueryEarly,
+            hasCategory: !!detectProductCategory(query),
+          }) && !sessionContext.lastCategory,
       },
       cognitiveTurn: cognitiveTurnEarly,
       hasActiveAnchor: hasAnchorForRouting,
@@ -28031,7 +28039,10 @@ if (lockedComparisonContextFromSession) {
         wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
         newBudgetInOriginalMessage: !!budgetRawQueryEarly,
         newCategoryInOriginalMessage:
-          !!detectProductCategory(query) && !sessionContext.lastCategory,
+          shouldTreatCategoryMentionAsCommercialSignal(query, {
+            hasBudget: !!budgetRawQueryEarly,
+            hasCategory: !!detectProductCategory(query),
+          }) && !sessionContext.lastCategory,
       });
 
       if (!authoritySignals.hasClearNewCommercialSearch) {
@@ -30010,7 +30021,10 @@ const _routingSignalsForRebuild = suppressCommercialSignalsForAuthority(intentAu
   wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
   newBudgetInOriginalMessage: !!budgetRawQuery,
   newCategoryInOriginalMessage:
-    !!detectProductCategory(query) && !sessionContext.lastCategory,
+    shouldTreatCategoryMentionAsCommercialSignal(query, {
+      hasBudget: !!budgetRawQuery,
+      hasCategory: !!detectProductCategory(query),
+    }) && !sessionContext.lastCategory,
   priorityChangeReopen: contextResolution.mode === "priority_change_reopen",
   lockedComparisonFollowUp: !!contextResolution.lockedComparisonFollowUp
 });
