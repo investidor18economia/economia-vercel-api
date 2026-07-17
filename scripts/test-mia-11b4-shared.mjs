@@ -1,5 +1,5 @@
 /**
- * PATCH 11B.4 — Shared helpers for final conversational validation
+ * PATCH 11B.4 / 11B.4.1 — Shared helpers for final conversational validation
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -18,6 +18,21 @@ export function loadEnvKey() {
   const raw = fs.readFileSync(envPath, "utf8");
   const match = raw.match(/^API_SHARED_KEY=(.+)$/m);
   return (match?.[1] || process.env.API_SHARED_KEY || "").trim() || null;
+}
+
+export async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const started = Date.now();
+  try {
+    const resp = await fetch(url, { ...options, signal: controller.signal });
+    return { resp, durationMs: Date.now() - started, timedOut: false, error: null };
+  } catch (error) {
+    const timedOut = error?.name === "AbortError";
+    return { resp: null, durationMs: Date.now() - started, timedOut, error };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function extractMetrics(data, status) {
@@ -55,6 +70,9 @@ export function extractMetrics(data, status) {
     desiredAttributes: lcc?.desiredAttributes || [],
     rankingLen: Array.isArray(sc?.lastRankingSnapshot) ? sc.lastRankingSnapshot.length : 0,
     ms: 0,
+    parseError: false,
+    networkError: null,
+    timedOut: false,
   };
 }
 
@@ -67,39 +85,60 @@ export class ConversationSession {
     this.turns = [];
   }
 
-  async send(apiKey, text) {
-    const started = Date.now();
-    const resp = await fetch(PROD_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
-      body: JSON.stringify({
-        text,
-        user_id: this.userId,
-        conversation_id: this.conversationId,
-        messages: this.messages,
-        session_context: this.sessionContext,
-      }),
-    });
+  async send(apiKey, text, { timeoutMs = 45000 } = {}) {
+    const { resp, durationMs, timedOut, error } = await fetchWithTimeout(
+      PROD_API,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+        body: JSON.stringify({
+          text,
+          user_id: this.userId,
+          conversation_id: this.conversationId,
+          messages: this.messages,
+          session_context: this.sessionContext,
+        }),
+      },
+      timeoutMs
+    );
+
+    if (!resp) {
+      const m = extractMetrics({}, null);
+      m.ms = durationMs;
+      m.timedOut = timedOut;
+      m.networkError = error;
+      m.http200 = false;
+      const turn = { text, data: {}, ...m };
+      this.turns.push(turn);
+      return { data: {}, ...turn };
+    }
+
     const rawText = await resp.text();
     let data = {};
+    let parseError = false;
     try {
       data = rawText ? JSON.parse(rawText) : {};
     } catch {
-      data = { reply: "", parseError: true };
+      data = { reply: "" };
+      parseError = true;
     }
     const m = extractMetrics(data, resp.status);
-    m.ms = Date.now() - started;
+    m.ms = durationMs;
+    m.parseError = parseError;
+    m.timedOut = timedOut;
+    m.networkError = error;
     if (data?.session_context) this.sessionContext = data.session_context;
     const reply = m.reply;
     if (text) this.messages.push({ role: "user", content: text });
     if (reply) this.messages.push({ role: "assistant", content: reply });
     if (this.messages.length > 24) this.messages = this.messages.slice(-24);
-    const turn = { text, ...m };
+    const turn = { text, data, ...m };
     this.turns.push(turn);
     return { data, ...turn };
   }
 }
 
+/** @deprecated Use ValidationRunner from test-mia-11b4-observability.mjs */
 export function createReporter(label) {
   const results = [];
   function record(name, pass, detail = {}) {

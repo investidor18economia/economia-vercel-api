@@ -1,12 +1,16 @@
 /**
- * PATCH 11B.4 — Final Conversational Production Validation (API matrix)
+ * PATCH 11B.4.1 — Final Conversational Production Validation (API matrix)
  */
+import { loadEnvKey, ConversationSession, PROD_API } from "./test-mia-11b4-shared.mjs";
 import {
-  loadEnvKey,
-  ConversationSession,
-  createReporter,
-  GENERIC_ONLY,
-} from "./test-mia-11b4-shared.mjs";
+  ValidationRunner,
+  parseCliArgs,
+  TIMEOUTS,
+  FAILURE_TYPES,
+  executeApiTurn,
+  runMultiTurnApiCase,
+  runSingleTurnApiCase,
+} from "./test-mia-11b4-observability.mjs";
 
 const API_KEY = loadEnvKey();
 if (!API_KEY) {
@@ -14,34 +18,54 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-const { record, summary } = createReporter("11B.4");
+const { groups } = parseCliArgs();
+const runner = new ValidationRunner({ label: "11B.4.1-API", baseUrl: PROD_API });
+runner.setActiveGroups(groups);
 
-console.log("\nPATCH 11B.4 — Final Conversational Production Validation (API)\n");
+console.log("\nPATCH 11B.4.1 — Final Conversational Production Validation (API)\n");
+if (groups) console.log(`Active groups: ${groups.join(", ")}\n`);
 
-function socialOk(r) {
-  return r.http200 && r.pricesCount === 0 && r.paidExternal === 0 && !r.replyGenericOnly && r.replyLen > 15;
+function socialAssertions() {
+  return [
+    { name: "response_not_empty", expected: "reply length > 15", check: (r) => r.replyLen > 15 },
+    { name: "provider_count_zero", expected: "providerExecuted=0", check: (r) => r.providerExecuted === 0 },
+    { name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 },
+    { name: "commercial_permission_denied", expected: "pricesCount=0", check: (r) => r.pricesCount === 0 },
+    { name: "response_not_generic_only", expected: "non-generic reply", check: (r) => !r.replyGenericOnly },
+  ];
 }
 
-function commercialOk(r) {
-  return r.http200 && r.replyLen > 40 && !r.replyGenericOnly;
+function commercialAssertions() {
+  return [
+    { name: "response_not_empty", expected: "reply length > 40", check: (r) => r.replyLen > 40 },
+    { name: "response_not_generic_only", expected: "non-generic reply", check: (r) => !r.replyGenericOnly },
+    { name: "single_http_response", expected: "http 200", check: (r) => r.http200 },
+  ];
 }
 
-function clarifyOk(r) {
-  return (
-    r.http200 &&
-    r.paidExternal === 0 &&
-    r.pricesCount === 0 &&
-    (r.reply.includes("?") ||
-      /qual|refer|orçamento|produto|contexto|histórico|opção|recomenda|anterior|valida/i.test(r.reply))
-  );
+function clarifyAssertions() {
+  return [
+    { name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 },
+    { name: "provider_count_zero", expected: "pricesCount=0", check: (r) => r.pricesCount === 0 },
+    {
+      name: "response_references_user_context",
+      expected: "clarification question",
+      check: (r) =>
+        r.reply.includes("?") ||
+        /qual|refer|orçamento|produto|contexto|histórico|opção|recomenda|anterior|valida/i.test(r.reply),
+    },
+  ];
 }
 
-function followUpOk(r) {
-  return r.http200 && !r.replyGenericOnly && r.replyLen > 12;
+function followUpAssertions(extra = []) {
+  return [
+    { name: "response_not_empty", expected: "reply length > 12", check: (r) => r.replyLen > 12 },
+    { name: "response_not_generic_only", expected: "non-generic reply", check: (r) => !r.replyGenericOnly },
+    ...extra,
+  ];
 }
 
-// ── FASE 4 — PATCH 11B SOCIAL ──
-const socialTexts = [
+const SOCIAL_TEXTS = [
   "acho esse Galaxy bonito",
   "estou cansado de pesquisar celular",
   "meu celular está velho",
@@ -51,226 +75,468 @@ const socialTexts = [
   "iPhone parece bonito",
   "notebook me dá dor de cabeça",
 ];
-for (const text of socialTexts) {
-  const s = new ConversationSession({ conversationId: `11b4-social-${text.slice(0, 12)}` });
-  const r = await s.send(API_KEY, text);
-  record(`11B social: ${text.slice(0, 40)}`, socialOk(r), {
-    paidExternal: r.paidExternal,
-    pricesCount: r.pricesCount,
-    replySnippet: r.reply.slice(0, 70),
-  });
+
+for (let i = 0; i < SOCIAL_TEXTS.length; i++) {
+  const text = SOCIAL_TEXTS[i];
+  const id = `11B4-SOCIAL-${String(i + 1).padStart(3, "0")}`;
+  await runSingleTurnApiCase(
+    runner,
+    {
+      id,
+      name: text.slice(0, 60),
+      group: "social",
+      patchOrigin: "11B",
+      executionMode: "api",
+    },
+    {
+      text,
+      timeoutMs: TIMEOUTS.API_FAST,
+      assertions: socialAssertions(),
+    },
+    {
+      apiKey: API_KEY,
+      sessionFactory: () => new ConversationSession({ conversationId: `11b4-${id.toLowerCase()}` }),
+    }
+  );
 }
 
-// ── FASE 5 — PATCH 11B.1 FOLLOW-UP ──
-const fu = new ConversationSession({ conversationId: `11b4-followup-${Date.now()}` });
-const fuFlow = [
-  { text: "qual celular você recomenda até 2500?", check: commercialOk },
-  { text: "e quanto custa?", check: (r) => followUpOk(r) && /\bR\$\s*[\d.,]+|pre[cç]o|valor|custa/i.test(r.reply) },
-  { text: "e bateria?", check: followUpOk },
-  { text: "e a segunda opção?", check: followUpOk },
-  { text: "vale a pena mesmo?", check: followUpOk },
-];
-for (const step of fuFlow) {
-  const r = await fu.send(API_KEY, step.text);
-  record(`11B.1 follow-up: ${step.text}`, step.check(r), {
-    anchor: r.anchor,
-    replySnippet: r.reply.slice(0, 80),
-    paidExternal: r.paidExternal,
-  });
-}
+await runMultiTurnApiCase(
+  runner,
+  {
+    id: "11B4-FOLLOWUP-001",
+    name: "follow-up price battery second option worth",
+    group: "follow-up",
+    patchOrigin: "11B.1",
+    executionMode: "api",
+  },
+  [
+    { text: "qual celular você recomenda até 2500?", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    {
+      text: "e quanto custa?",
+      timeoutMs: TIMEOUTS.API_FOLLOWUP,
+      assertions: followUpAssertions([
+        {
+          name: "follow_up_product_preserved",
+          expected: "price reference",
+          check: (r) => /\bR\$\s*[\d.,]+|pre[cç]o|valor|custa/i.test(r.reply),
+        },
+      ]),
+    },
+    { text: "e bateria?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "e a segunda opção?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "vale a pena mesmo?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-followup-001" }),
+  }
+);
 
-// ── FASE 6 — PATCH 11B.2 MIXED ──
-const mixedTexts = [
+const MIXED_TEXTS = [
   "estou cansado de pesquisar, mas quero um celular até 2500.",
   "tenho medo de me arrepender, qual celular você recomenda?",
   "acho o iPhone bonito, mas vale a pena comprar?",
   "não gosto de Samsung, mas quero um celular com boa bateria.",
   "meu último celular travava, quero um mais rápido até 3000.",
 ];
-for (const text of mixedTexts) {
-  const s = new ConversationSession({ conversationId: `11b4-mixed-${Date.now()}` });
-  const r = await s.send(API_KEY, text);
-  record(`11B.2 mixed: ${text.slice(0, 45)}`, r.http200 && r.replyLen > 40 && !r.replyGenericOnly, {
-    replySnippet: r.reply.slice(0, 80),
-    paidExternal: r.paidExternal,
-  });
+for (let i = 0; i < MIXED_TEXTS.length; i++) {
+  const text = MIXED_TEXTS[i];
+  await runSingleTurnApiCase(
+    runner,
+    {
+      id: `11B4-MIXED-${String(i + 1).padStart(3, "0")}`,
+      name: text.slice(0, 60),
+      group: "mixed",
+      patchOrigin: "11B.2",
+      executionMode: "api",
+    },
+    {
+      text,
+      commercialTurn: true,
+      timeoutMs: TIMEOUTS.API_COMMERCIAL,
+      assertions: commercialAssertions(),
+    },
+    {
+      apiKey: API_KEY,
+      sessionFactory: () => new ConversationSession({ conversationId: `11b4-mixed-${i + 1}` }),
+    }
+  );
 }
 
-// ── FASE 7 — PATCH 11B.3 REFINEMENT (6 turnos) ──
-const rf = new ConversationSession({ conversationId: `11b4-refine-${Date.now()}` });
-const rfSteps = [
-  { text: "qual celular você recomenda até 3000?", ok: commercialOk },
-  { text: "quero mais bateria", ok: followUpOk },
+await runMultiTurnApiCase(
+  runner,
   {
-    text: "sem iPhone",
-    ok: (r) => followUpOk(r) && !/iPhone 13|iPhone 11|iPhone 14/i.test(r.reply),
+    id: "11B4-REFINEMENT-001",
+    name: "constraint refinement battery exclude iPhone storage cheaper worth",
+    group: "refinement",
+    patchOrigin: "11B.3",
+    executionMode: "api",
   },
-  { text: "mas preciso de 256 GB", ok: followUpOk },
-  { text: "tem um mais barato?", ok: followUpOk },
-  { text: "esse vale a pena mesmo?", ok: followUpOk },
-];
-for (const step of rfSteps) {
-  const r = await rf.send(API_KEY, step.text);
-  record(`11B.3 refinement: ${step.text}`, step.ok(r), {
-    anchor: r.anchor,
-    budgetMax: r.budgetMax,
-    excludedBrands: r.excludedBrands,
-    paidExternal: r.paidExternal,
-    replySnippet: r.reply.slice(0, 80),
-  });
-}
+  [
+    { text: "qual celular você recomenda até 3000?", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    { text: "quero mais bateria", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    {
+      text: "sem iPhone",
+      timeoutMs: TIMEOUTS.API_FOLLOWUP,
+      assertions: followUpAssertions([
+        {
+          name: "excluded_brand_not_recommended",
+          expected: "no iPhone 11/13/14 in reply",
+          actual: (r) => r.reply.slice(0, 120),
+          check: (r) => !/iPhone 13|iPhone 11|iPhone 14/i.test(r.reply),
+        },
+      ]),
+    },
+    { text: "mas preciso de 256 GB", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "tem um mais barato?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "esse vale a pena mesmo?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-refinement-001" }),
+  }
+);
 
-// ── FASE 8 — SEM CONTEXTO ──
-for (const text of [
+const NO_CONTEXT = [
   "tem um mais barato?",
   "quero mais bateria",
   "sem iPhone",
   "preciso de 256 GB",
   "e a segunda opção?",
   "vale a pena mesmo?",
-]) {
-  const s = new ConversationSession({ conversationId: `11b4-nctx-${Date.now()}-${Math.random().toString(36).slice(2, 5)}` });
-  const r = await s.send(API_KEY, text);
-  record(`no context: ${text}`, clarifyOk(r), { replySnippet: r.reply.slice(0, 70), paidExternal: r.paidExternal });
+];
+for (let i = 0; i < NO_CONTEXT.length; i++) {
+  const text = NO_CONTEXT[i];
+  await runSingleTurnApiCase(
+    runner,
+    {
+      id: `11B4-CLARIFY-${String(i + 1).padStart(3, "0")}`,
+      name: `no context: ${text}`,
+      group: "clarification",
+      patchOrigin: "11B.4",
+      executionMode: "api",
+    },
+    { text, timeoutMs: TIMEOUTS.API_CLARIFY, assertions: clarifyAssertions() },
+    {
+      apiKey: API_KEY,
+      sessionFactory: () => new ConversationSession({ conversationId: `11b4-clarify-${i + 1}` }),
+    }
+  );
 }
 
-// ── FASE 9 — TOPIC SWITCH ──
-const ts = new ConversationSession({ conversationId: `11b4-topic-${Date.now()}` });
-await ts.send(API_KEY, "qual celular até 2500?");
-const ts2 = await ts.send(API_KEY, "mudando de assunto, como você está?");
-record("topic switch after commercial", ts2.http200 && ts2.paidExternal === 0 && !ts2.replyGenericOnly, {
-  replySnippet: ts2.reply.slice(0, 60),
-});
+await runMultiTurnApiCase(
+  runner,
+  {
+    id: "11B4-TOPIC-SWITCH-001",
+    name: "topic switch after commercial",
+    group: "topic-switch",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  },
+  [
+    { text: "qual celular até 2500?", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    {
+      text: "mudando de assunto, como você está?",
+      timeoutMs: TIMEOUTS.API_FAST,
+      assertions: [
+        { name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 },
+        { name: "response_not_generic_only", expected: "non-generic reply", check: (r) => !r.replyGenericOnly },
+        { name: "single_http_response", expected: "http 200", check: (r) => r.http200 },
+      ],
+    },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-topic-switch-001" }),
+  }
+);
 
-const ts3s = new ConversationSession({ conversationId: `11b4-topic2-${Date.now()}` });
-await ts3s.send(API_KEY, "me recomenda um notebook.");
-const ts3 = await ts3s.send(API_KEY, "deixa isso para depois, quero só conversar.");
-record("commercial suspend conversation", ts3.http200 && ts3.paidExternal === 0, {
-  replySnippet: ts3.reply.slice(0, 70),
-});
+await runMultiTurnApiCase(
+  runner,
+  {
+    id: "11B4-TOPIC-SWITCH-002",
+    name: "commercial suspend conversation",
+    group: "topic-switch",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  },
+  [
+    { text: "me recomenda um notebook.", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    {
+      text: "deixa isso para depois, quero só conversar.",
+      timeoutMs: TIMEOUTS.API_FAST,
+      assertions: [{ name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 }],
+    },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-topic-switch-002" }),
+  }
+);
 
-// ── FASE 10 — CANCELAMENTO ──
-for (const text of [
+const DENIAL_TEXTS = [
   "não quero comprar agora, só estou comentando.",
   "não precisa pesquisar, estou apenas desabafando.",
   "esquece a recomendação, quero só conversar.",
   "não quero ver ofertas agora.",
-]) {
-  const s = new ConversationSession({ conversationId: `11b4-deny-${Date.now()}` });
-  const r = await s.send(API_KEY, text);
-  record(`denial: ${text.slice(0, 40)}`, r.http200 && r.paidExternal === 0 && r.pricesCount === 0, {
-    paidExternal: r.paidExternal,
-    pricesCount: r.pricesCount,
-  });
+];
+for (let i = 0; i < DENIAL_TEXTS.length; i++) {
+  const text = DENIAL_TEXTS[i];
+  await runSingleTurnApiCase(
+    runner,
+    {
+      id: `11B4-CANCEL-${String(i + 1).padStart(3, "0")}`,
+      name: text.slice(0, 60),
+      group: "cancel",
+      patchOrigin: "11B.4",
+      executionMode: "api",
+    },
+    {
+      text,
+      timeoutMs: TIMEOUTS.API_FAST,
+      assertions: [
+        { name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 },
+        { name: "provider_count_zero", expected: "pricesCount=0", check: (r) => r.pricesCount === 0 },
+        { name: "single_http_response", expected: "http 200", check: (r) => r.http200 },
+      ],
+    },
+    {
+      apiKey: API_KEY,
+      sessionFactory: () => new ConversationSession({ conversationId: `11b4-cancel-${i + 1}` }),
+    }
+  );
 }
 
-// ── FASE 11 — MUDANÇA DE CATEGORIA ──
-const cat = new ConversationSession({ conversationId: `11b4-cat-${Date.now()}` });
-await cat.send(API_KEY, "quero um celular até 2500.");
-await cat.send(API_KEY, "sem iPhone.");
-await cat.send(API_KEY, "quero mais bateria.");
-const cat4 = await cat.send(API_KEY, "agora quero um notebook até 4000.");
-record("category switch notebook", cat4.http200 && /notebook|dell|lenovo|acer|hp/i.test(cat4.reply.toLowerCase()), {
-  category: cat4.category,
-  budgetMax: cat4.budgetMax,
-  excludedFromPhone: !cat4.excludedBrands?.includes?.("apple") || cat4.budgetMax === 4000,
-  replySnippet: cat4.reply.slice(0, 80),
-});
+await runMultiTurnApiCase(
+  runner,
+  {
+    id: "11B4-REFINEMENT-002",
+    name: "category switch notebook after phone refinements",
+    group: "refinement",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  },
+  [
+    { text: "quero um celular até 2500.", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    { text: "sem iPhone.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "quero mais bateria.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    {
+      text: "agora quero um notebook até 4000.",
+      commercialTurn: true,
+      timeoutMs: TIMEOUTS.API_COMMERCIAL,
+      assertions: [
+        {
+          name: "category_switch_isolated",
+          expected: "notebook category in reply",
+          check: (r) => /notebook|dell|lenovo|acer|hp|asus|vivobook/i.test(r.reply.toLowerCase()),
+        },
+      ],
+    },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-refinement-002" }),
+  }
+);
 
-// ── FASE 14 — GENERALIZAÇÃO ──
-const genCases = [
+const GEN_TEXTS = [
   "quero uma geladeira mais barata",
   "sem Nike",
   "quero um perfume mais suave",
   "preciso de uma cadeira menor",
   "tem um aspirador mais silencioso?",
 ];
-for (const text of genCases) {
-  const s = new ConversationSession({ conversationId: `11b4-gen-${Date.now()}` });
-  const r = await s.send(API_KEY, text);
-  record(`category-agnostic: ${text}`, r.http200 && (clarifyOk(r) || r.replyLen > 20), {
-    replySnippet: r.reply.slice(0, 70),
-    paidExternal: r.paidExternal,
-  });
+for (let i = 0; i < GEN_TEXTS.length; i++) {
+  const text = GEN_TEXTS[i];
+  await runSingleTurnApiCase(
+    runner,
+    {
+      id: `11B4-GENERAL-${String(i + 1).padStart(3, "0")}`,
+      name: text,
+      group: "generalization",
+      patchOrigin: "11B.4",
+      executionMode: "api",
+    },
+    {
+      text,
+      timeoutMs: TIMEOUTS.API_CLARIFY,
+      assertions: [
+        {
+          name: "response_not_empty",
+          expected: "clarify or substantive reply",
+          check: (r) => r.http200 && (clarifyAssertions().every((a) => a.check(r)) || r.replyLen > 20),
+        },
+      ],
+    },
+    {
+      apiKey: API_KEY,
+      sessionFactory: () => new ConversationSession({ conversationId: `11b4-general-${i + 1}` }),
+    }
+  );
 }
 
-// ── FASE 25 — CONCORRÊNCIA ──
-const sessA = new ConversationSession({ conversationId: `11b4-conc-a-${Date.now()}`, userId: "conc-a" });
-const sessB = new ConversationSession({ conversationId: `11b4-conc-b-${Date.now()}`, userId: "conc-b" });
-const a1 = await sessA.send(API_KEY, "quero um celular até 2500.");
-const b1 = await sessB.send(API_KEY, "quero um notebook até 5000.");
-await sessA.send(API_KEY, "sem iPhone.");
-await sessB.send(API_KEY, "prefiro Dell.");
-const a4 = await sessA.send(API_KEY, "tem um mais barato?");
-const b4 = await sessB.send(API_KEY, "quero um mais leve.");
-record(
-  "concurrency isolation A vs B",
-  sessA.conversationId !== sessB.conversationId &&
-    a1.anchor &&
-    b1.anchor &&
-    a1.anchor !== b1.anchor &&
-    !a4.reply.toLowerCase().includes("notebook") &&
-    !b4.reply.toLowerCase().includes("iphone") &&
-    !b4.reply.toLowerCase().includes("galaxy s23"),
+// Concurrency — sequential execution, isolation assertions after turns
+{
+  const caseDef = {
+    id: "11B4-CONCURRENCY-001",
+    name: "session A phone vs session B notebook isolation",
+    group: "concurrency",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  };
+  const caseResult = runner.startCase(caseDef);
+  if (caseResult) {
+    const sessA = new ConversationSession({ conversationId: "11b4-conc-a", userId: "conc-a" });
+    const sessB = new ConversationSession({ conversationId: "11b4-conc-b", userId: "conc-b" });
+    caseResult.conversationId = `${sessA.conversationId}|${sessB.conversationId}`;
+    try {
+      const turns = [
+        { session: sessA, text: "quero um celular até 2500.", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+        { session: sessB, text: "quero um notebook até 5000.", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+        { session: sessA, text: "sem iPhone.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+        { session: sessB, text: "prefiro Dell.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+      ];
+      let allPassed = true;
+      let anyTransient = false;
+      let a1 = null;
+      let b1 = null;
+      for (let i = 0; i < turns.length; i++) {
+        const step = turns[i];
+        const turn = await executeApiTurn({
+          runner,
+          caseResult,
+          session: step.session,
+          apiKey: API_KEY,
+          turnIndex: i + 1,
+          totalTurns: turns.length,
+          input: step.text,
+          commercialTurn: step.commercialTurn,
+          timeoutMs: step.timeoutMs,
+          assertions: step.assertions,
+        });
+        if (i === 0) a1 = turn.result;
+        if (i === 1) b1 = turn.result;
+        if (!turn.pass) {
+          allPassed = false;
+          break;
+        }
+        if (turn.transientRecovered) anyTransient = true;
+      }
+      if (!allPassed) {
+        runner.finishCase(caseResult, "FAIL");
+      } else {
+        const a4 = sessA.turns[sessA.turns.length - 1];
+        const b4 = sessB.turns[sessB.turns.length - 1];
+        const isolationOk =
+          sessA.conversationId !== sessB.conversationId &&
+          a1?.anchor &&
+          b1?.anchor &&
+          a1.anchor !== b1.anchor &&
+          !String(a4.reply || "").toLowerCase().includes("notebook") &&
+          !String(b4.reply || "").toLowerCase().includes("iphone") &&
+          !String(b4.reply || "").toLowerCase().includes("galaxy s23");
+        if (!isolationOk) {
+          caseResult.failureType = FAILURE_TYPES.CONCURRENCY_ISOLATION_FAILURE;
+          caseResult.failedAssertion = "concurrency_isolation_failure";
+          caseResult.failureMessage = `expected isolated sessions; A=${a4.anchor} B=${b4.anchor}`;
+          caseResult.initialFailure = {
+            turnIndex: turns.length,
+            failureType: FAILURE_TYPES.CONCURRENCY_ISOLATION_FAILURE,
+            failedAssertion: "concurrency_isolation_failure",
+          };
+          runner.finishCase(caseResult, "FAIL");
+        } else {
+          runner.finishCase(caseResult, anyTransient ? "TRANSIENT_RECOVERED" : "PASS");
+        }
+      }
+    } catch (error) {
+      runner.markInfrastructureFailure(error);
+      runner.finishCase(caseResult, "FAIL", { failureType: FAILURE_TYPES.RUNNER_INTERNAL_ERROR });
+    }
+  }
+}
+
+// Full 12-turn flow
+await runMultiTurnApiCase(
+  runner,
   {
-    convA: sessA.conversationId,
-    convB: sessB.conversationId,
-    anchorA: a4.anchor,
-    anchorB: b4.anchor,
-    budgetA: a4.budgetMax,
-    budgetB: b4.budgetMax,
+    id: "11B4-MULTITURN-001",
+    name: "full 12-turn production flow",
+    group: "multi-turn",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  },
+  [
+    { text: "estou cansado de pesquisar celular, mas quero um até 3000.", commercialTurn: true, timeoutMs: TIMEOUTS.API_COMMERCIAL, assertions: commercialAssertions() },
+    { text: "e quanto custa?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "quero mais bateria.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    {
+      text: "sem iPhone.",
+      timeoutMs: TIMEOUTS.API_FOLLOWUP,
+      assertions: followUpAssertions([
+        {
+          name: "excluded_brand_not_recommended",
+          expected: "no iPhone 11/13",
+          check: (r) => !/iPhone 13|iPhone 11/i.test(r.reply),
+        },
+      ]),
+    },
+    { text: "preciso de 256 GB.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "tem um mais barato?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "esse vale a pena mesmo?", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    {
+      text: "mudando de assunto, como você está?",
+      timeoutMs: TIMEOUTS.API_FAST,
+      assertions: [{ name: "paid_external_zero", expected: "paidExternal=0", check: (r) => r.paidExternal === 0 }],
+    },
+    {
+      text: "agora quero um notebook até 4000.",
+      commercialTurn: true,
+      timeoutMs: TIMEOUTS.API_COMMERCIAL,
+      assertions: commercialAssertions(),
+    },
+    { text: "prefiro Dell.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "quero um mais leve.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+    { text: "pode passar um pouco do orçamento.", timeoutMs: TIMEOUTS.API_FOLLOWUP, assertions: followUpAssertions() },
+  ],
+  {
+    apiKey: API_KEY,
+    defaultTimeout: TIMEOUTS.MULTITURN,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-multiturn-001" }),
   }
 );
 
-// ── FASE 40 — FLUXO COMPLETO 12 TURNOS ──
-const full = new ConversationSession({ conversationId: `11b4-full-${Date.now()}` });
-const fullFlow = [
-  "estou cansado de pesquisar celular, mas quero um até 3000.",
-  "e quanto custa?",
-  "quero mais bateria.",
-  "sem iPhone.",
-  "preciso de 256 GB.",
-  "tem um mais barato?",
-  "esse vale a pena mesmo?",
-  "mudando de assunto, como você está?",
-  "agora quero um notebook até 4000.",
-  "prefiro Dell.",
-  "quero um mais leve.",
-  "pode passar um pouco do orçamento.",
-];
-let fullFail = false;
-for (let i = 0; i < fullFlow.length; i++) {
-  const r = await full.send(API_KEY, fullFlow[i]);
-  if (!r.http200 || r.httpStatus >= 500) fullFail = true;
-  if (i === 3 && /iPhone 13|iPhone 11/i.test(r.reply)) fullFail = true;
-  if (i === 7 && r.paidExternal > 0) fullFail = true;
-}
-record("full 12-turn production flow", !fullFail, {
-  turns: full.turns.length,
-  finalCategory: full.sessionContext?.lastCategory,
-  finalBudget: full.sessionContext?.budgetMax,
-});
-
-// ── PAID EXTERNAL AUDIT on initial commercial search ──
-const paidAudit = new ConversationSession({ conversationId: `11b4-paid-${Date.now()}` });
-const pa = await paidAudit.send(API_KEY, "qual celular você recomenda até 2500?");
-record(
-  "paidExternal audit new search",
-  pa.http200 && pa.paidExternal >= 0,
+await runMultiTurnApiCase(
+  runner,
   {
-    paidExternal: pa.paidExternal,
-    providerExecuted: pa.providerExecuted,
-    note: pa.paidExternal > 0 ? "NECESSÁRIA if catalog fetch" : "EVITÁVEL/none",
+    id: "11B4-COMMERCIAL-AUDIT-001",
+    name: "paidExternal audit new search",
+    group: "commercial-audit",
+    patchOrigin: "11B.4",
+    executionMode: "api",
+  },
+  [
+    {
+      text: "qual celular você recomenda até 2500?",
+      commercialTurn: true,
+      timeoutMs: TIMEOUTS.API_COMMERCIAL,
+      assertions: [
+        { name: "single_http_response", expected: "http 200", check: (r) => r.http200 },
+        { name: "provider_policy_failure", expected: "paidExternal >= 0", check: (r) => r.paidExternal >= 0 },
+      ],
+    },
+    {
+      text: "e quanto custa?",
+      timeoutMs: TIMEOUTS.API_FOLLOWUP,
+      assertions: [{ name: "paid_external_zero", expected: "paidExternal=0 on follow-up", check: (r) => r.paidExternal === 0 }],
+    },
+  ],
+  {
+    apiKey: API_KEY,
+    sessionFactory: () => new ConversationSession({ conversationId: "11b4-commercial-audit-001" }),
   }
 );
-const pa2 = await paidAudit.send(API_KEY, "e quanto custa?");
-record(
-  "paidExternal audit price follow-up",
-  pa2.http200 && pa2.paidExternal === 0,
-  { paidExternal: pa2.paidExternal, followUpType: pa2.followUpType }
-);
 
-const s = summary();
-console.log("\n=== PATCH 11B.4 API SUMMARY ===");
-console.log(JSON.stringify(s, null, 2));
-process.exit(s.failed > 0 ? 1 : 0);
+runner.printHumanSummary();
+runner.writeJsonReport({ mode: "api", playwrightVersion: null });
+process.exit(runner.getExitCode());

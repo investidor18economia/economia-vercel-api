@@ -4,7 +4,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:mia:11b4:runner": "node scripts/test-mia-11b4-runner-observability.js",
+    "test:mia:11b4:api": "node scripts/test-mia-11b4-final-conversational-validation.mjs",
+    "test:mia:11b4:multiturn": "node scripts/test-mia-11b4-final-conversational-validation.mjs --group multi-turn",
+    "test:mia:11b4:concurrency": "node scripts/test-mia-11b4-final-conversational-validation.mjs --group concurrency",
+    "test:mia:11b4:desktop": "node scripts/test-mia-11b4-browser-validation.mjs --group desktop",
+    "test:mia:11b4:mobile": "node scripts/test-mia-11b4-browser-validation.mjs --group mobile",
+    "test:mia:11b4:browser": "node scripts/test-mia-11b4-browser-validation.mjs",
+    "test:mia:11b4:all": "node scripts/test-mia-11b4-runner-observability.js && node scripts/test-mia-11b4-final-conversational-validation.mjs && node scripts/test-mia-11b4-browser-validation.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
