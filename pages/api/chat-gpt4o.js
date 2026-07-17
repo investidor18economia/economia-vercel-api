@@ -24469,10 +24469,16 @@ function isContextDecision(query = "") {
     /pego.*agora/.test(q) ||
     /melhor.*opcao/.test(q) ||
     /melhor.*opção/.test(q) ||
-    // Preserve comparison context for price-worth follow-ups
     /vale.*pagar.*mais/.test(q) ||
     /compensa.*pagar.*mais/.test(q) ||
-    /vale.*a.*diferen/.test(q)
+    /vale.*a.*diferen/.test(q) ||
+    /quanto custa/.test(q) ||
+    /qto custa/.test(q) ||
+    /qual o pre[cç]o/.test(q) ||
+    /e o pre[cç]o/.test(q) ||
+    /e o valor/.test(q) ||
+    /segunda op[cç][ãa]o/.test(q) ||
+    /segundo colocado/.test(q)
   );
 }
 
@@ -28009,6 +28015,7 @@ if (lockedComparisonContextFromSession) {
   try {
     intentAuthority = buildIntentAuthorityFromRecognition(intentRecognitionEarly, {
       hasActiveAnchor: hasAnchorForRouting,
+      sessionContext,
     });
 
     if (intentAuthority?.authoritative) {
@@ -32669,7 +32676,8 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
       (intent === "social_conversation" ||
         intent === "emotional_support" ||
         intent === "clarification") &&
-      !commercialContinuationRequiredEarly
+      !commercialContinuationRequiredEarly &&
+      !intentRecognitionEarly?.contextualFollowUp?.contextualCommercialAuthorized
     ) {
       const roleByIntent = {
         social_conversation: "social_conversation_reply",
