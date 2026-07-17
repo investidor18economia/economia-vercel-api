@@ -24,20 +24,68 @@ import {
   probeMercadoLivreProductFlow,
   redactMercadoLivreSecrets,
 } from "../lib/productSourceAdapter/adapters/mercadoLivreClient.js";
+import { persistProviderCredentials } from "../lib/server/providerCredentialVault.js";
+import { COMMERCIAL_PROVIDER_IDS } from "../lib/productSourceAdapter/commercialProviderRegistry.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 
 const TEST_SECRET = "TEST_ML_CLIENT_SECRET_DO_NOT_LEAK";
 const TEST_ACCESS_TOKEN = "APP_USR-TEST-ACCESS-TOKEN-DO-NOT-LEAK";
+const TEST_REFRESH_TOKEN = "TEST_ML_REFRESH_TOKEN_DO_NOT_LEAK";
 const TEST_PRODUCT_ID = "MLB1234567890";
-const TEST_ENV = {
+const VAULT_KEY = Buffer.alloc(32, 11).toString("base64");
+const VAULT_ENV = {
   MERCADOLIVRE_CLIENT_ID: "7758884973596489",
   MERCADOLIVRE_CLIENT_SECRET: TEST_SECRET,
   MERCADOLIVRE_REDIRECT_URI: "https://economia-ai.vercel.app/api/auth/mercadolivre/callback",
   MERCADOLIVRE_SITE_ID: "MLB",
-  MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
+  MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "true",
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY: VAULT_KEY,
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY_VERSION: "1",
+  NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.test",
+  VERCEL_ENV: "development",
 };
+
+function createMemoryStore() {
+  const records = new Map();
+  const key = (providerId, environment, credentialType) =>
+    `${providerId}|${environment}|${credentialType}`;
+  return {
+    async findOne({ providerId, environment, credentialType }) {
+      return records.get(key(providerId, environment, credentialType)) || null;
+    },
+    async upsert(record) {
+      records.set(key(record.provider_id, record.environment, record.credential_type), record);
+      return { credential_version: record.credential_version };
+    },
+    async updateStatus() {
+      return { ok: true };
+    },
+  };
+}
+
+const credentialStore = createMemoryStore();
+const nowMs = Date.now();
+await persistProviderCredentials({
+  env: VAULT_ENV,
+  store: credentialStore,
+  nowMs,
+  providerId: COMMERCIAL_PROVIDER_IDS.MERCADOLIVRE_PUBLIC,
+  environment: "development",
+  credentialType: "oauth_tokens",
+  credentials: {
+    accessToken: TEST_ACCESS_TOKEN,
+    refreshToken: TEST_REFRESH_TOKEN,
+    tokenType: "Bearer",
+  },
+  issuedAt: new Date(nowMs).toISOString(),
+  expiresAt: new Date(nowMs + 7_200_000).toISOString(),
+});
+
+const vaultOptions = () => ({ env: VAULT_ENV, credentialStore, nowMs });
 
 const MOCK_PRODUCT_RESPONSE = {
   id: TEST_PRODUCT_ID,
@@ -113,7 +161,7 @@ test("getMercadoLivreProductById sends Bearer header", async () => {
   let capturedUrl = "";
 
   const result = await getMercadoLivreProductById(TEST_PRODUCT_ID, {
-    env: TEST_ENV,
+    ...vaultOptions(),
     fetcher: async (url, init) => {
       capturedUrl = url;
       capturedHeaders = init?.headers || {};
@@ -132,7 +180,8 @@ test("getMercadoLivreProductById sends Bearer header", async () => {
     "Bearer header missing"
   );
   assert(
-    buildMercadoLivreRequestHeaders(TEST_ENV).Authorization === `Bearer ${TEST_ACCESS_TOKEN}`,
+    buildMercadoLivreRequestHeaders(VAULT_ENV, { accessToken: TEST_ACCESS_TOKEN }).Authorization ===
+      `Bearer ${TEST_ACCESS_TOKEN}`,
     "header builder"
   );
   assert(result.productName.includes("iPhone 15"), "product name");
@@ -141,7 +190,7 @@ test("getMercadoLivreProductById sends Bearer header", async () => {
 
 test("getMercadoLivreProductItemsById normalizes items response", async () => {
   const result = await getMercadoLivreProductItemsById(TEST_PRODUCT_ID, {
-    env: TEST_ENV,
+    ...vaultOptions(),
     fetcher: async (url) => {
       assert(url === buildMercadoLivreProductItemsUrl(TEST_PRODUCT_ID), "items url called");
       return {
@@ -187,7 +236,7 @@ test("product and item payloads normalize to NormalizedProduct", () => {
 test("probeMercadoLivreProductFlow aggregates product and items", async () => {
   let callCount = 0;
   const probe = await probeMercadoLivreProductFlow(TEST_PRODUCT_ID, {
-    env: TEST_ENV,
+    ...vaultOptions(),
     sampleLimit: 2,
     fetcher: async (url) => {
       callCount += 1;
@@ -220,7 +269,7 @@ test("probeMercadoLivreProductFlow aggregates product and items", async () => {
 
 test("product id flow diagnoses HTTP 403 safely", async () => {
   const result = await getMercadoLivreProductById(TEST_PRODUCT_ID, {
-    env: TEST_ENV,
+    ...vaultOptions(),
     fetcher: async () => ({
       ok: false,
       status: 403,
@@ -261,7 +310,10 @@ test("dev endpoint and cognitive/commercial flow untouched", () => {
 
 test("redactMercadoLivreSecrets removes token from probe output", () => {
   const raw = `probe ${TEST_ACCESS_TOKEN} secret ${TEST_SECRET}`;
-  const redacted = redactMercadoLivreSecrets(raw, TEST_ENV);
+  const redacted = redactMercadoLivreSecrets(raw, {
+    ...VAULT_ENV,
+    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
+  });
   assert(!redacted.includes(TEST_ACCESS_TOKEN), "token not redacted");
   assert(!redacted.includes(TEST_SECRET), "secret not redacted");
 });
@@ -276,7 +328,7 @@ test("no real external calls when fetcher is injected", async () => {
 
   try {
     await probeMercadoLivreProductFlow(TEST_PRODUCT_ID, {
-      env: TEST_ENV,
+      ...vaultOptions(),
       fetcher: async (url) => {
         if (url.endsWith(`/products/${TEST_PRODUCT_ID}`)) {
           return { ok: true, status: 200, json: async () => MOCK_PRODUCT_RESPONSE };

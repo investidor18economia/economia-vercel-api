@@ -98,8 +98,7 @@ assert(
 assert(
   "valid token sends Bearer",
   validateMercadoLivreRequestHeaders(
-    buildMercadoLivreRequestHeaders({ ...ENV, MERCADOLIVRE_ACCESS_TOKEN: TEST_TOKEN }),
-    { ...ENV, MERCADOLIVRE_ACCESS_TOKEN: TEST_TOKEN }
+    buildMercadoLivreRequestHeaders(ENV, { accessToken: TEST_TOKEN })
   ).authHeaderSent === true
 );
 assert(

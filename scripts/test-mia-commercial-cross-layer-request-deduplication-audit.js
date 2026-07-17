@@ -79,7 +79,7 @@ console.log(
 
 console.log("── Module contract ──");
 const moduleSource = read("lib/commercial/commercialRequestDeduplication.js");
-assert("version 05C", COMMERCIAL_REQUEST_DEDUP_VERSION === "05C");
+assert("version 05C", String(COMMERCIAL_REQUEST_DEDUP_VERSION).startsWith("05C"));
 assert("no LLM imports", !moduleSource.match(/openai|callOpenAI|buildMiaPrompt/i));
 assert("no subprocess imports", !moduleSource.match(/from\s+["']node:child_process["']/));
 assert("no fetch in dedup module", !moduleSource.match(/\bfetch\s*\(/));

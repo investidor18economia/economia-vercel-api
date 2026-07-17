@@ -77,16 +77,28 @@ function auditInput(extra = {}) {
   };
 }
 
-console.log("\nPATCH Comercial 05J.3 — Mercado Livre OAuth Token Readiness Audit\n");
+const VAULT_OAUTH_ENV = {
+  ...BASE_OAUTH_ENV,
+  MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "true",
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY: Buffer.alloc(32, 11).toString("base64"),
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY_VERSION: "1",
+  NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.test",
+  VERCEL_ENV: "development",
+};
+
+console.log("\nPATCH Comercial 05J.9 — Mercado Livre OAuth Token Readiness Audit\n");
 
 assert(
-  "1. missing token detected",
-  classifyMercadoLivreOAuthReadiness(auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: "" } }))
-    .readinessClassification === MERCADOLIVRE_OAUTH_READINESS_CLASSIFICATIONS.TOKEN_MISSING
+  "1. vault unavailable detected",
+  classifyMercadoLivreOAuthReadiness(auditInput({ env: {} }))
+    .readinessClassification === MERCADOLIVRE_OAUTH_READINESS_CLASSIFICATIONS.TOKEN_MISSING &&
+    classifyMercadoLivreOAuthReadiness(auditInput({ env: {} })).blockers.includes("vault_unavailable")
 );
 assert(
-  "2. empty token detected",
-  !inspectMercadoLivreTokenPresence({ MERCADOLIVRE_ACCESS_TOKEN: "   " }).accessTokenPresent
+  "2. vault disabled means no token source",
+  !inspectMercadoLivreTokenPresence({}).accessTokenPresent
 );
 assert(
   "3. Bearer prefix embedded token rejected",
@@ -97,9 +109,7 @@ assert(
   validateMercadoLivreAccessTokenShape(TEST_ACCESS_TOKEN).ok === true
 );
 
-const report = buildMercadoLivreOAuthReadinessReport(
-  auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } })
-);
+const report = buildMercadoLivreOAuthReadinessReport(auditInput({ env: VAULT_OAUTH_ENV }));
 assert(
   "5. token never appears in readiness report",
   !JSON.stringify(report).includes(TEST_ACCESS_TOKEN)
@@ -110,7 +120,7 @@ const originalLog = console.log;
 console.log = (...args) => {
   logCapture.push(args.map(String).join(" "));
 };
-buildMercadoLivreOAuthReadinessReport(auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } }));
+buildMercadoLivreOAuthReadinessReport(auditInput({ env: VAULT_OAUTH_ENV }));
 console.log = originalLog;
 assert(
   "6. token never appears in logs",
@@ -118,15 +128,12 @@ assert(
 );
 
 assert(
-  "7. Authorization not sent without token",
+  "7. Authorization not sent without vault",
   inspectMercadoLivreAuthHeaderReadiness({ MERCADOLIVRE_SITE_ID: "MLB" }).authHeaderWillBeSent === false
 );
 assert(
-  "8. Authorization sent with token present",
-  inspectMercadoLivreAuthHeaderReadiness({
-    ...BASE_OAUTH_ENV,
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-  }).authHeaderWillBeSent === true
+  "8. Authorization sent when vault configured",
+  inspectMercadoLivreAuthHeaderReadiness(VAULT_OAUTH_ENV).authHeaderWillBeSent === true
 );
 
 const diagnostics = sanitizeMercadoLivreOAuthDiagnostics(
@@ -135,7 +142,7 @@ const diagnostics = sanitizeMercadoLivreOAuthDiagnostics(
     authHeaderWillBeSent: true,
     nested: { tokenConfigured: true },
   },
-  { ...BASE_OAUTH_ENV, MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN }
+  VAULT_OAUTH_ENV
 );
 assert(
   "9. diagnostics use booleans without secrets",
@@ -144,50 +151,29 @@ assert(
     !JSON.stringify(diagnostics).includes(TEST_ACCESS_TOKEN)
 );
 
-const issuedAt = Date.now() - 60_000;
-const expiryKnown = evaluateMercadoLivreTokenExpiry(
-  {
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-    MERCADOLIVRE_TOKEN_ISSUED_AT: String(issuedAt),
-    MERCADOLIVRE_TOKEN_EXPIRES_IN: "3600",
-  },
-  Date.now()
-);
-assert("10. expires_in interpreted correctly", expiryKnown.accessTokenExpiryKnown === true);
+const expiryKnown = evaluateMercadoLivreTokenExpiry(VAULT_OAUTH_ENV, Date.now());
+assert("10. vault path treats expiry as runtime-managed", expiryKnown.accessTokenExpiryKnown === false);
 
-const expired = evaluateMercadoLivreTokenExpiry(
-  {
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-    MERCADOLIVRE_TOKEN_EXPIRES_AT: String(Date.now() - 1000),
-  },
-  Date.now()
-);
+const noVaultExpiry = evaluateMercadoLivreTokenExpiry({}, Date.now());
 assert(
-  "11. past expires_at classifies expired",
-  expired.accessTokenExpired === true &&
-    expired.reasonCode === MERCADOLIVRE_OAUTH_READINESS_CLASSIFICATIONS.TOKEN_EXPIRED
+  "11. vault unavailable classified",
+  noVaultExpiry.reasonCode === "vault_unavailable"
 );
 
-const unknownExpiry = classifyMercadoLivreOAuthReadiness(
-  auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } })
-);
+const vaultReady = classifyMercadoLivreOAuthReadiness(auditInput({ env: VAULT_OAUTH_ENV }));
 assert(
-  "12. unknown expiry not treated as confirmed valid",
-  unknownExpiry.readinessClassification ===
+  "12. vault configured readiness",
+  vaultReady.readinessClassification ===
     MERCADOLIVRE_OAUTH_READINESS_CLASSIFICATIONS.READY_TOKEN_PRESENT_EXPIRY_UNKNOWN
 );
 
 assert(
-  "13. refresh token present detected",
-  inspectMercadoLivreTokenPresence({
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-    MERCADOLIVRE_REFRESH_TOKEN: TEST_REFRESH_TOKEN,
-  }).refreshTokenPresent === true
+  "13. vault configured implies refresh available",
+  inspectMercadoLivreTokenPresence(VAULT_OAUTH_ENV).refreshTokenPresent === true
 );
 assert(
-  "14. refresh token missing detected",
-  inspectMercadoLivreTokenPresence({ MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN })
-    .refreshTokenPresent === false
+  "14. vault disabled implies refresh unavailable",
+  inspectMercadoLivreTokenPresence(BASE_OAUTH_ENV).refreshTokenPresent === false
 );
 
 const missingClientId = inspectMercadoLivreOAuthConfiguration({
@@ -250,16 +236,14 @@ assert(
   "23. authenticated probe requires dedicated flag",
   probeNeedsFlag.blockers.includes("COMMERCIAL_ML_AUTHENTICATED_PROBE_ENABLED!=true")
 );
-const probeNeedsToken = buildMercadoLivreAuthenticatedProbePlan(
-  auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: "" } })
+const probeNeedsVault = buildMercadoLivreAuthenticatedProbePlan(
+  auditInput({ env: { ...BASE_OAUTH_ENV, MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "" } })
 );
 assert(
-  "24. authenticated probe requires access token",
-  probeNeedsToken.blockers.includes("access_token_missing")
+  "24. authenticated probe requires vault",
+  probeNeedsVault.blockers.includes("vault_unavailable")
 );
-const probePlan = buildMercadoLivreAuthenticatedProbePlan(
-  auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } })
-);
+const probePlan = buildMercadoLivreAuthenticatedProbePlan(auditInput({ env: VAULT_OAUTH_ENV }));
 assert(
   "25. probe keeps Google blocked",
   !probePlan.priorityOrder.includes(COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING)
@@ -331,8 +315,8 @@ globalThis.fetch = () => {
   fetchCalled = true;
   return Promise.reject(new Error("network blocked"));
 };
-buildMercadoLivreOAuthReadinessReport(auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } }));
-buildMercadoLivreAuthenticatedProbePlan(auditInput({ env: { MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN } }));
+buildMercadoLivreOAuthReadinessReport(auditInput({ env: VAULT_OAUTH_ENV }));
+buildMercadoLivreAuthenticatedProbePlan(auditInput({ env: VAULT_OAUTH_ENV }));
 globalThis.fetch = originalFetch;
 assert("42. no external API called", fetchCalled === false);
 assert(

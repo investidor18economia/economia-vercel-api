@@ -26,18 +26,78 @@ import {
   searchMercadoLivreProducts,
   validateMercadoLivreEnv,
 } from "../lib/productSourceAdapter/adapters/mercadoLivreClient.js";
+import { persistProviderCredentials } from "../lib/server/providerCredentialVault.js";
+import { COMMERCIAL_PROVIDER_IDS } from "../lib/productSourceAdapter/commercialProviderRegistry.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 
 const TEST_SECRET = "TEST_ML_CLIENT_SECRET_DO_NOT_LEAK";
 const TEST_ACCESS_TOKEN = "TEST_ML_ACCESS_TOKEN_DO_NOT_LEAK";
+const TEST_REFRESH_TOKEN = "TEST_ML_REFRESH_TOKEN_DO_NOT_LEAK";
+const VAULT_KEY = Buffer.alloc(32, 11).toString("base64");
 const TEST_ENV = {
   MERCADOLIVRE_CLIENT_ID: "test-client-id",
   MERCADOLIVRE_CLIENT_SECRET: TEST_SECRET,
   MERCADOLIVRE_REDIRECT_URI: "https://example.test/callback",
   MERCADOLIVRE_SITE_ID: "MLB",
 };
+
+const VAULT_ENV = {
+  ...TEST_ENV,
+  MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "true",
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY: VAULT_KEY,
+  PROVIDER_CREDENTIAL_ENCRYPTION_KEY_VERSION: "1",
+  NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.test",
+  VERCEL_ENV: "development",
+};
+
+function createMemoryStore() {
+  const records = new Map();
+  const key = (providerId, environment, credentialType) =>
+    `${providerId}|${environment}|${credentialType}`;
+  return {
+    async findOne({ providerId, environment, credentialType }) {
+      return records.get(key(providerId, environment, credentialType)) || null;
+    },
+    async upsert(record) {
+      records.set(key(record.provider_id, record.environment, record.credential_type), record);
+      return { credential_version: record.credential_version };
+    },
+    async updateStatus({ providerId, environment, credentialType, status, updatedAt }) {
+      const existing = records.get(key(providerId, environment, credentialType));
+      if (existing) {
+        records.set(key(providerId, environment, credentialType), {
+          ...existing,
+          status,
+          updated_at: updatedAt,
+        });
+      }
+      return { ok: true };
+    },
+  };
+}
+
+async function seedVaultCredential(store, nowMs = Date.now()) {
+  const expiresAt = new Date(nowMs + 7_200_000).toISOString();
+  await persistProviderCredentials({
+    env: VAULT_ENV,
+    store,
+    nowMs,
+    providerId: COMMERCIAL_PROVIDER_IDS.MERCADOLIVRE_PUBLIC,
+    environment: "development",
+    credentialType: "oauth_tokens",
+    credentials: {
+      accessToken: TEST_ACCESS_TOKEN,
+      refreshToken: TEST_REFRESH_TOKEN,
+      tokenType: "Bearer",
+    },
+    issuedAt: new Date(nowMs).toISOString(),
+    expiresAt,
+  });
+}
 
 const MOCK_API_RESPONSE = {
   site_id: "MLB",
@@ -141,8 +201,9 @@ test("validateMercadoLivreEnv detects missing env", () => {
   const ok = validateMercadoLivreEnv(TEST_ENV);
   assert(ok.ok, "test env should pass");
   assert(ok.siteId === "MLB", "site id");
-  assert(ok.hasAccessToken === false, "token should be optional");
-  assert(hasMercadoLivreAccessToken(TEST_ENV) === false, "hasAccessToken helper");
+  assert(ok.hasAccessToken === false, "token requires vault");
+  assert(hasMercadoLivreAccessToken(TEST_ENV) === false, "hasAccessToken helper without vault");
+  assert(hasMercadoLivreAccessToken(VAULT_ENV) === true, "hasAccessToken helper with vault");
 });
 
 test("search without bearer token omits Authorization header", async () => {
@@ -163,15 +224,16 @@ test("search without bearer token omits Authorization header", async () => {
   assert(capturedHeaders?.Accept === "application/json", "Accept header preserved");
 });
 
-test("search with bearer token sends Authorization header", async () => {
+test("search with vault bearer sends Authorization header", async () => {
   let capturedHeaders = null;
-  const envWithToken = {
-    ...TEST_ENV,
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-  };
+  const store = createMemoryStore();
+  const nowMs = Date.now();
+  await seedVaultCredential(store, nowMs);
 
   await searchMercadoLivreProducts("notebook", 5, {
-    env: envWithToken,
+    env: VAULT_ENV,
+    credentialStore: store,
+    nowMs,
     fetcher: async (_url, init) => {
       capturedHeaders = init?.headers || {};
       return {
@@ -187,20 +249,22 @@ test("search with bearer token sends Authorization header", async () => {
     "Bearer Authorization header missing"
   );
   assert(
-    buildMercadoLivreRequestHeaders(envWithToken).Authorization === `Bearer ${TEST_ACCESS_TOKEN}`,
+    buildMercadoLivreRequestHeaders(VAULT_ENV, { accessToken: TEST_ACCESS_TOKEN }).Authorization ===
+      `Bearer ${TEST_ACCESS_TOKEN}`,
     "header builder must include bearer token"
   );
-  assert(hasMercadoLivreAccessToken(envWithToken), "hasAccessToken true when configured");
+  assert(hasMercadoLivreAccessToken(VAULT_ENV), "hasAccessToken true when vault configured");
 });
 
-test("403 with bearer token stays diagnosed and token is redacted", async () => {
-  const envWithToken = {
-    ...TEST_ENV,
-    MERCADOLIVRE_ACCESS_TOKEN: TEST_ACCESS_TOKEN,
-  };
+test("403 with vault bearer stays diagnosed and token is redacted", async () => {
+  const store = createMemoryStore();
+  const nowMs = Date.now();
+  await seedVaultCredential(store, nowMs);
 
   const result = await searchMercadoLivreProducts("notebook", 5, {
-    env: envWithToken,
+    env: VAULT_ENV,
+    credentialStore: store,
+    nowMs,
     fetcher: async (_url, init) => {
       assert(
         init?.headers?.Authorization === `Bearer ${TEST_ACCESS_TOKEN}`,
@@ -409,7 +473,7 @@ test("no real external calls and cognitive/commercial flow untouched", async () 
   }
 
   const devRoute = readFileSync(join(ROOT, "pages/api/dev/mercadolivre-search.js"), "utf8");
-  assert(devRoute.includes('real: true'), "dev endpoint must use real mode explicitly");
+  assert(devRoute.includes("fetchMercadoLivreCommercialAdapterResult"), "dev endpoint must use commercial adapter");
   assert(devRoute.includes("httpStatus"), "dev endpoint must expose httpStatus");
   assert(devRoute.includes("safeErrorBodyPreview"), "dev endpoint must expose safeErrorBodyPreview");
   assert(devRoute.includes("requestUrl"), "dev endpoint must expose requestUrl");

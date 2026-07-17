@@ -30,7 +30,12 @@ import {
   buildCommercialRequestDedupTracePatch,
   createCommercialRequestDedupContext,
   enterCommercialRequestDedupContext,
+  getActiveCommercialRequestDedupContext,
 } from "../../lib/commercial/commercialRequestDeduplication.js";
+import {
+  buildFunctionalProviderCostGuardContext,
+  evaluateProviderCostGuardForProvider,
+} from "../../lib/commercial/providerCostGuard.js";
 import {
   buildUniversalCommercialCacheTracePatch,
 } from "../../lib/commercial/universalCommercialCache.js";
@@ -74,6 +79,9 @@ import {
 import {
   buildAboutMiaDeterministicFallback,
   buildAboutMiaVerbalizationContext,
+  buildBriefOfficialIdentityVerbalizationContext,
+  buildBriefOfficialIdentityReply,
+  isSimpleBriefIdentityQuery,
   isGenericInstitutionalFallbackReply,
 } from "../../lib/miaCompanyKnowledge";
 import { normalizeCompoundInput } from "../../lib/miaCompoundInputNormalizer";
@@ -137,6 +145,139 @@ import {
   applyProductionFallbackGate,
   shouldBypassInstitutionalGeneralAnswerFallback,
 } from "../../lib/miaProductionFallbackGate";
+import {
+  buildCognitiveRoutingSignalFromTurn,
+  intentRecognitionToTrace,
+  recognizeMiaIntent,
+  MIA_INTERACTION_MODES,
+} from "../../lib/miaIntentRecognitionLayer.js";
+import {
+  applyIntentAuthorityToPipeline,
+  assertIntentAuthorityConsistency,
+  buildCognitiveAuthorityFromIntentAuthority,
+  buildIntentAuthorityFromRecognition,
+  COMMERCIAL_PERMISSION,
+  enforceRoutingDecisionAgainstAuthority,
+  intentAuthorityToTrace,
+  shouldBlockLegacyIntentOverride,
+  shouldEarlyExitToGovernedSocialFlow,
+  shouldRejectIntentPatch,
+  suppressCommercialSignalsForAuthority,
+} from "../../lib/miaIntentAuthority.js";
+import {
+  assertCommercialPipelineAllowed,
+  buildPreservedNonCommercialSessionContext,
+  commercialEntryGateToTrace,
+  createCommercialEntryGateTracker,
+  evaluateCommercialEntryPermission,
+  resolveNonCommercialFlowFromAuthority,
+} from "../../lib/miaCommercialEntryGate.js";
+import {
+  applyMixedSegmentationToResolvedQuery,
+  isWinnerContaminatedByRawMessage,
+  mixedSegmentationToTrace,
+  resolveCommercialPipelineQuery,
+  sanitizeWinnerProduct,
+  segmentMixedIntent,
+  shouldApplyMixedSegmentation,
+  validateCommercialSearchQuery,
+} from "../../lib/miaMixedIntentSegmentation.js";
+import {
+  behaviorContractToVerbalizationInstructions,
+  buildFullHumanConversationInstructions,
+  buildSocialConversationBehaviorContract,
+  resolveSocialConversationPromptRole,
+} from "../../lib/miaSocialConversationBehavior.js";
+import {
+  finalizeHumanConversationReply,
+  humanExperienceToTrace,
+  buildGovernedSocialFallbackReply,
+} from "../../lib/miaHumanConversationExperience.js";
+import {
+  finalizeMixedConversationReply,
+  mixedVerbalizationToTrace,
+  buildMixedResponseContext,
+  buildCommercialSnapshot,
+  completeMixedDualDimensions,
+  mixedDualCompletionToTrace,
+  attachMixedConversationalStateToSession,
+  resolveMixedContinuationEligibility,
+} from "../../lib/miaMixedVerbalization.js";
+import {
+  normalizeSemanticSessionState,
+  resolveSemanticContinuationEligibility,
+  applySemanticStateTransition,
+  semanticStateGovernanceToTrace,
+} from "../../lib/miaSemanticStateGovernance.js";
+import {
+  finalizeGovernedRuntimeResponse,
+  finalizeCommercialDegradedResponse,
+  finalizeTechnicalRuntimeResponse,
+  finalizePreCognitiveFunctionalResponse,
+  suppressLegacyDecisionConflict,
+  resolveResponsePathRegistry,
+  PRECEDENCE_STAGES,
+  RUNTIME_PRECEDENCE_VERSION,
+} from "../../lib/miaRuntimePrecedence.js";
+import {
+  advanceRuntimeLifecycle,
+  assertGateDenyProviderFree,
+  attachCommercialDedupAccountingObserver,
+  authorizeProviderExecution,
+  commitSemanticTransition,
+  createRuntimeEnforcementContext,
+  detectPostSealMutation,
+  executeUnknownPathFailClosed,
+  LIFECYCLE_STATES,
+  markHttpResponseSent,
+  prepareSemanticTransition,
+  preventDoubleHttpResponse,
+  recordInvariantRepairs,
+  recordProviderCostGuardBlock,
+  recordProviderExecution,
+  resolveCommercialProviderCostGuardId,
+  resolveRuntimeDispatchMode,
+  rollbackSemanticTransition,
+  runtimeEnforcementToTrace,
+  sealRuntimePayload,
+  syncCommercialDedupEventsToAccounting,
+  validateProviderAccountingConsistency,
+  validateResponseExecutionConsistency,
+  bindActiveExternalCallAccounting,
+  clearActiveExternalCallAccounting,
+  bindActiveRequestExecutionEnv,
+  clearActiveRequestExecutionEnv,
+  RUNTIME_ENFORCEMENT_VERSION,
+} from "../../lib/miaRuntimeEnforcement.js";
+
+const runtimeExecutionEnvRef = {
+  env: process.env,
+};
+
+function resolveRequestRuntimeExecutionEnv(req = {}) {
+  const headers = req.headers || {};
+  const testHeader = String(headers["x-mia-test-mode"] || headers["X-MIA-Test-Mode"] || "")
+    .trim()
+    .toLowerCase();
+  if (testHeader === "true" || testHeader === "1") {
+    return {
+      ...process.env,
+      MIA_TEST_MODE: "true",
+      MIA_EXTERNAL_PROVIDER_CALLS_ENABLED: "false",
+      MIA_PAID_PROVIDER_CALLS_ENABLED: "false",
+    };
+  }
+  return process.env;
+}
+
+const semanticGovernanceRef = {
+  ctx: null,
+  finalRoutingDecision: null,
+  commercialEntryGate: null,
+  legacyIntentSignal: null,
+};
+
+const runtimeEnforcementRef = createRuntimeEnforcementContext();
 import { shouldUseRichExplanationPath, buildExplanationContext } from "../../lib/miaCognitiveExplanationPath";
 import { buildRichExplanationActivationAudit, logRichExplanationAudit } from "../../lib/miaRichExplanationAudit";
 import { buildExplanationConsistencyAudit, EXPLANATION_CONSISTENCY_FLAGS } from "../../lib/miaExplanationConsistencyAudit"; // PATCH 5.5F
@@ -158,6 +299,8 @@ import {
   logSpecificProductLockAudit,
   resolveSpecificProductLock,
   scoreStrongSpecificProductMatch,
+  validateSpecificProductLockCandidate,
+  SPECIFIC_PRODUCT_RESOLUTION_LOCK_VERSION,
 } from "../../lib/miaSpecificProductResolutionLock.js";
 import {
   applyFirstAnswerResponseContract,
@@ -171,10 +314,18 @@ import {
 } from "../../lib/miaCommercialFallbackDisplay.js";
 import {
   buildComparisonUnresolvedFallbackReply,
+  buildAnchoredComparisonIncompleteReply,
+  buildSameProductComparisonClarificationReply,
+  comparisonRuntimeGuardToTrace,
   extractComparisonTermsFromQuery,
   findMissingComparisonTerms,
+  isComparisonExecutionAllowed,
   isDirectComparisonQuery,
+  isExplicitAnchoredComparisonRequest,
+  isSameProductComparisonContract,
   logComparisonFlowCrashGuardAudit,
+  resolveAnchoredComparisonPair,
+  validateComparisonInputContract,
 } from "../../lib/miaComparisonFlowCrashGuard.js";
 import {
   extractBudget,
@@ -217,6 +368,7 @@ import {
 import {
   buildAnchoredDiscussionSetProducts,
   detectsAnchoredComparisonIntent,
+  extractMentionedProductCandidate,
   mergeDiscussionSetIntoSessionContext,
 } from "../../lib/miaDiscussionSetEnforcement.js";
 import {
@@ -613,6 +765,22 @@ function resolveMiaRoleFromIntent({
     return "acknowledgement_reply";
   }
 
+  if (metadata?.source === "social_conversation_flow") {
+    return "social_conversation_reply";
+  }
+
+  if (metadata?.source === "emotional_support_flow") {
+    return "emotional_support_reply";
+  }
+
+  if (metadata?.source === "mixed_intent_flow") {
+    return "mixed_intent_reply";
+  }
+
+  if (metadata?.source === "clarification_flow") {
+    return "clarification_reply";
+  }
+
   if (metadata?.source === "comprehension_flow") {
     return "comprehension_reply";
   }
@@ -659,6 +827,22 @@ function resolveMiaRoleFromIntent({
 
   if (intent === "acknowledgement") {
     return "acknowledgement_reply";
+  }
+
+  if (intent === "social_conversation") {
+    return "social_conversation_reply";
+  }
+
+  if (intent === "emotional_support") {
+    return "emotional_support_reply";
+  }
+
+  if (intent === "mixed_intent") {
+    return "mixed_intent_reply";
+  }
+
+  if (intent === "clarification") {
+    return "clarification_reply";
   }
 
   if (intent === "comprehension") {
@@ -1280,7 +1464,20 @@ async function resolveSpecificProductLockForPipeline({
   products = [],
   dataLayerProducts = [],
   categoryHint = "",
+  hasActiveAnchor = false,
 } = {}) {
+  if (hasActiveAnchor && detectsAnchoredComparisonIntent(query, { hasActiveAnchor: true })) {
+    return {
+      active: false,
+      version: SPECIFIC_PRODUCT_RESOLUTION_LOCK_VERSION,
+      query,
+      lockedProduct: null,
+      matchSource: null,
+      matchScore: 0,
+      reason: "anchored_comparison_continuation",
+    };
+  }
+
   const resolveIdentity = (q) => resolveMiaProductIdentity(q);
 
   let lock = bootstrapSpecificProductLock({
@@ -1320,11 +1517,12 @@ async function resolveSpecificProductLockForPipeline({
     if (lock.active) return lock;
   }
 
-  return bootstrapSpecificProductLock({
+  lock = bootstrapSpecificProductLock({
     query,
     products,
     resolveIdentity,
   });
+  return lock;
 }
 
 async function searchUniversalDataLayer(query = "", {
@@ -1518,6 +1716,7 @@ async function fetchFromMercadoLivreProvider(query = "", limit = 12) {
       query,
       limit,
       invocationLayer: "chat_gpt4o_legacy_commercial_router",
+      env: runtimeExecutionEnvRef.env,
     });
 
     const products = normalizeProviderProducts(
@@ -1602,6 +1801,41 @@ async function fetchCommercialProductsFromProviders(query = "", limit = 12) {
   }
 console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
   for (const provider of providers) {
+    const _providerAuth = authorizeProviderExecution({
+      providerId: provider.name,
+      intentAuthority: semanticGovernanceRef.ctx?.intentAuthority || null,
+      commercialEntryGate: semanticGovernanceRef.commercialEntryGate || null,
+      routingDecision: semanticGovernanceRef.finalRoutingDecision || null,
+      providerAccounting: runtimeEnforcementRef.providerAccounting,
+    });
+
+    if (!_providerAuth.allowed) {
+      recordProviderExecution(runtimeEnforcementRef.providerAccounting, {
+        providerId: provider.name,
+        executed: false,
+        blockedReason: _providerAuth.blockedReason,
+      });
+      continue;
+    }
+
+    const costGuardProviderId = resolveCommercialProviderCostGuardId(provider.name);
+    const costGuardDecision = evaluateProviderCostGuardForProvider(
+      costGuardProviderId,
+      buildFunctionalProviderCostGuardContext({
+        invocationSource: "chat_gpt4o_commercial_router",
+        providerId: costGuardProviderId,
+        env: runtimeExecutionEnvRef.env,
+      })
+    );
+
+    if (costGuardDecision.shouldCallProvider !== true) {
+      recordProviderCostGuardBlock(runtimeEnforcementRef.providerAccounting, {
+        providerId: provider.name,
+        decision: costGuardDecision,
+      });
+      continue;
+    }
+
     console.log("🚀 EXECUTANDO PROVIDER:", provider.name);
 
 const result = await provider.fn(query, limit);
@@ -1609,7 +1843,28 @@ const result = await provider.fn(query, limit);
 console.log("✅ PROVIDER FINALIZADO:", provider.name);
     console.log("🧪 PROVIDER RESULT:", result);
 
+    syncCommercialDedupEventsToAccounting(
+      runtimeEnforcementRef,
+      getActiveCommercialRequestDedupContext()
+    );
+
     const count = Array.isArray(result.products) ? result.products.length : 0;
+    const isDedupHit = result.requestDeduplicated === true;
+    const isCacheHit = result.cacheHit === true;
+
+    recordProviderExecution(runtimeEnforcementRef.providerAccounting, {
+      providerId: result.provider || provider.name,
+      executed: !isDedupHit && !isCacheHit,
+      cacheHit: isCacheHit,
+      deduplicated: isDedupHit,
+      success: !!result.ok && count > 0,
+      failed: !result.ok || count === 0,
+      resultCount: count,
+      retryCount: result.retryCount || 0,
+      costGuardApplied: true,
+      costGuardAllowed: true,
+      costGuardReason: costGuardDecision.reasonCode || null,
+    });
 
     providerResults.push({
       provider: result.provider || provider.name,
@@ -1667,6 +1922,13 @@ async function safeFetchSerpPrices(query = "", limit = 12) {
 
   if (cached && now - cached.createdAt < COMMERCIAL_SEARCH_CACHE_MS) {
     console.log("♻️ SERP CACHE HIT:", query);
+    recordProviderExecution(runtimeEnforcementRef.providerAccounting, {
+      providerId: "commercial_search_cache",
+      executed: false,
+      cacheHit: true,
+      success: Array.isArray(cached.products) && cached.products.length > 0,
+      resultCount: Array.isArray(cached.products) ? cached.products.length : 0,
+    });
     return cached.products;
   }
 
@@ -17729,6 +17991,8 @@ function isExplicitComparisonQuery(query = "") {
 
   if (!q) return false;
 
+  if (isExplicitAnchoredComparisonRequest(query)) return true;
+
   if (isDirectComparisonQuery(query)) return true;
 
   const terms = extractComparisonTermsFromQuery(query);
@@ -22895,6 +23159,414 @@ function buildCasualSocialReply(query = "") {
   return replies[seed % replies.length];
 }
 
+async function runGovernedSocialIntentFlow({
+  res,
+  intent,
+  role,
+  source,
+  query,
+  resolvedQuery,
+  budget,
+  wantsNew,
+  period,
+  userStyle,
+  sessionContext,
+  hasAnchorForRouting,
+  req,
+  conversationalToneProfile,
+  socialBehaviorContract,
+  products = [],
+  productLimit = 0,
+  pipelineTracer = null,
+  routingDecision = null,
+  mixedResponseContext = null,
+  responsePath = "governed_social_intent_flow",
+}) {
+  const behaviorInstructions = socialBehaviorContract
+    ? buildFullHumanConversationInstructions(socialBehaviorContract)
+    : "";
+
+  const messages = [
+    {
+      role: "system",
+      content: buildMiaSystemPromptByRole(role, conversationalToneProfile),
+    },
+    {
+      role: "user",
+      content: buildUserPrompt({
+        query: resolvedQuery,
+        originalQuery: query,
+        intent,
+        budget,
+        wantsNew,
+        period,
+        products,
+        productLimit,
+        userStyle,
+        behaviorInstructions,
+        socialVerbalizationOnly: true,
+      }),
+    },
+  ];
+
+  const aiResponse = await runMiaBrainTask({
+    role,
+    intent,
+    messages,
+    temperature: 0.55,
+    max_tokens: 190,
+    metadata: { source },
+  });
+
+  const rawReply = getMiaLLMText(aiResponse);
+  const replySeed =
+    rawReply ||
+    buildGovernedSocialFallbackReply(socialBehaviorContract || {}, { period });
+  const finalized = finalizeHumanConversationReply(
+    replySeed,
+    socialBehaviorContract || {},
+    conversationalToneProfile,
+    { period }
+  );
+
+  if (process.env.MIA_DEBUG === "true" && pipelineTracer) {
+    pipelineTracer.patch({
+      human_conversation_experience: humanExperienceToTrace(
+        socialBehaviorContract,
+        finalized.validation
+      ),
+    });
+  }
+
+  const mixedCtx =
+    mixedResponseContext ||
+    buildMixedResponseContext(socialBehaviorContract || {}, {
+      message: query,
+      sessionContext,
+      commercialSnapshot: buildCommercialSnapshot({
+        winnerName: sessionContext?.lastBestProduct?.product_name || "",
+        winnerProduct: sessionContext?.lastBestProduct || null,
+        commercialBody: finalized.response,
+      }),
+      responsePath,
+    });
+
+  if (mixedCtx?.contract && pipelineTracer && routingDecision) {
+    return void respondWithContract(
+      res,
+      pipelineTracer,
+      routingDecision,
+      {
+        reply: finalized.response,
+        prices: [],
+        session_context: hasAnchorForRouting
+          ? (req.body?.session_context || sessionContext)
+          : (req.body?.session_context || {}),
+      },
+      responsePath,
+      {},
+      {
+        sessionBefore: req.body?.session_context || sessionContext,
+        toneProfile: conversationalToneProfile,
+        mixedResponseContext: mixedCtx,
+        firstAnswerContext: enrichFirstAnswerContextForMixed(
+          {
+            query: resolvedQuery || query,
+            sessionContext,
+            winnerProduct: sessionContext?.lastBestProduct || null,
+            responsePath,
+          },
+          socialBehaviorContract,
+          query,
+          mixedCtx.commercialSnapshot
+        ),
+      }
+    );
+  }
+
+  return void sendRuntimeResponse(
+    res,
+    pipelineTracer,
+    {
+      reply: finalized.response,
+      prices: [],
+      session_context: applyGovernedSemanticSessionTransition(
+        hasAnchorForRouting
+          ? (req.body?.session_context || sessionContext)
+          : (req.body?.session_context || {}),
+        { responsePath, pipelineTracer }
+      ),
+    },
+    responsePath,
+    {
+      routingDecision,
+      finalization: { required: true, applied: true, validatorApplied: true },
+      contracts: {
+        behaviorPresent: !!socialBehaviorContract,
+        mixedPresent: !!mixedCtx?.contract,
+        mixedContract: !!mixedCtx?.contract,
+      },
+      stateTransitionAlreadyApplied: true,
+    }
+  );
+}
+
+async function runNonCommercialAuthorityFastBranch({
+  res,
+  intentAuthority,
+  intentRecognitionEarly,
+  socialBehaviorContractEarly,
+  query,
+  resolvedQuery,
+  budget,
+  wantsNew,
+  period,
+  userStyle,
+  sessionContext,
+  incomingSessionContext,
+  hasAnchorForRouting,
+  req,
+  conversationalToneProfile,
+  commercialEntryGateResult,
+  commercialEntryGateTracker,
+  pipelineTracer,
+  routingDecision,
+}) {
+  const flow = resolveNonCommercialFlowFromAuthority(intentAuthority);
+  if (intentRecognitionEarly?.socialFamilies?.farewell) {
+    flow.role = "farewell_reply";
+    flow.source = "farewell_flow";
+    flow.intent = "social_conversation";
+  }
+  const governedBehaviorInstructions = socialBehaviorContractEarly
+    ? buildFullHumanConversationInstructions(socialBehaviorContractEarly)
+    : "";
+  const finalizeNonCommercialReply = (rawReply, contract = socialBehaviorContractEarly) =>
+    finalizeHumanConversationReply(
+      rawReply || buildGovernedSocialFallbackReply(contract || {}, { period }),
+      contract || {},
+      conversationalToneProfile,
+      { period }
+    ).response;
+  const preservedSession = buildPreservedNonCommercialSessionContext({
+    sessionContext,
+    incomingSessionContext: incomingSessionContext || req.body?.session_context || {},
+    hasAnchor: hasAnchorForRouting,
+  });
+
+  if (process.env.MIA_DEBUG === "true") {
+    pipelineTracer.patch({
+      commercial_entry_blocked: true,
+      commercial_block_reason: commercialEntryGateResult?.reasonCode || "intent_authority_deny",
+      commercial_entry_gate: commercialEntryGateToTrace(
+        commercialEntryGateResult,
+        commercialEntryGateTracker
+      ),
+    });
+  }
+
+  if (flow.intent === "about_mia") {
+    const identityQuery = resolvedQuery || query;
+    const isBriefIdentity = isSimpleBriefIdentityQuery(identityQuery);
+    const institutionalContext = isBriefIdentity
+      ? buildBriefOfficialIdentityVerbalizationContext()
+      : buildAboutMiaVerbalizationContext(identityQuery);
+    const aboutMiaMessages = [
+      {
+        role: "system",
+        content: `${buildMiaSystemPromptByRole("about_mia_reply", conversationalToneProfile)}\n\n${institutionalContext}`,
+      },
+      {
+        role: "user",
+        content: buildUserPrompt({
+          query: resolvedQuery || query,
+          originalQuery: query,
+          intent: flow.intent,
+          budget,
+          wantsNew,
+          period,
+          products: hasAnchorForRouting ? [sessionContext.lastBestProduct].filter(Boolean) : [],
+          productLimit: hasAnchorForRouting ? 1 : 0,
+          userStyle,
+          behaviorInstructions: governedBehaviorInstructions,
+          socialVerbalizationOnly: true,
+        }),
+      },
+    ];
+    const aiResponse = await runMiaBrainTask({
+      role: "about_mia_reply",
+      intent: flow.intent,
+      messages: aboutMiaMessages,
+      temperature: 0.45,
+      max_tokens: 220,
+      metadata: { source: flow.source },
+    });
+    const llmReply = getMiaLLMText(aiResponse);
+    const reply =
+      llmReply && !isGenericInstitutionalFallbackReply(llmReply)
+        ? finalizeNonCommercialReply(llmReply)
+        : isBriefIdentity
+          ? buildBriefOfficialIdentityReply(identityQuery)
+          : buildAboutMiaDeterministicFallback(identityQuery);
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply,
+        prices: [],
+        session_context: applyGovernedSemanticSessionTransition(preservedSession, {
+          responsePath: flow.source || "non_commercial_identity",
+          pipelineTracer,
+        }),
+      },
+      flow.source || "non_commercial_identity",
+      {
+        routingDecision,
+        finalization: { required: true, applied: true, validatorApplied: true },
+        contracts: { behaviorPresent: true },
+        stateTransitionAlreadyApplied: true,
+      }
+    );
+  }
+
+  if (flow.intent === "greeting") {
+    const greetingMessages = [
+      {
+        role: "system",
+        content: buildMiaSystemPromptByRole("greeting_reply", conversationalToneProfile),
+      },
+      {
+        role: "user",
+        content: buildUserPrompt({
+          query: resolvedQuery || query,
+          originalQuery: query,
+          intent: flow.intent,
+          budget,
+          wantsNew,
+          period,
+          products: [],
+          productLimit: 0,
+          userStyle,
+          behaviorInstructions: governedBehaviorInstructions,
+          socialVerbalizationOnly: true,
+        }),
+      },
+    ];
+    const aiResponse = await runMiaBrainTask({
+      role: "greeting_reply",
+      intent: flow.intent,
+      messages: greetingMessages,
+      temperature: 0.6,
+      max_tokens: 180,
+      metadata: { source: flow.source },
+    });
+    const reply = finalizeNonCommercialReply(
+      getMiaLLMText(aiResponse) ||
+        (hasAnchorForRouting
+          ? buildAnchoredGreetingFallback(sessionContext)
+          : null)
+    );
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply,
+        prices: [],
+        session_context: applyGovernedSemanticSessionTransition(preservedSession, {
+          responsePath: flow.source || "non_commercial_greeting",
+          pipelineTracer,
+        }),
+      },
+      flow.source || "non_commercial_greeting",
+      {
+        routingDecision,
+        finalization: { required: true, applied: true, validatorApplied: true },
+        contracts: { behaviorPresent: true },
+        stateTransitionAlreadyApplied: true,
+      }
+    );
+  }
+
+  if (flow.intent === "acknowledgement") {
+    const acknowledgementMessages = [
+      {
+        role: "system",
+        content: buildMiaSystemPromptByRole("acknowledgement_reply", conversationalToneProfile),
+      },
+      {
+        role: "user",
+        content: buildUserPrompt({
+          query: resolvedQuery || query,
+          originalQuery: query,
+          intent: flow.intent,
+          budget,
+          wantsNew,
+          period,
+          products: hasAnchorForRouting ? [sessionContext.lastBestProduct].filter(Boolean) : [],
+          productLimit: hasAnchorForRouting ? 1 : 0,
+          userStyle,
+          behaviorInstructions: governedBehaviorInstructions,
+          socialVerbalizationOnly: true,
+        }),
+      },
+    ];
+    const aiResponse = await runMiaBrainTask({
+      role: "acknowledgement_reply",
+      intent: flow.intent,
+      messages: acknowledgementMessages,
+      temperature: 0.5,
+      max_tokens: 160,
+      metadata: { source: flow.source },
+    });
+    const reply = finalizeNonCommercialReply(
+      getMiaLLMText(aiResponse) ||
+        (hasAnchorForRouting
+          ? buildAnchoredAcknowledgementFallback(sessionContext)
+          : null)
+    );
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply,
+        prices: [],
+        session_context: applyGovernedSemanticSessionTransition(preservedSession, {
+          responsePath: flow.source || "non_commercial_acknowledgement",
+          pipelineTracer,
+        }),
+      },
+      flow.source || "non_commercial_acknowledgement",
+      {
+        routingDecision,
+        finalization: { required: true, applied: true, validatorApplied: true },
+        contracts: { behaviorPresent: true },
+        stateTransitionAlreadyApplied: true,
+      }
+    );
+  }
+
+  return runGovernedSocialIntentFlow({
+    res,
+    intent: flow.intent,
+    role: flow.role,
+    source: flow.source,
+    query,
+    resolvedQuery: query,
+    budget,
+    wantsNew,
+    period,
+    userStyle,
+    sessionContext: preservedSession,
+    hasAnchorForRouting,
+    req: { ...req, body: { ...req.body, session_context: preservedSession } },
+    conversationalToneProfile,
+    socialBehaviorContract: socialBehaviorContractEarly,
+    products: [],
+    productLimit: 0,
+    pipelineTracer,
+  });
+}
+
 function detectIntent(query = "") {
   const q = normalizeQuery(query)
     .replace(/[?!.,;:]+/g, "")
@@ -23373,8 +24045,26 @@ function buildUserPrompt({
   period,
   products,
   productLimit,
-  userStyle
+  userStyle,
+  behaviorInstructions = "",
+  socialVerbalizationOnly = false,
 }) {
+  if (socialVerbalizationOnly) {
+    return `
+Mensagem do usuário: "${originalQuery || query}"
+Período mencionado/inferido: ${period}
+Estilo detectado: ${userStyle}
+
+${behaviorInstructions ? `${behaviorInstructions}\n` : ""}
+Instruções para esta resposta social:
+- Verbalize conforme o contrato governado acima.
+- Reaja ao conteúdo específico da mensagem do usuário.
+- Mantenha personalidade clara, natural e proporcional.
+- Não invente produtos, ofertas, comparações ou experiências humanas próprias.
+- Não recite disponibilidade genérica nem encerre com pergunta se o contrato não autorizar.
+`.trim();
+  }
+
   return `
 Contexto da solicitação do usuário:
 - Mensagem original do usuário: "${originalQuery || query}"
@@ -23386,6 +24076,7 @@ Contexto da solicitação do usuário:
 - Estilo de linguagem do usuário detectado: ${userStyle}
 - Orientação de contexto por categoria: ${getCategoryContextHint(query)}
 
+${behaviorInstructions ? `${behaviorInstructions}\n` : ""}
 Produtos encontrados e já filtrados/rankeados:
 ${formatProductsForPrompt(products, productLimit)}
 
@@ -23536,7 +24227,7 @@ function buildAnchoredGreetingFallback(sessionContext = {}) {
 }
 
 function buildOpenAcknowledgementFallback() {
-  return "Boa. Quando quiser, me diz o que você está pensando em comprar e eu te ajudo a decidir.";
+  return "Por nada!";
 }
 
 function buildAnchoredAcknowledgementFallback(sessionContext = {}) {
@@ -23999,15 +24690,15 @@ function resolveContextQuery(query = "", messages = [], bodySessionContext = {})
     };
   }
 
-    const casualSocialReply = buildCasualSocialReply(q);
+    const casualSocialIntent = detectCasualSocialIntent(q);
 
-  if (casualSocialReply) {
+  if (casualSocialIntent) {
     return {
       standaloneQuery: q,
       needsClarification: false,
       shouldSkipProductSearch: true,
       mode: "casual_chat",
-      directReply: casualSocialReply,
+      directReply: null,
       clearContext: false
     };
   }
@@ -24543,6 +25234,7 @@ async function applyCommercialRuntimeActivationToResponsePrices({
         query,
         prices: basePrices,
         winnerProduct: winnerProduct || basePrices[0] || null,
+        env: runtimeExecutionEnvRef.env,
       });
 
     const selectedOfferTitle =
@@ -25414,6 +26106,797 @@ function guardMiaReplyForTone(reply, toneProfile, specialistWireOptions = {}) {
   });
 }
 
+function enrichFirstAnswerContextForMixed(
+  firstAnswerContext,
+  socialBehaviorContractEarly,
+  rawUserMessage = "",
+  mixedCommercialSnapshotEarly = null
+) {
+  if (
+    !firstAnswerContext ||
+    (socialBehaviorContractEarly?.interactionMode !== MIA_INTERACTION_MODES.MIXED &&
+      !resolveMixedContinuationEligibility({
+        interactionMode: socialBehaviorContractEarly?.interactionMode,
+        message: rawUserMessage,
+        sessionContext: firstAnswerContext?.sessionContext,
+      }))
+  ) {
+    return firstAnswerContext;
+  }
+  const mixedResponseContext = buildMixedResponseContext(socialBehaviorContractEarly, {
+    message: rawUserMessage || firstAnswerContext.query || "",
+    sessionContext: firstAnswerContext.sessionContext,
+    commercialSnapshot:
+      mixedCommercialSnapshotEarly ||
+      buildCommercialSnapshot({
+        winnerName:
+          firstAnswerContext?.winnerProduct?.product_name ||
+          firstAnswerContext?.sessionContext?.lastBestProduct?.product_name ||
+          "",
+        winnerProduct:
+          firstAnswerContext?.winnerProduct ||
+          firstAnswerContext?.sessionContext?.lastBestProduct ||
+          null,
+        commercialSearchQuery: socialBehaviorContractEarly?.commercialSearchQuery || "",
+        responsePath: firstAnswerContext.responsePath || "",
+      }),
+    responsePath: firstAnswerContext.responsePath || "",
+  });
+  return {
+    ...firstAnswerContext,
+    mixedBehaviorContract: mixedResponseContext?.contract || socialBehaviorContractEarly,
+    rawUserMessage: rawUserMessage || firstAnswerContext.query || "",
+    mixedVerbalization:
+      mixedResponseContext?.contract?.mixedVerbalization ||
+      socialBehaviorContractEarly?.mixedVerbalization ||
+      null,
+    mixedResponseContext,
+  };
+}
+
+function applyMixedDualCompletionToBody(
+  body,
+  {
+    mixedResponseContext = null,
+    firstAnswerContext = null,
+    responsePath = "",
+    firstAnswerResult = null,
+  } = {}
+) {
+  const winnerName =
+    body?.prices?.[0]?.product_name ||
+    firstAnswerContext?.winnerProduct?.product_name ||
+    mixedResponseContext?.commercialSnapshot?.winnerName ||
+    "";
+  const ctx =
+    mixedResponseContext ||
+    firstAnswerContext?.mixedResponseContext ||
+    buildMixedResponseContext(firstAnswerContext?.mixedBehaviorContract, {
+      message: firstAnswerContext?.rawUserMessage || "",
+      sessionContext: firstAnswerContext?.sessionContext,
+      commercialSnapshot: buildCommercialSnapshot({
+        winnerName,
+        winnerProduct: firstAnswerContext?.winnerProduct || body?.prices?.[0] || null,
+        commercialBody: firstAnswerResult?.reply || body?.reply || "",
+        structuredReply: firstAnswerResult?.reply || body?.reply || "",
+        clarificationQuestion:
+          firstAnswerResult?.genericQueryClarificationClosing?.question || "",
+        responsePath,
+        prices: body?.prices || [],
+      }),
+      responsePath,
+    });
+
+  if (!ctx?.contract) {
+    return { body, completion: null };
+  }
+
+  const completion = completeMixedDualDimensions(body?.reply || "", ctx, {
+    winnerName,
+    clarificationRequired:
+      !!firstAnswerResult?.genericQueryClarificationClosing ||
+      !!ctx.contract?.mixedVerbalization?.clarificationRequired,
+    clarificationQuestion:
+      firstAnswerResult?.genericQueryClarificationClosing?.question ||
+      ctx.commercialSnapshot?.clarificationQuestion ||
+      "",
+    commercialReplySnapshot: firstAnswerResult?.reply || body?.reply || "",
+    responsePath,
+    mixedResponseContext: ctx,
+  });
+
+  return {
+    body: {
+      ...body,
+      reply: completion.reply || body?.reply || "",
+      session_context: attachMixedConversationalStateToSession(
+        body?.session_context || {},
+        completion
+      ),
+    },
+    completion,
+  };
+}
+
+function respondAnchoredComparisonContractOutcome(
+  res,
+  contract,
+  {
+    query = "",
+    resolvedQuery = "",
+    sessionContext = {},
+    candidate = "",
+    anchorName = "",
+    pipelineTracer,
+    routingDecision,
+    conversationalToneProfile,
+  } = {}
+) {
+  const sameProduct = isSameProductComparisonContract(contract);
+  const responsePath = sameProduct
+    ? "comparison_same_product_clarification"
+    : "comparison_anchored_incomplete";
+
+  pipelineTracer.patch({
+    commercial_continuation_runtime_guard: comparisonRuntimeGuardToTrace(contract, {
+      runtimeCrashPrevented: true,
+      stateMutationBlocked: sameProduct || contract.clarificationRequired,
+      comparisonExecutionBlocked: !isComparisonExecutionAllowed(contract),
+      providerCallsPrevented: sameProduct,
+    }),
+  });
+
+  const reply = sameProduct
+    ? buildSameProductComparisonClarificationReply({
+        query: resolvedQuery || query,
+        anchorName,
+        contract,
+      })
+    : buildAnchoredComparisonIncompleteReply({
+        query: resolvedQuery || query,
+        candidate,
+        contract,
+      });
+
+  return respondWithContract(
+    res,
+    pipelineTracer,
+    routingDecision,
+    {
+      reply,
+      prices: [],
+      session_context: {
+        ...sessionContext,
+        lastQuery: resolvedQuery || query,
+        lastIntent: "comparison",
+        lastTopic: resolvedQuery || query,
+        lastInteractionType: responsePath,
+        ...(sameProduct ? {} : { lastComparisonQuery: resolvedQuery || query }),
+      },
+    },
+    responsePath,
+    {},
+    { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+  );
+}
+
+function applyGovernedSemanticSessionTransition(
+  sessionContext,
+  { responsePath = "", prices = [], pipelineTracer = null } = {}
+) {
+  const ctx = semanticGovernanceRef.ctx;
+  if (!ctx || !sessionContext) return sessionContext;
+  const transitionResult = applySemanticStateTransition({
+    sessionContext,
+    normalizedBefore: ctx.normalizedBefore,
+    intentRecognition: ctx.intentRecognition,
+    intentAuthority: ctx.intentAuthority,
+    responsePath,
+    prices,
+    continuationEligibility: ctx.continuationEligibility,
+    turnIndex: ctx.turnIndex,
+  });
+  if (pipelineTracer) {
+    pipelineTracer.patch({
+      semantic_state_governance: semanticStateGovernanceToTrace({
+        normalizedBefore: ctx.normalizedBefore,
+        normalizedAfter: transitionResult.normalizedAfter,
+        continuationEligibility: ctx.continuationEligibility,
+        transitionAudit: transitionResult.transitionAudit,
+      }),
+    });
+  }
+  return transitionResult.sessionContext;
+}
+
+function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace, extraTrace = {}) {
+  const _blocked = preventDoubleHttpResponse(runtimeEnforcementRef, res);
+  if (_blocked.blocked) return;
+
+  detectPostSealMutation(runtimeEnforcementRef, body);
+
+  assertGateDenyProviderFree({
+    intentAuthority: semanticGovernanceRef.ctx?.intentAuthority || null,
+    commercialEntryGate: semanticGovernanceRef.commercialEntryGate || null,
+    providerAccounting: runtimeEnforcementRef.providerAccounting,
+    enforcementCtx: runtimeEnforcementRef,
+  });
+
+  markHttpResponseSent(runtimeEnforcementRef);
+  const _enforcementTrace = runtimeEnforcementToTrace(runtimeEnforcementRef);
+
+  res.status(200).json(
+    pipelineTracer.enrichResponse(body, {
+      ...extraTrace,
+      response_path: responsePath,
+      runtime_precedence: trace,
+      runtime_enforcement: _enforcementTrace,
+    })
+  );
+}
+
+function sendRuntimeResponse(
+  res,
+  pipelineTracer,
+  body,
+  responsePath,
+  options = {}
+) {
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.CREATED);
+
+  let _responsePath = responsePath;
+  let _body = { ...(body || {}) };
+  const _registry = resolveResponsePathRegistry(_responsePath);
+
+  if (_registry.failClosed) {
+    const _failClosed = executeUnknownPathFailClosed({
+      responsePath: _responsePath,
+      body: _body,
+      intentAuthority: semanticGovernanceRef.ctx?.intentAuthority || null,
+      commercialEntryGate: semanticGovernanceRef.commercialEntryGate || null,
+    });
+    runtimeEnforcementRef.unknownPathFailClosed = true;
+    runtimeEnforcementRef.normalizedResponsePath = _failClosed.normalizedResponsePath;
+    _responsePath = _failClosed.normalizedResponsePath;
+    _body = _failClosed.body;
+    recordInvariantRepairs(runtimeEnforcementRef, {
+      responsePath: responsePath,
+      violations: ["unknown_response_path"],
+      corrected: true,
+      bodyBefore: body,
+      bodyAfter: _body,
+    });
+  }
+
+  const _mode = resolveRuntimeDispatchMode(_responsePath);
+
+  if (_mode === "technical") {
+    return __sendRuntimeTechnicalResponse(res, pipelineTracer, _body, _responsePath, options);
+  }
+  if (_mode === "pre_cognitive" || _mode === "pre_cognitive_degraded") {
+    return __sendRuntimePreCognitiveFunctionalResponse(
+      res,
+      pipelineTracer,
+      _body,
+      _responsePath,
+      options
+    );
+  }
+  if (_mode === "commercial_degraded") {
+    return __sendRuntimeCommercialDegradedResponse(
+      res,
+      pipelineTracer,
+      _body,
+      _responsePath,
+      options
+    );
+  }
+  return __sendRuntimeGovernedResponse(res, pipelineTracer, _body, _responsePath, options);
+}
+
+function __sendRuntimeTechnicalResponse(
+  res,
+  pipelineTracer,
+  body,
+  responsePath,
+  { providerCallDelta = 0, extraTrace = {} } = {}
+) {
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.AUTHORIZED);
+  const _finalization = finalizeTechnicalRuntimeResponse({
+    responsePath,
+    body,
+    providerAccounting: {
+      providerCallDelta: providerCallDelta,
+      ...runtimeEnforcementRef.providerAccounting,
+    },
+  });
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.FINALIZED);
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.VALIDATED);
+  recordInvariantRepairs(runtimeEnforcementRef, {
+    responsePath,
+    violations: _finalization.invariants?.violations || [],
+    corrected: _finalization.invariants?.corrected,
+    bodyBefore: body,
+    bodyAfter: _finalization.body,
+  });
+
+  pipelineTracer.patch({
+    runtime_precedence: _finalization.trace,
+    runtime_precedence_version: RUNTIME_PRECEDENCE_VERSION,
+    runtime_enforcement_version: RUNTIME_ENFORCEMENT_VERSION,
+    precedence_stage_reached: PRECEDENCE_STAGES.HTTP_RESPONSE,
+  });
+
+  let _body = {
+    ..._finalization.body,
+    mia_debug: {
+      ...(_finalization.body?.mia_debug || {}),
+      runtime_precedence: _finalization.trace,
+      runtime_enforcement: runtimeEnforcementToTrace(runtimeEnforcementRef),
+    },
+  };
+
+  sealRuntimePayload(runtimeEnforcementRef, _body);
+
+  sendHttpRuntimeResponse(
+    res,
+    pipelineTracer,
+    _body,
+    responsePath,
+    _finalization.trace,
+    extraTrace
+  );
+}
+
+function __sendRuntimePreCognitiveFunctionalResponse(
+  res,
+  pipelineTracer,
+  body,
+  responsePath,
+  {
+    degradation = {},
+    providerCallDelta = 0,
+    extraTrace = {},
+  } = {}
+) {
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.AUTHORIZED);
+  const _finalization = finalizePreCognitiveFunctionalResponse({
+    responsePath,
+    body,
+    degradation,
+    providerAccounting: {
+      providerCallDelta,
+      ...runtimeEnforcementRef.providerAccounting,
+    },
+  });
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.FINALIZED);
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.VALIDATED);
+  recordInvariantRepairs(runtimeEnforcementRef, {
+    responsePath,
+    violations: _finalization.invariants?.violations || [],
+    corrected: _finalization.invariants?.corrected,
+    bodyBefore: body,
+    bodyAfter: _finalization.body,
+  });
+
+  pipelineTracer.patch({
+    runtime_precedence: _finalization.trace,
+    runtime_precedence_version: RUNTIME_PRECEDENCE_VERSION,
+    runtime_enforcement_version: RUNTIME_ENFORCEMENT_VERSION,
+    precedence_stage_reached: PRECEDENCE_STAGES.HTTP_RESPONSE,
+  });
+
+  let _body = {
+    ..._finalization.body,
+    mia_debug: {
+      ...(_finalization.body?.mia_debug || {}),
+      runtime_precedence: _finalization.trace,
+      runtime_enforcement: runtimeEnforcementToTrace(runtimeEnforcementRef),
+    },
+  };
+
+  sealRuntimePayload(runtimeEnforcementRef, _body);
+
+  sendHttpRuntimeResponse(
+    res,
+    pipelineTracer,
+    _body,
+    responsePath,
+    _finalization.trace,
+    extraTrace
+  );
+}
+
+function __sendRuntimeCommercialDegradedResponse(
+  res,
+  pipelineTracer,
+  body,
+  responsePath,
+  {
+    routingDecision = null,
+    degradation = {},
+    providerCallDelta = null,
+    contracts = {},
+    extraTrace = {},
+    stateTransitionAlreadyApplied = false,
+  } = {}
+) {
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.CREATED);
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.AUTHORIZED);
+
+  const _semanticCtx = semanticGovernanceRef.ctx;
+  const _routing =
+    routingDecision || semanticGovernanceRef.finalRoutingDecision || null;
+  const _authority = _semanticCtx?.intentAuthority || null;
+  const _recognition = _semanticCtx?.intentRecognition || null;
+  const _gate = semanticGovernanceRef.commercialEntryGate || null;
+  let _body = { ...(body || {}) };
+
+  let _transitionApplied = false;
+  let _provenanceApplied = false;
+
+  if (_semanticCtx && _body.session_context && !stateTransitionAlreadyApplied) {
+    prepareSemanticTransition(runtimeEnforcementRef, _body.session_context);
+    const _transitionResult = applySemanticStateTransition({
+      sessionContext: _body.session_context,
+      normalizedBefore: _semanticCtx.normalizedBefore,
+      intentRecognition: _semanticCtx.intentRecognition,
+      intentAuthority: _semanticCtx.intentAuthority,
+      responsePath,
+      prices: _body.prices,
+      continuationEligibility: _semanticCtx.continuationEligibility,
+      turnIndex: _semanticCtx.turnIndex,
+    });
+    _body = {
+      ..._body,
+      session_context: _transitionResult.sessionContext,
+    };
+    _transitionApplied = true;
+    _provenanceApplied = !!_transitionResult.sessionContext?.semanticStateProvenance;
+    pipelineTracer.patch({
+      semantic_state_governance: semanticStateGovernanceToTrace({
+        normalizedBefore: _semanticCtx.normalizedBefore,
+        normalizedAfter: _transitionResult.normalizedAfter,
+        continuationEligibility: _semanticCtx.continuationEligibility,
+        transitionAudit: _transitionResult.transitionAudit,
+      }),
+    });
+  }
+
+  const _providerDelta =
+    providerCallDelta ??
+    (degradation.providerAttempted === false ? 0 : null);
+
+  const _degradedFinal = finalizeCommercialDegradedResponse({
+    responsePath,
+    body: _body,
+    intentAuthority: _authority,
+    intentRecognition: _recognition,
+    routingDecision: _routing ? { ..._routing, finalAuthority: true } : null,
+    commercialEntryGate: _gate,
+    contracts: {
+      mixedPresent: contracts.mixedPresent || !!contracts.mixedContract,
+      behaviorPresent: contracts.behaviorPresent || false,
+      ...contracts,
+    },
+    finalization: { required: true, applied: true, validatorApplied: true },
+    semanticState: {
+      transitionRequired: !!_semanticCtx,
+      transitionApplied:
+        stateTransitionAlreadyApplied || _transitionApplied || !_semanticCtx,
+      provenanceApplied:
+        stateTransitionAlreadyApplied ||
+        _provenanceApplied ||
+        !!_body.session_context?.semanticStateProvenance ||
+        !_semanticCtx,
+      transitionType: "commercial_degraded",
+      previousStatePreserved: true,
+    },
+    degradation: {
+      active: true,
+      ...degradation,
+    },
+    providerAccounting: {
+      ...runtimeEnforcementRef.providerAccounting,
+      providerCallDelta: _providerDelta,
+      providerBlockedByGate:
+        _authority?.commercialPermission === COMMERCIAL_PERMISSION.DENY,
+    },
+  });
+
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.FINALIZED);
+
+  const _consistency = validateResponseExecutionConsistency({
+    responsePath,
+    body: _degradedFinal.body,
+    providerAccounting: runtimeEnforcementRef.providerAccounting,
+    degradation: _degradedFinal.envelope?.degradation,
+  });
+
+  if (!_degradedFinal.authorization?.allowed && _semanticCtx) {
+    _body = rollbackSemanticTransition(runtimeEnforcementRef, _body);
+  } else if (_transitionApplied) {
+    commitSemanticTransition(runtimeEnforcementRef);
+  }
+
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.VALIDATED);
+  recordInvariantRepairs(runtimeEnforcementRef, {
+    responsePath,
+    violations: [
+      ...(_degradedFinal.invariants?.violations || []),
+      ...(_consistency.violations || []),
+    ],
+    corrected: _degradedFinal.invariants?.corrected,
+    bodyBefore: body,
+    bodyAfter: _degradedFinal.body,
+  });
+
+  const _resolvedPath =
+    _degradedFinal.normalizedResponsePath ||
+    _degradedFinal.trace?.normalizedResponsePath ||
+    responsePath;
+
+  pipelineTracer.patch({
+    runtime_precedence: _degradedFinal.trace,
+    runtime_precedence_version: RUNTIME_PRECEDENCE_VERSION,
+    runtime_enforcement_version: RUNTIME_ENFORCEMENT_VERSION,
+    precedence_stage_reached: PRECEDENCE_STAGES.HTTP_RESPONSE,
+    final_routing_mode: _routing?.mode || null,
+  });
+
+  let _outBody = {
+    ..._degradedFinal.body,
+    mia_debug: {
+      ...(_degradedFinal.body?.mia_debug || {}),
+      runtime_precedence: _degradedFinal.trace,
+      runtime_enforcement: runtimeEnforcementToTrace(runtimeEnforcementRef),
+    },
+  };
+
+  sealRuntimePayload(runtimeEnforcementRef, _outBody);
+
+  sendHttpRuntimeResponse(
+    res,
+    pipelineTracer,
+    _outBody,
+    _resolvedPath,
+    _degradedFinal.trace,
+    { ...extraTrace, response_path: _resolvedPath }
+  );
+}
+
+function __sendRuntimeGovernedResponse(
+  res,
+  pipelineTracer,
+  body,
+  responsePath,
+  {
+    routingDecision = null,
+    extraTrace = {},
+    semanticGovernance = null,
+    contracts = {},
+    finalization = {},
+    legacyIntentSignal = null,
+    csoAttempt = false,
+    strict = false,
+    stateTransitionAlreadyApplied = false,
+  } = {}
+) {
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.AUTHORIZED);
+
+  const _semanticCtx = semanticGovernance || semanticGovernanceRef.ctx;
+  const _routing =
+    routingDecision || semanticGovernanceRef.finalRoutingDecision || null;
+  const _authority = _semanticCtx?.intentAuthority || null;
+  const _recognition = _semanticCtx?.intentRecognition || null;
+  const _gate = semanticGovernanceRef.commercialEntryGate || null;
+  let _body = { ...(body || {}) };
+
+  let _transitionApplied = false;
+  let _provenanceApplied = false;
+
+  if (_semanticCtx && _body.session_context && !stateTransitionAlreadyApplied) {
+    prepareSemanticTransition(runtimeEnforcementRef, _body.session_context);
+    const _transitionResult = applySemanticStateTransition({
+      sessionContext: _body.session_context,
+      normalizedBefore: _semanticCtx.normalizedBefore,
+      intentRecognition: _semanticCtx.intentRecognition,
+      intentAuthority: _semanticCtx.intentAuthority,
+      responsePath,
+      prices: _body.prices,
+      continuationEligibility: _semanticCtx.continuationEligibility,
+      turnIndex: _semanticCtx.turnIndex,
+    });
+    _body = {
+      ..._body,
+      session_context: _transitionResult.sessionContext,
+    };
+    _transitionApplied = true;
+    _provenanceApplied = !!_transitionResult.sessionContext?.semanticStateProvenance;
+    pipelineTracer.patch({
+      semantic_state_governance: semanticStateGovernanceToTrace({
+        normalizedBefore: _semanticCtx.normalizedBefore,
+        normalizedAfter: _transitionResult.normalizedAfter,
+        continuationEligibility: _semanticCtx.continuationEligibility,
+        transitionAudit: _transitionResult.transitionAudit,
+      }),
+    });
+    _body = {
+      ..._body,
+      mia_debug: {
+        ...(_body.mia_debug || {}),
+        semantic_state_governance: semanticStateGovernanceToTrace({
+          normalizedBefore: _semanticCtx.normalizedBefore,
+          normalizedAfter: _transitionResult.normalizedAfter,
+          continuationEligibility: _semanticCtx.continuationEligibility,
+          transitionAudit: _transitionResult.transitionAudit,
+        }),
+      },
+    };
+  }
+
+  const _legacySuppression = suppressLegacyDecisionConflict({
+    legacyIntent: legacyIntentSignal || semanticGovernanceRef.legacyIntentSignal || null,
+    intentAuthority: _authority,
+  });
+
+  if (_legacySuppression.suppressed && _legacySuppression.legacyDecisionUsed) {
+    runtimeEnforcementRef.legacyAuthorityViolation = true;
+  }
+  if (csoAttempt && !String(responsePath || "").includes("cso")) {
+    runtimeEnforcementRef.csoAuthorityViolation = true;
+  }
+
+  const _runtimeFinalization = finalizeGovernedRuntimeResponse({
+    responsePath,
+    body: _body,
+    intentAuthority: _authority,
+    intentRecognition: _recognition,
+    routingDecision: _routing ? { ..._routing, finalAuthority: true } : null,
+    commercialEntryGate: _gate,
+    contracts: {
+      behaviorPresent:
+        contracts.behaviorPresent ||
+        !!_semanticCtx?.intentRecognition?.socialFamilies ||
+        pathMatchesSocialBehaviorPath(responsePath),
+      mixedPresent: contracts.mixedPresent || !!contracts.mixedContract,
+      firstAnswerPresent: contracts.firstAnswerPresent || !!finalization.applied,
+      comparisonPresent:
+        contracts.comparisonPresent ||
+        String(responsePath || "").includes("comparison"),
+    },
+    finalization: {
+      required: !!finalization.required,
+      applied: finalization.applied !== false,
+      validatorApplied: finalization.validatorApplied !== false,
+      skippedReason: finalization.skippedReason || null,
+    },
+    semanticState: {
+      transitionRequired: !!_semanticCtx,
+      transitionApplied:
+        stateTransitionAlreadyApplied || _transitionApplied || !_semanticCtx,
+      provenanceApplied:
+        stateTransitionAlreadyApplied ||
+        _provenanceApplied ||
+        !!_body.session_context?.semanticStateProvenance ||
+        !_semanticCtx,
+    },
+    legacy: {
+      signalUsed: !!legacyIntentSignal || !!semanticGovernanceRef.legacyIntentSignal,
+      suggestedIntent: legacyIntentSignal || semanticGovernanceRef.legacyIntentSignal || null,
+      decisionUsed: false,
+      suppressed: _legacySuppression.suppressed,
+    },
+    cso: {
+      signalUsed: csoAttempt,
+      responseAuthorized: csoAttempt && String(responsePath || "").includes("cso"),
+      suppressed: csoAttempt && !String(responsePath || "").includes("cso"),
+    },
+    providerAccounting: runtimeEnforcementRef.providerAccounting,
+    strict: strict || process.env.MIA_RUNTIME_STRICT === "true",
+  });
+
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.FINALIZED);
+
+  if (!_runtimeFinalization.authorization?.allowed && _semanticCtx) {
+    _body = rollbackSemanticTransition(runtimeEnforcementRef, _body);
+  } else if (_transitionApplied) {
+    commitSemanticTransition(runtimeEnforcementRef);
+  }
+
+  const _consistency = validateResponseExecutionConsistency({
+    responsePath,
+    body: _runtimeFinalization.body,
+    providerAccounting: runtimeEnforcementRef.providerAccounting,
+  });
+
+  advanceRuntimeLifecycle(runtimeEnforcementRef, LIFECYCLE_STATES.VALIDATED);
+  recordInvariantRepairs(runtimeEnforcementRef, {
+    responsePath,
+    violations: [
+      ...(_runtimeFinalization.invariants?.violations || []),
+      ...(_consistency.violations || []),
+    ],
+    corrected: _runtimeFinalization.invariants?.corrected,
+    bodyBefore: body,
+    bodyAfter: _runtimeFinalization.body,
+  });
+
+  _body = _runtimeFinalization.body;
+
+  pipelineTracer.patch({
+    runtime_precedence: _runtimeFinalization.trace,
+    runtime_precedence_version: RUNTIME_PRECEDENCE_VERSION,
+    runtime_enforcement_version: RUNTIME_ENFORCEMENT_VERSION,
+    precedence_stage_reached: PRECEDENCE_STAGES.HTTP_RESPONSE,
+    final_routing_mode: _routing?.mode || null,
+  });
+
+  _body = {
+    ..._body,
+    mia_debug: {
+      ...(_body.mia_debug || {}),
+      runtime_precedence: _runtimeFinalization.trace,
+      runtime_enforcement: runtimeEnforcementToTrace(runtimeEnforcementRef),
+    },
+  };
+
+  sealRuntimePayload(runtimeEnforcementRef, _body);
+
+  sendHttpRuntimeResponse(
+    res,
+    pipelineTracer,
+    _body,
+    responsePath,
+    _runtimeFinalization.trace,
+    extraTrace
+  );
+  return;
+}
+
+function pathMatchesSocialBehaviorPath(responsePath = "") {
+  const path = String(responsePath || "").toLowerCase();
+  return (
+    path.includes("social") ||
+    path.includes("greeting") ||
+    path.includes("acknowledgement") ||
+    path.includes("emotional") ||
+    path.includes("comprehension") ||
+    path.includes("non_commercial") ||
+    path.includes("about_mia") ||
+    path.includes("farewell")
+  );
+}
+
+function sendLegacySocialDirectResponse(
+  res,
+  pipelineTracer,
+  {
+    reply = "",
+    sessionContext = {},
+    hasAnchorForRouting = false,
+    req = null,
+    responsePath = "legacy_social_flow",
+    routingDecision = null,
+  } = {}
+) {
+  const session = hasAnchorForRouting
+    ? (req?.body?.session_context || sessionContext)
+    : (req?.body?.session_context || {});
+
+  return sendRuntimeResponse(
+    res,
+    pipelineTracer,
+    { reply, prices: [], session_context: session },
+    responsePath,
+    {
+      routingDecision: routingDecision || semanticGovernanceRef.finalRoutingDecision,
+      finalization: { required: true, applied: true, validatorApplied: true },
+      contracts: { behaviorPresent: true },
+    }
+  );
+}
+
 function respondWithContract(
   res,
   pipelineTracer,
@@ -25429,6 +26912,8 @@ function respondWithContract(
     specialistPresentation = null,
     preserveSpecialistPresentation = false,
     firstAnswerContext = null,
+    mixedResponseContext = null,
+    semanticGovernance = null,
   } = {}
 ) {
   const violation = checkContractViolation(responsePath, routingDecision);
@@ -25438,9 +26923,25 @@ function respondWithContract(
       contractViolation: violation.reason,
       contractApplied: false,
       responsePath,
-      routingDecision: routingDecisionToTrace(routingDecision)
+      routingDecision: routingDecisionToTrace(routingDecision),
     });
-    return;
+    return sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply:
+          "Consigo te ajudar, mas precisei simplificar a resposta para manter a conversa coerente. Pode repetir em outras palavras?",
+        prices: [],
+        session_context: sessionBefore || payload?.session_context || {},
+      },
+      "contract_violation_governed_fallback",
+      {
+        routingDecision,
+        semanticGovernance,
+        extraTrace: { contractViolation: violation.reason },
+        finalization: { required: true, applied: true },
+      }
+    );
   }
 
   let body = ensureSessionContextOnPayload(payload, routingDecision, fallbackSession);
@@ -25525,6 +27026,8 @@ function respondWithContract(
       sessionContext: firstAnswerContext?.sessionContext || null,
       routingDecision: firstAnswerContext?.routingDecision || null,
       isFollowUp: !!firstAnswerContext?.isFollowUp,
+      mixedVerbalization: firstAnswerContext?.mixedVerbalization || null,
+      rawUserMessage: firstAnswerContext?.rawUserMessage || "",
     });
 
     body = {
@@ -25532,6 +27035,40 @@ function respondWithContract(
       reply: firstAnswerResult.reply,
       prices: firstAnswerResult.prices,
     };
+
+    if (
+      (firstAnswerContext?.mixedBehaviorContract?.interactionMode === MIA_INTERACTION_MODES.MIXED ||
+        mixedResponseContext?.contract ||
+        firstAnswerContext?.mixedResponseContext?.contract) &&
+      body.reply
+    ) {
+      const mixedApplied = applyMixedDualCompletionToBody(body, {
+        mixedResponseContext: mixedResponseContext || firstAnswerContext?.mixedResponseContext,
+        firstAnswerContext,
+        responsePath,
+        firstAnswerResult,
+      });
+      body = mixedApplied.body;
+      pipelineTracer.patch({
+        mixed_verbalization: {
+          ...(mixedVerbalizationToTrace(
+            mixedResponseContext?.contract ||
+              firstAnswerContext?.mixedBehaviorContract ||
+              firstAnswerContext?.mixedResponseContext?.contract
+          ) || {}),
+          ...(mixedDualCompletionToTrace(mixedApplied.completion) || {}),
+          validation: mixedApplied.completion?.validation?.audit || null,
+          violations: mixedApplied.completion?.validation?.violations || [],
+        },
+      });
+      body = {
+        ...body,
+        mia_debug: {
+          ...(body.mia_debug || {}),
+          mixed_verbalization: mixedDualCompletionToTrace(mixedApplied.completion),
+        },
+      };
+    }
 
     if (firstAnswerResult.audit?.applied || firstAnswerResult.audit?.removedTechnicalSource) {
       pipelineTracer.patch({
@@ -25652,15 +27189,80 @@ function respondWithContract(
   }
   // ─────────────────────────────────────────────────────────────
 
-  res.status(200).json(
-    pipelineTracer.enrichResponse(body, {
-      ...attachDecisionConsistencyToTrace(
+  const _semanticCtx = semanticGovernance || semanticGovernanceRef.ctx;
+  const _mixedContractApplied =
+    !!mixedResponseContext?.contract ||
+    !!firstAnswerContext?.mixedBehaviorContract ||
+    !!firstAnswerContext?.mixedResponseContext?.contract;
+  const _firstAnswerApplied =
+    shouldApplyFirstAnswerResponseContract(responsePath) ||
+    !!firstAnswerContext?.responsePath;
+
+  if (_semanticCtx && body.session_context) {
+    const _transitionResult = applySemanticStateTransition({
+      sessionContext: body.session_context,
+      normalizedBefore: _semanticCtx.normalizedBefore,
+      intentRecognition: _semanticCtx.intentRecognition,
+      intentAuthority: _semanticCtx.intentAuthority,
+      responsePath,
+      prices: body.prices,
+      continuationEligibility: _semanticCtx.continuationEligibility,
+      turnIndex: _semanticCtx.turnIndex,
+    });
+    body = {
+      ...body,
+      session_context: _transitionResult.sessionContext,
+    };
+    pipelineTracer.patch({
+      semantic_state_governance: semanticStateGovernanceToTrace({
+        normalizedBefore: _semanticCtx.normalizedBefore,
+        normalizedAfter: _transitionResult.normalizedAfter,
+        continuationEligibility: _semanticCtx.continuationEligibility,
+        transitionAudit: _transitionResult.transitionAudit,
+      }),
+    });
+    body = {
+      ...body,
+      mia_debug: {
+        ...(body.mia_debug || {}),
+        semantic_state_governance: semanticStateGovernanceToTrace({
+          normalizedBefore: _semanticCtx.normalizedBefore,
+          normalizedAfter: _transitionResult.normalizedAfter,
+          continuationEligibility: _semanticCtx.continuationEligibility,
+          transitionAudit: _transitionResult.transitionAudit,
+        }),
+      },
+    };
+  }
+
+  return sendRuntimeResponse(
+    res,
+    pipelineTracer,
+    body,
+    responsePath,
+    {
+      routingDecision: routingDecision || semanticGovernanceRef.finalRoutingDecision,
+      semanticGovernance: _semanticCtx,
+      extraTrace: attachDecisionConsistencyToTrace(
         { ...extraTrace, ...contractExtras },
         decisionAuditSnapshot
-      )
-    })
+      ),
+      contracts: {
+        behaviorPresent: pathMatchesSocialBehaviorPath(responsePath),
+        mixedPresent: _mixedContractApplied,
+        mixedContract: _mixedContractApplied,
+        firstAnswerPresent: _firstAnswerApplied,
+        comparisonPresent: String(responsePath || "").includes("comparison"),
+      },
+      finalization: {
+        required: true,
+        applied: true,
+        validatorApplied: true,
+      },
+      stateTransitionAlreadyApplied: true,
+      csoAttempt: String(responsePath || "").includes("cso"),
+    }
   );
-  return;
 }
 
 function buildContextDecisionSessionContext(
@@ -25857,7 +27459,7 @@ export default async function handler(req, res) {
   // CORS — permite testes locais via mia-test.html ou qualquer origem local.
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key, x-mia-test-mode");
   if (req.method === "OPTIONS") {
     res.status(204).end();
     return;
@@ -25872,13 +27474,20 @@ export default async function handler(req, res) {
     return void res.status(401).json({ error: "invalid_api_key" });
   }
 
+  runtimeExecutionEnvRef.env = resolveRequestRuntimeExecutionEnv(req);
+  bindActiveRequestExecutionEnv(runtimeExecutionEnvRef.env);
+
     const { text, image_base64 } = req.body || {};
   const query = (text || "").trim();
   const pipelineTracer = createMiaChatPipelineTracer(query);
   const commercialRequestDedupContext = createCommercialRequestDedupContext({
     requestId: `chat-${Date.now()}`,
   });
+  attachCommercialDedupAccountingObserver(commercialRequestDedupContext, runtimeEnforcementRef);
   enterCommercialRequestDedupContext(commercialRequestDedupContext);
+  Object.assign(runtimeEnforcementRef, createRuntimeEnforcementContext());
+  bindActiveExternalCallAccounting(runtimeEnforcementRef);
+  semanticGovernanceRef.ctx = null;
   pipelineTracer.commercialRequestDedupContext = commercialRequestDedupContext;
   const imageBase64 = String(image_base64 || "").trim();
   const hasImage = imageBase64.length > 100;
@@ -25896,11 +27505,17 @@ export default async function handler(req, res) {
       const identified = await identifyProductFromImage(imageBase64, query);
 
       if (!identified?.searchQuery) {
-        return void res.status(200).json({
-          reply:
-            "Não consegui identificar esse produto com segurança pela imagem. Tenta enviar outra foto mais nítida ou me diz o nome do produto.",
-          prices: []
-        });
+        return void sendRuntimeResponse(
+          res,
+          pipelineTracer,
+          {
+            reply:
+              "Não consegui identificar esse produto com segurança pela imagem. Tenta enviar outra foto mais nítida ou me diz o nome do produto.",
+            prices: [],
+          },
+          "image_identification_failed",
+          { providerCallDelta: 0 }
+        );
       }
 
       const imageSearchQuery = cleanTitle(
@@ -25923,66 +27538,94 @@ export default async function handler(req, res) {
         : [];
 
       if (!imageProducts.length) {
-        return void res.status(200).json({
-          reply:
-            `Identifiquei como: ${identified.productName || identified.searchQuery}.\n\n` +
-            "Mas não encontrei ofertas boas agora. Tenta mandar outra foto ou escrever o modelo exato.",
-          prices: [],
-          session_context: {
-            ...(req.body?.session_context || {}),
-            lastQuery: imageSearchQuery,
-            lastCategory: identified.category || "",
-            lastProducts: [],
-            lastBestProduct: null,
-            lastIntent: "image_search",
-            lastInteractionType: "image_search"
+        return void sendRuntimeResponse(
+          res,
+          pipelineTracer,
+          {
+            reply:
+              `Identifiquei como: ${identified.productName || identified.searchQuery}.\n\n` +
+              "Mas não encontrei ofertas boas agora. Tenta mandar outra foto ou escrever o modelo exato.",
+            prices: [],
+            session_context: {
+              ...(req.body?.session_context || {}),
+              lastQuery: imageSearchQuery,
+              lastCategory: identified.category || "",
+              lastProducts: [],
+              lastBestProduct: null,
+              lastIntent: "image_search",
+              lastInteractionType: "image_search",
+            },
+          },
+          "image_search_no_offers",
+          {
+            degradation: {
+              reasonCode: "no_result",
+              providerAttempted: true,
+              providerSucceeded: false,
+            },
+            providerCallDelta: 1,
           }
-        });
+        );
       }
 
       const bestImageProduct = imageProducts[0];
 
-      return void res.status(200).json({
-        reply:
-          `Pela imagem, parece ser: ${identified.productName || identified.searchQuery}.\n\n` +
-          `Achei algumas ofertas relacionadas. A melhor opção que apareceu agora foi ${cleanTitle(bestImageProduct.product_name)}.`,
-        prices: imageProducts.map((p) => ({
-          product_name: cleanTitle(p.product_name),
-          price: p.price,
-          link: p.link,
-          thumbnail: p.thumbnail,
-          source: p.source
-        })),
-        session_context: {
-          ...(req.body?.session_context || {}),
-          lastQuery: imageSearchQuery,
-          lastCategory: identified.category || "",
-          lastProducts: imageProducts.map((p) => ({
+      return void sendRuntimeResponse(
+        res,
+        pipelineTracer,
+        {
+          reply:
+            `Pela imagem, parece ser: ${identified.productName || identified.searchQuery}.\n\n` +
+            `Achei algumas ofertas relacionadas. A melhor opção que apareceu agora foi ${cleanTitle(bestImageProduct.product_name)}.`,
+          prices: imageProducts.map((p) => ({
             product_name: cleanTitle(p.product_name),
             price: p.price,
             link: p.link,
             thumbnail: p.thumbnail,
-            source: p.source
+            source: p.source,
           })),
-          lastBestProduct: {
-            product_name: cleanTitle(bestImageProduct.product_name),
-            price: bestImageProduct.price,
-            link: bestImageProduct.link,
-            thumbnail: bestImageProduct.thumbnail,
-            source: bestImageProduct.source
+          session_context: {
+            ...(req.body?.session_context || {}),
+            lastQuery: imageSearchQuery,
+            lastCategory: identified.category || "",
+            lastProducts: imageProducts.map((p) => ({
+              product_name: cleanTitle(p.product_name),
+              price: p.price,
+              link: p.link,
+              thumbnail: p.thumbnail,
+              source: p.source,
+            })),
+            lastBestProduct: {
+              product_name: cleanTitle(bestImageProduct.product_name),
+              price: bestImageProduct.price,
+              link: bestImageProduct.link,
+              thumbnail: bestImageProduct.thumbnail,
+              source: bestImageProduct.source,
+            },
+            lastIntent: "image_search",
+            lastInteractionType: "image_search",
           },
-          lastIntent: "image_search",
-          lastInteractionType: "image_search"
+        },
+        "image_search_success",
+        {
+          providerCallDelta: 1,
+          degradation: { active: false },
         }
-      });
+      );
     } catch (err) {
       console.error("Erro no fluxo de imagem:", err);
 
-      return void res.status(200).json({
-        reply:
-          "Tive um problema ao analisar essa imagem. Tenta enviar de novo ou escrever o nome do produto.",
-        prices: []
-      });
+      return void sendRuntimeResponse(
+        res,
+        pipelineTracer,
+        {
+          reply:
+            "Tive um problema ao analisar essa imagem. Tenta enviar de novo ou escrever o nome do produto.",
+          prices: [],
+        },
+        "image_search_error",
+        { providerCallDelta: 0 }
+      );
     }
   }
   
@@ -26039,7 +27682,7 @@ if (lockedComparisonContextFromSession) {
   contextResolution.lockedComparisonFollowUp = true;
 }
 
-  const resolvedQuery = contextResolution.standaloneQuery || query;
+  let resolvedQuery = contextResolution.standaloneQuery || query;
   let sessionContext = buildSessionContext(
     conversationMessages,
     req.body?.session_context,
@@ -26071,6 +27714,7 @@ if (lockedComparisonContextFromSession) {
   // ─────────────────────────────────────────────────────────────
 
   let intent = detectIntent(resolvedQuery);
+  semanticGovernanceRef.legacyIntentSignal = intent;
   const budget = extractBudget(resolvedQuery);
   const normalizedFollowUpQueryEarly = normalizeQuery(query || "");
   const budgetRawQueryEarly = extractBudget(query);
@@ -26172,7 +27816,7 @@ if (lockedComparisonContextFromSession) {
     );
   const isExplicitComparisonTurn =
     isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery);
-  const hasExplicitNewSearchSignalEarly = resolveClearNewCommercialSearchForRouting({
+  let hasExplicitNewSearchSignalEarly = resolveClearNewCommercialSearchForRouting({
     query,
     resolvedQuery,
     hasAnchor: hasAnchorForRouting,
@@ -26226,7 +27870,7 @@ if (lockedComparisonContextFromSession) {
     }
     return [];
   })();
-  const contextActionEarly = detectContextAction(query, intent, contextResolution);
+  let contextActionEarly = detectContextAction(query, intent, contextResolution);
   let routingDecision = buildRoutingDecision({
     userMessage: query,
     resolvedQuery,
@@ -26311,6 +27955,298 @@ if (lockedComparisonContextFromSession) {
     // Router em shadow mode — falhas são silenciosas e não afetam o fluxo
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // PATCH 11A — Intent Recognition Layer (authoritative, pre-routing)
+  // ─────────────────────────────────────────────────────────────
+  let intentRecognitionEarly = null;
+  let socialBehaviorContractEarly = null;
+  try {
+    intentRecognitionEarly = recognizeMiaIntent({
+      userMessage: query,
+      resolvedQuery,
+      sessionContext,
+      signals: {
+        hasClearNewCommercialSearch: hasExplicitNewSearchSignalEarly,
+        isExplicitComparison:
+          isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery),
+        explicitProductOnlyQuery: explicitProductOnlyQueryEarly,
+        wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
+        newBudgetInOriginalMessage: !!budgetRawQueryEarly,
+        newCategoryInOriginalMessage:
+          !!detectProductCategory(query) && !sessionContext.lastCategory,
+      },
+      cognitiveTurn: cognitiveTurnEarly,
+      hasActiveAnchor: hasAnchorForRouting,
+      detectedIntent: intent,
+    });
+    socialBehaviorContractEarly = buildSocialConversationBehaviorContract(intentRecognitionEarly, {
+      message: query,
+      conversationMessages,
+    });
+    if (process.env.MIA_DEBUG === "true") {
+      pipelineTracer.patch({
+        intent_recognition: intentRecognitionToTrace(intentRecognitionEarly),
+        social_behavior_contract: socialBehaviorContractEarly,
+      });
+    }
+  } catch (_intentRecognitionErrEarly) {
+    // Intent layer must never break the handler
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // PATCH 11A.1 — Intent Recognition Authority (binding)
+  // ─────────────────────────────────────────────────────────────
+  let intentAuthority = null;
+  let intentAuthorityDivergences = [];
+  try {
+    intentAuthority = buildIntentAuthorityFromRecognition(intentRecognitionEarly, {
+      hasActiveAnchor: hasAnchorForRouting,
+    });
+
+    if (intentAuthority?.authoritative) {
+      const authorityApplied = applyIntentAuthorityToPipeline({
+        authority: intentAuthority,
+        intent,
+        contextAction: contextActionEarly,
+        contextResolution,
+        query,
+      });
+
+      if (authorityApplied.intent !== intent) {
+        intent = authorityApplied.intent;
+      }
+      if (authorityApplied.contextAction !== contextActionEarly) {
+        contextActionEarly = authorityApplied.contextAction;
+      }
+      if (authorityApplied.contextResolutionPatch) {
+        Object.assign(contextResolution, authorityApplied.contextResolutionPatch);
+      }
+      intentAuthorityDivergences = authorityApplied.divergences || [];
+
+      const authoritySignals = suppressCommercialSignalsForAuthority(intentAuthority, {
+        hasClearNewCommercialSearch: hasExplicitNewSearchSignalEarly,
+        isExplicitComparison:
+          isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery),
+        explicitProductOnlyQuery: explicitProductOnlyQueryEarly,
+        wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
+        newBudgetInOriginalMessage: !!budgetRawQueryEarly,
+        newCategoryInOriginalMessage:
+          !!detectProductCategory(query) && !sessionContext.lastCategory,
+      });
+
+      if (!authoritySignals.hasClearNewCommercialSearch) {
+        hasExplicitNewSearchSignalEarly = false;
+      }
+
+      routingDecision = buildRoutingDecision({
+        userMessage: query,
+        resolvedQuery: query,
+        contextResolution,
+        sessionContext,
+        incomingSessionContext: rawSessionContextEarly,
+        intent,
+        contextAction: contextActionEarly,
+        detectedBudget: budget || budgetRawQueryEarly || budgetRawResolvedEarly,
+        detectedPriority: currentPriorityEarly,
+        cognitiveRoutingSignal: buildCognitiveRoutingSignalFromTurn(
+          cognitiveTurnEarly,
+          hasAnchorForRouting
+        ),
+        intentRecognition: intentRecognitionEarly,
+        intentAuthority,
+        signals: authoritySignals,
+      });
+      applyRoutingDecisionToContextResolution(routingDecision, contextResolution);
+
+      if (intentAuthority.commercialPermission === "deny") {
+        resolvedQuery = query;
+      } else if (contextResolution.standaloneQuery) {
+        resolvedQuery = contextResolution.standaloneQuery;
+      }
+    }
+
+    if (process.env.MIA_DEBUG === "true") {
+      pipelineTracer.patch({
+        intent_authority: intentAuthorityToTrace(intentAuthority),
+        intent_authority_divergences: intentAuthorityDivergences,
+      });
+    }
+  } catch (_intentAuthorityErrEarly) {
+    // Authority layer must never break the handler
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // PATCH 11A.3 — Mixed Intent Segmentation & Commercial Query Extraction
+  // ─────────────────────────────────────────────────────────────
+  let mixedIntentSegmentation = null;
+  let mixedSegmentationValidation = null;
+  let commercialSearchQueryForProviders = null;
+  let mixedSegmentationApplied = false;
+  try {
+    if (
+      shouldApplyMixedSegmentation({
+        intentRecognition: intentRecognitionEarly,
+        intentAuthority,
+      })
+    ) {
+      mixedIntentSegmentation = segmentMixedIntent({
+        userMessage: query,
+        intentRecognition: intentRecognitionEarly,
+        intentAuthority,
+        hasActiveAnchor: hasAnchorForRouting,
+        sessionContext,
+        detectProductCategory,
+        extractBudget,
+      });
+      mixedSegmentationValidation = validateCommercialSearchQuery(
+        mixedIntentSegmentation?.commercialDimension?.commercialSearchQuery,
+        query,
+        mixedIntentSegmentation
+      );
+      const segmentationApplied = applyMixedSegmentationToResolvedQuery({
+        segmentation: mixedIntentSegmentation,
+        rawMessage: query,
+        validation: mixedSegmentationValidation,
+      });
+      if (segmentationApplied.applied) {
+        commercialSearchQueryForProviders = segmentationApplied.commercialSearchQuery;
+        resolvedQuery = segmentationApplied.resolvedQuery;
+        contextResolution.standaloneQuery = segmentationApplied.commercialSearchQuery;
+        contextResolution.commercialSearchQuery = segmentationApplied.commercialSearchQuery;
+        contextResolution.humanObjective = segmentationApplied.humanObjective;
+        contextResolution.commercialObjective = segmentationApplied.commercialObjective;
+        mixedSegmentationApplied = true;
+      }
+      if (process.env.MIA_DEBUG === "true") {
+        pipelineTracer.patch({
+          mixed_intent_segmentation: mixedSegmentationToTrace(
+            mixedIntentSegmentation,
+            mixedSegmentationValidation
+          ),
+        });
+      }
+    }
+  } catch (_mixedSegmentationErr) {
+    // Segmentation must never break the handler
+  }
+
+  const commercialPipelineQuery = resolveCommercialPipelineQuery({
+    commercialSearchQueryForProviders,
+    resolvedQuery,
+    rawMessage: query,
+    mixedSegmentationApplied,
+    mixedIntentSegmentation,
+    validation: mixedSegmentationValidation,
+  });
+
+  if (commercialPipelineQuery && commercialPipelineQuery !== resolvedQuery) {
+    resolvedQuery = commercialPipelineQuery;
+    contextResolution.standaloneQuery = commercialPipelineQuery;
+    contextResolution.commercialSearchQuery = commercialPipelineQuery;
+  }
+
+  if (
+    mixedIntentSegmentation &&
+    socialBehaviorContractEarly &&
+    (mixedSegmentationApplied || commercialPipelineQuery)
+  ) {
+    socialBehaviorContractEarly = {
+      ...socialBehaviorContractEarly,
+      humanObjective:
+        contextResolution.humanObjective ||
+        mixedIntentSegmentation.humanDimension?.objective ||
+        socialBehaviorContractEarly.humanObjective,
+      commercialObjective:
+        contextResolution.commercialObjective ||
+        mixedIntentSegmentation.commercialDimension?.objective ||
+        null,
+      commercialSearchQuery: commercialPipelineQuery || null,
+      conversationObjective: mixedIntentSegmentation.conversationalDimension
+        ?.preserveCommerceContext
+        ? "preserve_context"
+        : null,
+    };
+  }
+  // ─────────────────────────────────────────────────────────────
+
+  if (intentRecognitionEarly) {
+    socialBehaviorContractEarly = buildSocialConversationBehaviorContract(
+      {
+        ...intentRecognitionEarly,
+        commercialObjective:
+          contextResolution.commercialObjective || intentRecognitionEarly.commercialObjective,
+        commercialSearchQuery:
+          contextResolution.commercialSearchQuery || intentRecognitionEarly.commercialSearchQuery,
+        humanObjective:
+          contextResolution.humanObjective || intentRecognitionEarly.humanObjective,
+      },
+      {
+        authority: intentAuthority,
+        message: query,
+        conversationMessages,
+      }
+    );
+    if (process.env.MIA_DEBUG === "true") {
+      pipelineTracer.patch({
+        human_conversation_experience: humanExperienceToTrace(socialBehaviorContractEarly),
+        mixed_verbalization_contract: mixedVerbalizationToTrace(socialBehaviorContractEarly),
+      });
+    }
+  }
+
+  const mixedIntentBehaviorInstructions =
+    intentRecognitionEarly?.interactionMode === MIA_INTERACTION_MODES.MIXED &&
+    socialBehaviorContractEarly
+      ? buildFullHumanConversationInstructions(socialBehaviorContractEarly)
+      : "";
+
+  let mixedCommercialSnapshotEarly = buildCommercialSnapshot({
+    commercialObjective: socialBehaviorContractEarly?.commercialObjective || "",
+    commercialSearchQuery: commercialPipelineQuery || resolvedQuery || query,
+    winnerName: sessionContext?.lastBestProduct?.product_name || "",
+    winnerProduct: sessionContext?.lastBestProduct || null,
+  });
+  let mixedResponseContextEarly = buildMixedResponseContext(socialBehaviorContractEarly, {
+    message: query,
+    sessionContext,
+    mixedSegmentationApplied,
+    commercialSnapshot: mixedCommercialSnapshotEarly,
+    responsePath: "",
+  });
+
+  let semanticStateNormalizedEarly = normalizeSemanticSessionState(sessionContext, {
+    message: query,
+    intentRecognition: intentRecognitionEarly,
+  });
+  let semanticContinuationEarly = resolveSemanticContinuationEligibility({
+    message: query,
+    intentRecognition: intentRecognitionEarly,
+    intentAuthority,
+    normalizedState: semanticStateNormalizedEarly,
+    mixedSegmentationApplied,
+    signals: {
+      hasClearNewCommercialSearch: hasExplicitNewSearchSignalEarly,
+    },
+  });
+  const mixedContinuationRequiredEarly = semanticContinuationEarly.mixedContinuationEligible;
+  const commercialContinuationRequiredEarly =
+    semanticContinuationEarly.commercialExecutionFromContinuation;
+  semanticGovernanceRef.ctx = {
+    normalizedBefore: semanticStateNormalizedEarly,
+    intentRecognition: intentRecognitionEarly,
+    intentAuthority,
+    continuationEligibility: semanticContinuationEarly,
+    turnIndex: (semanticStateNormalizedEarly.provenance?.turnIndex || 0) + 1,
+  };
+  if (process.env.MIA_DEBUG === "true") {
+    pipelineTracer.patch({
+      semantic_state_governance: semanticStateGovernanceToTrace({
+        normalizedBefore: semanticStateNormalizedEarly,
+        continuationEligibility: semanticContinuationEarly,
+      }),
+    });
+  }
+
   const compoundInputEarly = normalizeCompoundInput({ originalMessage: query });
   const conversationalToneProfile = resolveConversationalToneProfile({
     originalMessage: query,
@@ -26341,8 +28277,15 @@ if (lockedComparisonContextFromSession) {
       const _bridgeFromIntent = intent;
       const _bridgeResult = mapCognitiveTurnToLegacyIntent(cognitiveTurnEarly);
       cognitiveIntentBridgeAudit = buildCognitiveBridgeAudit(_bridgeResult, _bridgeFromIntent);
-      if (_bridgeResult.active) {
+      if (_bridgeResult.active && !shouldBlockLegacyIntentOverride(intentAuthority, _bridgeResult)) {
         intent = _bridgeResult.intent;
+      } else if (_bridgeResult.active && shouldBlockLegacyIntentOverride(intentAuthority, _bridgeResult)) {
+        intentAuthorityDivergences.push({
+          field: "cognitive_bridge_intent",
+          proposed: _bridgeResult.intent,
+          preserved: intent,
+          reason: "intent_authority_blocked_legacy_override",
+        });
       }
       if (process.env.MIA_DEBUG === "true") {
         pipelineTracer.patch({ cognitive_intent_authority_bridge: cognitiveIntentBridgeAudit });
@@ -26380,7 +28323,9 @@ if (lockedComparisonContextFromSession) {
   let cognitiveTurnWithCsoElevated = null;
   // ─────────────────────────────────────────────────────────────
 
-  const earlyClearNewCommercialSearch = hasExplicitNewSearchSignalEarly;
+  const earlyClearNewCommercialSearch =
+    hasExplicitNewSearchSignalEarly &&
+    !(intentAuthority?.authoritative && intentAuthority.commercialPermission === "deny");
 
   if (earlyClearNewCommercialSearch) {
     contextResolution.directReply = null;
@@ -26436,6 +28381,15 @@ if (lockedComparisonContextFromSession) {
     }
   } catch (_cognitiveAuthorityErr) {
     // Autoridade em camada controlada — falhas silenciosas, não afetam fluxo
+  }
+
+  if (intentAuthority?.authoritative && !cognitiveAuthorityResult?.applied) {
+    cognitiveAuthorityResult = {
+      applied: true,
+      reason: "intent_recognition_authority_11A1",
+      authorityScope: "INTENT_RECOGNITION_AUTHORITY",
+      cognitiveAuthority: buildCognitiveAuthorityFromIntentAuthority(intentAuthority),
+    };
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -27246,7 +29200,8 @@ if (lockedComparisonContextFromSession) {
       convStrat &&
       !contextResolution.lockedComparisonFollowUp &&
       !earlyClearNewCommercialSearch &&
-      !shouldBlockCsoVerbalizer(routingDecision)
+      !shouldBlockCsoVerbalizer(routingDecision) &&
+      !commercialContinuationRequiredEarly
     ) {
       const verbPayload   = buildMiaVerbalizerPayload(convStrat, cso, conversationalToneProfile);
       const verbSystemPmt = verbPayload ? serializePayloadToPrompt(verbPayload) : null;
@@ -27428,6 +29383,58 @@ if (lockedComparisonContextFromSession) {
   // ─────────────────────────────────────────────────────────────
 
   // ─────────────────────────────────────────────────────────────
+  // PATCH 11A — Intent Recognition response path wiring
+  //
+  // Limpa directReply institucional e prepara intent governado para
+  // modos sociais/emocionais/clarificação reconhecidos antes da verbalização.
+  // ─────────────────────────────────────────────────────────────
+  {
+    const recognizedNonCommercialIntent =
+      shouldEarlyExitToGovernedSocialFlow(intentAuthority) ||
+      (!earlyClearNewCommercialSearch &&
+        intentRecognitionEarly &&
+        intentRecognitionEarly.interactionMode !== MIA_INTERACTION_MODES.COMMERCE &&
+        intentRecognitionEarly.interactionMode !== MIA_INTERACTION_MODES.MIXED &&
+        intentRecognitionEarly.interactionMode !== MIA_INTERACTION_MODES.SAFETY &&
+        intentRecognitionEarly.legacyIntentOverride);
+
+    if (recognizedNonCommercialIntent && !commercialContinuationRequiredEarly) {
+      contextResolution.directReply = null;
+      contextResolution.clearContext = false;
+      contextResolution.shouldSkipProductSearch = true;
+
+      const mappedIntent =
+        intentAuthority?.legacyIntentOverride ||
+        intentRecognitionEarly?.legacyIntentOverride ||
+        intent;
+      const mappedMode =
+        mappedIntent === "greeting"
+          ? "greeting"
+          : mappedIntent === "about_mia"
+            ? "about_mia"
+            : mappedIntent === "acknowledgement"
+              ? "acknowledgement"
+              : mappedIntent === "emotional_support"
+                ? "emotional_support"
+                : mappedIntent === "clarification"
+                  ? "clarification"
+                  : mappedIntent;
+
+      if (!contextResolution.mode || contextResolution.mode === "general_answer") {
+        contextResolution.mode = mappedMode;
+      }
+      if (intent !== mappedIntent) {
+        intent = mappedIntent;
+      }
+      if (intentAuthority?.commercialPermission === "deny") {
+        resolvedQuery = query;
+        contextResolution.standaloneQuery = query;
+      }
+    }
+  }
+  // ─────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────
   // PATCH 8.1B.1 — Production Fallback Gate
   //
   // Causa raiz (8.1A): resolveContextQuery preenche directReply institucional e o
@@ -27444,13 +29451,27 @@ if (lockedComparisonContextFromSession) {
       cognitiveTurn: cognitiveTurnEarly,
       routingDecision,
       contextResolution,
+      intentRecognition: intentRecognitionEarly,
     });
 
     if (productionFallbackGateResult.contextResolutionPatch) {
       Object.assign(contextResolution, productionFallbackGateResult.contextResolutionPatch);
     }
-    if (productionFallbackGateResult.intentPatch) {
+    if (
+      productionFallbackGateResult.intentPatch &&
+      !shouldRejectIntentPatch(intentAuthority, productionFallbackGateResult.intentPatch)
+    ) {
       intent = productionFallbackGateResult.intentPatch;
+    } else if (
+      productionFallbackGateResult.intentPatch &&
+      shouldRejectIntentPatch(intentAuthority, productionFallbackGateResult.intentPatch)
+    ) {
+      intentAuthorityDivergences.push({
+        field: "production_fallback_intent",
+        proposed: productionFallbackGateResult.intentPatch,
+        preserved: intent,
+        reason: "intent_authority_blocked_legacy_override",
+      });
     }
 
     if (process.env.MIA_DEBUG === "true" && productionFallbackGateResult.applied) {
@@ -27464,9 +29485,10 @@ if (lockedComparisonContextFromSession) {
   // ─────────────────────────────────────────────────────────────
 
   if (
-  contextResolution.directReply &&
-  !contextResolution.lockedComparisonFollowUp
-) {
+    contextResolution.directReply &&
+    !contextResolution.lockedComparisonFollowUp &&
+    !commercialContinuationRequiredEarly
+  ) {
   const _sessionForDirectReplyGate =
     sessionContext || incomingSessionContext || {};
   const _postChangeBeatsDirectReply =
@@ -27505,11 +29527,25 @@ if (lockedComparisonContextFromSession) {
               lastProductMentioned: "",
               lastInteractionType: contextResolution.mode || "general_answer"
             }
-          : req.body?.session_context || {}
+          : req.body?.session_context || sessionContext
       },
       "context_direct_reply_early",
       {},
-      { sessionBefore: req.body?.session_context || {}, toneProfile: conversationalToneProfile }
+      {
+        sessionBefore: req.body?.session_context || sessionContext,
+        toneProfile: conversationalToneProfile,
+        mixedResponseContext: mixedResponseContextEarly,
+        firstAnswerContext: enrichFirstAnswerContextForMixed(
+          {
+            query: resolvedQuery || query,
+            sessionContext: contextResolution.clearContext ? {} : sessionContext,
+            responsePath: "context_direct_reply_early",
+          },
+          socialBehaviorContractEarly,
+          query,
+          mixedCommercialSnapshotEarly
+        ),
+      }
     );
   }
 
@@ -27517,11 +29553,20 @@ if (lockedComparisonContextFromSession) {
 }
 
   if (contextResolution.needsClarification) {
-    return void res.status(200).json({
-      reply: contextResolution.clarificationMessage,
-      prices: [],
-      session_context: req.body?.session_context || {}
-    });
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply: contextResolution.clarificationMessage,
+        prices: [],
+        session_context: req.body?.session_context || {},
+      },
+      "needs_clarification",
+      {
+        routingDecision: semanticGovernanceRef.finalRoutingDecision,
+        finalization: { required: true, applied: true },
+      }
+    );
   }
 
 const userStyle = detectUserStyle(resolvedQuery);
@@ -27580,6 +29625,12 @@ if (
   !intentPreservationResult?.preservationApplied &&
   // PATCH 7.6L — não apagar âncora quando o Cognitive Router já detectou turno contextual
   !isAnchoredContextualTurn &&
+  // PATCH 11A — intent recognition already selected a governed social path
+  !(
+    intentRecognitionEarly &&
+    intentRecognitionEarly.interactionMode !== MIA_INTERACTION_MODES.COMMERCE &&
+    intentRecognitionEarly.interactionMode !== MIA_INTERACTION_MODES.MIXED
+  ) &&
   // PATCH 8.1B.1 — não repetir fallback institucional quando família conversacional já foi reconhecida
   !shouldBypassInstitutionalGeneralAnswerFallback(
     productionFallbackGateResult?.detection,
@@ -27589,20 +29640,39 @@ if (
     }
   )
 ) {
-  return void res.status(200).json({
-        reply:
-      intent === "casual_chat"
-        ? buildCasualSocialReply(resolvedQuery)
-        : "Posso te ajudar com compras, comparação de produtos e decisão de custo-benefício.\n\nMe fala o produto que você quer analisar ou buscar.",
-    prices: [],
-    session_context: {
-      ...sessionContext,
-      lastProducts: [],
-      lastBestProduct: null,
-      lastCategory: "",
-      lastInteractionType: "general_answer"
+  const legacyInstitutionalContract =
+    socialBehaviorContractEarly ||
+    buildSocialConversationBehaviorContract(intentRecognitionEarly || {}, {
+      message: resolvedQuery || query,
+      conversationMessages,
+    });
+  const legacyInstitutionalReply = finalizeHumanConversationReply(
+    "",
+    legacyInstitutionalContract,
+    conversationalToneProfile,
+    { period: getTimePeriod() }
+  ).response;
+
+  return void sendRuntimeResponse(
+    res,
+    pipelineTracer,
+    {
+      reply: legacyInstitutionalReply,
+      prices: [],
+      session_context: {
+        ...sessionContext,
+        lastProducts: [],
+        lastBestProduct: null,
+        lastCategory: "",
+        lastInteractionType: "general_answer",
+      },
+    },
+    "general_answer",
+    {
+      routingDecision: semanticGovernanceRef.finalRoutingDecision,
+      finalization: { required: true, applied: true },
     }
-  });
+  );
 }
   
   const wantsNew = wantsNewProduct(resolvedQuery);
@@ -27612,11 +29682,14 @@ if (
   detectUserPriority(resolvedQuery) ||
   "";
 
-const explicitProductOnlyQuery = isSpecificProductOnlyQuery(resolvedQuery);
+const explicitProductOnlyQuery = isSpecificProductOnlyQuery(
+  commercialPipelineQuery || resolvedQuery
+);
+  const providerCommercialQuery = commercialPipelineQuery || resolvedQuery;
   const commercialQuery =
   explicitProductOnlyQuery
-    ? `${resolvedQuery} preço`
-    : resolvedQuery;
+    ? `${providerCommercialQuery} preço`
+    : providerCommercialQuery;
 
 let decisionResult = null;
 let specificProductLock = null;
@@ -27671,7 +29744,7 @@ const looksLikeShortPriorityFollowUpShape =
     /^(quero|prefiro|priorizo|foco|focar)\s+(mais\s+)?(bateria|autonomia|desempenho|performance|camera|câmera|fotos|armazenamento|memoria|memória|preco|preço|mais barato|custo beneficio|custo-benefício)\??$/.test(normalizedFollowUpQuery)
   );
 
-const hasExplicitNewSearchSignal = resolveClearNewCommercialSearchForRouting({
+const hasExplicitNewSearchSignalRaw = resolveClearNewCommercialSearchForRouting({
   query,
   resolvedQuery,
   hasAnchor: !!sessionContext?.lastBestProduct?.product_name,
@@ -27684,6 +29757,13 @@ const hasExplicitNewSearchSignal = resolveClearNewCommercialSearchForRouting({
   detectProductCategory,
   wantsNewProduct
 });
+
+const hasExplicitNewSearchSignal =
+  intentAuthority?.authoritative && intentAuthority.commercialPermission === "deny"
+    ? false
+    : suppressCommercialSignalsForAuthority(intentAuthority, {
+        hasClearNewCommercialSearch: hasExplicitNewSearchSignalRaw,
+      }).hasClearNewCommercialSearch;
 
 const isFreshCommercialSearch = hasExplicitNewSearchSignal;
 
@@ -27831,17 +29911,49 @@ try {
 }
 // ─────────────────────────────────────────────────────────────
 
+// PATCH 11A.6F / 11A.7 — governed continuation must reach anchored commercial finalizer
+if (
+  commercialContinuationRequiredEarly &&
+  semanticContinuationEarly?.commercialAnchorValid &&
+  hasAnchorForRouting &&
+  !detectsAnchoredComparisonIntent(resolvedQuery || query, { hasActiveAnchor: true })
+) {
+  contextResolution.shouldSkipProductSearch = true;
+  if (contextAction !== "analysis" && contextAction !== "decision") {
+    contextAction = "decision";
+  }
+  if (
+    intent === "emotional_support" ||
+    intent === "social_conversation" ||
+    intent === "clarification"
+  ) {
+    intent = "decision";
+  }
+  if (process.env.MIA_DEBUG === "true") {
+    pipelineTracer.patch({
+      mixed_continuation_routing: {
+        applied: true,
+        contextAction,
+        intent,
+        anchor: sessionContext?.lastBestProduct?.product_name || null,
+        continuationType: semanticContinuationEarly?.continuationType || null,
+        commercialContinuationEligible:
+          semanticContinuationEarly?.commercialContinuationEligible || false,
+      },
+    });
+  }
+}
+
 // PATCH 5.3B — captura o mode antes do rebuild para o audit de persistência
 const _rdModeBeforeRebuild = routingDecision?.mode || null;
 
 // PATCH 5.6F — sinal cognitivo passado ao buildRoutingDecision ②
 // Permite que EXPLANATION_REQUEST + anchor ativo gere cognitive_anchor_hold diretamente.
 // Apenas para o rebuild ② (o ① não recebe ainda para manter o estado inicial).
-const _cognitiveRoutingSignal56F = cognitiveTurnEarly ? {
-  turnType:       cognitiveTurnEarly.turnType,
-  confidence:     cognitiveTurnEarly.confidence,
-  hasActiveAnchor: hasAnchorForRouting,
-} : null;
+const _cognitiveRoutingSignal56F = buildCognitiveRoutingSignalFromTurn(
+  cognitiveTurnEarly,
+  hasAnchorForRouting
+);
 
 const _anchorForDiscussionSetRouting = pickAuthoritativeLastBestProduct(
   rawSessionContext.lastBestProduct || sessionContext.lastBestProduct,
@@ -27864,9 +29976,48 @@ const _comparisonProductsForRouting =
       ? _prospectiveDiscussionProducts
       : rawComparisonProducts;
 
+const _routingSignalsForRebuild = suppressCommercialSignalsForAuthority(intentAuthority, {
+  hasClearNewCommercialSearch: hasExplicitNewSearchSignal,
+  isContextDecisionOnOriginal: isContextDecision(normalizeQuery(query)),
+  isProductReferenceOnOriginal: isProductReferenceQuestion(normalizeQuery(query)),
+  looksLikeAmbiguousFollowUp: looksLikeAmbiguousFollowUp(normalizedFollowUpQuery),
+  looksLikeShortPriorityFollowUp,
+  isExplicitComparison:
+    isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery),
+  hasComparisonProducts: _comparisonProductsForRouting.length >= 2,
+  isAnchoredComparisonEstablishing: _isAnchoredComparisonEstablishing,
+  isConversationalConfusion:
+    !!cognitiveTurnEarly?.signals?.isConversationalConfusion ||
+    isConversationalConfusionFamilyQuery(query, {
+      hasActiveAnchor: hasAnchorForRouting,
+      sessionContext,
+    }) ||
+    isConversationalConfusionFamilyQuery(resolvedQuery, {
+      hasActiveAnchor: hasAnchorForRouting,
+      sessionContext,
+    }),
+  isComparisonContextFollowUp:
+    isComparisonContextFollowUp(resolvedQuery, {
+      ...sessionContext,
+      lastComparisonProducts: _comparisonProductsForRouting
+    }) ||
+    isComparisonContextFollowUp(query, {
+      ...sessionContext,
+      lastComparisonProducts: _comparisonProductsForRouting
+    }),
+  isComparisonFollowUpLocked: isForcedComparisonFollowUp,
+  explicitProductOnlyQuery,
+  wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
+  newBudgetInOriginalMessage: !!budgetRawQuery,
+  newCategoryInOriginalMessage:
+    !!detectProductCategory(query) && !sessionContext.lastCategory,
+  priorityChangeReopen: contextResolution.mode === "priority_change_reopen",
+  lockedComparisonFollowUp: !!contextResolution.lockedComparisonFollowUp
+});
+
 routingDecision = buildRoutingDecision({
   userMessage: query,
-  resolvedQuery,
+  resolvedQuery: intentAuthority?.commercialPermission === "deny" ? query : resolvedQuery,
   contextResolution,
   sessionContext,
   incomingSessionContext: rawSessionContext,
@@ -27875,47 +30026,60 @@ routingDecision = buildRoutingDecision({
   detectedBudget: budget || budgetRawQuery || budgetRawResolved,
   detectedPriority: activePriority,
   cognitiveRoutingSignal: _cognitiveRoutingSignal56F,
-  signals: {
-    hasClearNewCommercialSearch: hasExplicitNewSearchSignal,
-    isContextDecisionOnOriginal: isContextDecision(normalizeQuery(query)),
-    isProductReferenceOnOriginal: isProductReferenceQuestion(normalizeQuery(query)),
-    looksLikeAmbiguousFollowUp: looksLikeAmbiguousFollowUp(normalizedFollowUpQuery),
-    looksLikeShortPriorityFollowUp,
-    isExplicitComparison:
-      isExplicitComparisonQuery(query) || isExplicitComparisonQuery(resolvedQuery),
-    hasComparisonProducts: _comparisonProductsForRouting.length >= 2,
-    isAnchoredComparisonEstablishing: _isAnchoredComparisonEstablishing,
-    isConversationalConfusion:
-      !!cognitiveTurnEarly?.signals?.isConversationalConfusion ||
-      isConversationalConfusionFamilyQuery(query, {
-        hasActiveAnchor: hasAnchorForRouting,
-        sessionContext,
-      }) ||
-      isConversationalConfusionFamilyQuery(resolvedQuery, {
-        hasActiveAnchor: hasAnchorForRouting,
-        sessionContext,
-      }),
-    isComparisonContextFollowUp:
-      isComparisonContextFollowUp(resolvedQuery, {
-        ...sessionContext,
-        lastComparisonProducts: _comparisonProductsForRouting
-      }) ||
-      isComparisonContextFollowUp(query, {
-        ...sessionContext,
-        lastComparisonProducts: _comparisonProductsForRouting
-      }),
-    isComparisonFollowUpLocked: isForcedComparisonFollowUp,
-    explicitProductOnlyQuery,
-    wantsNew: wantsNewProduct(query) || wantsNewProduct(resolvedQuery),
-    newBudgetInOriginalMessage: !!budgetRawQuery,
-    newCategoryInOriginalMessage:
-      !!detectProductCategory(query) && !sessionContext.lastCategory,
-    priorityChangeReopen: contextResolution.mode === "priority_change_reopen",
-    lockedComparisonFollowUp: !!contextResolution.lockedComparisonFollowUp
-  }
+  intentRecognition: intentRecognitionEarly,
+  intentAuthority,
+  signals: _routingSignalsForRebuild,
 });
 
 applyRoutingDecisionToContextResolution(routingDecision, contextResolution);
+
+{
+  const _authorityEnforcement = enforceRoutingDecisionAgainstAuthority(
+    routingDecision,
+    intentAuthority,
+    { hasAnchor: hasAnchorForRouting }
+  );
+  if (_authorityEnforcement.applied) {
+    routingDecision = _authorityEnforcement.routingDecision;
+    intentAuthorityDivergences.push(...(_authorityEnforcement.divergences || []));
+    applyRoutingDecisionToContextResolution(routingDecision, contextResolution);
+  }
+}
+
+semanticGovernanceRef.finalRoutingDecision = routingDecision;
+
+if (process.env.MIA_DEBUG === "true" && intentAuthority?.authoritative) {
+  const _authorityConsistency = assertIntentAuthorityConsistency({
+    authority: intentAuthority,
+    intent,
+    routingDecision,
+    cognitiveAuthority: cognitiveAuthorityResult?.cognitiveAuthority || null,
+  });
+  if (!_authorityConsistency.ok) {
+    pipelineTracer.patch({
+      intent_authority_consistency: _authorityConsistency,
+    });
+  }
+}
+
+if (shouldEarlyExitToGovernedSocialFlow(intentAuthority) && !commercialContinuationRequiredEarly) {
+  const _governedIntent =
+    intentAuthority.legacyIntentOverride ||
+    intentAuthority.primaryIntent ||
+    "social_conversation";
+  if (intent === "search" || intent === "general_answer" || intent === "casual_chat") {
+    intentAuthorityDivergences.push({
+      field: "intent_post_routing",
+      proposed: intent,
+      preserved: _governedIntent,
+      reason: "intent_authority_blocked_legacy_override",
+    });
+    intent = _governedIntent;
+  }
+  resolvedQuery = query;
+  contextResolution.standaloneQuery = query;
+  contextResolution.shouldSkipProductSearch = true;
+}
 
 // PATCH 5.6E — captura mode imediatamente após rebuild ②, antes do restore 5.3B
 const _rdModeAfterRebuild = routingDecision.mode || null;
@@ -27964,6 +30128,52 @@ pipelineTracer.patch({
   routingDecision: routingDecisionToTrace(routingDecision),
   context_action: contextAction
 });
+
+// ─────────────────────────────────────────────────────────────
+// PATCH 11A.2 — Commercial Entry Gate evaluation (post-routing)
+// ─────────────────────────────────────────────────────────────
+const commercialEntryGateTracker = createCommercialEntryGateTracker();
+let commercialEntryGateResult = evaluateCommercialEntryPermission({
+  authority: intentAuthority,
+  routingDecision,
+  intent,
+  tracker: commercialEntryGateTracker,
+});
+semanticGovernanceRef.commercialEntryGate = commercialEntryGateResult;
+semanticGovernanceRef.finalRoutingDecision = routingDecision;
+if (process.env.MIA_DEBUG === "true") {
+  pipelineTracer.patch({
+    commercial_entry_gate: commercialEntryGateToTrace(
+      commercialEntryGateResult,
+      commercialEntryGateTracker
+    ),
+  });
+}
+// ─────────────────────────────────────────────────────────────
+
+if (commercialEntryGateResult?.commercialEntryAllowed === false && !commercialContinuationRequiredEarly) {
+  return runNonCommercialAuthorityFastBranch({
+    res,
+    intentAuthority,
+    intentRecognitionEarly,
+    socialBehaviorContractEarly,
+    query,
+    resolvedQuery: query,
+    budget,
+    wantsNew,
+    period,
+    userStyle,
+    sessionContext,
+    incomingSessionContext,
+    hasAnchorForRouting,
+    req,
+    conversationalToneProfile,
+    commercialEntryGateResult,
+    commercialEntryGateTracker,
+    pipelineTracer,
+    routingDecision,
+  });
+}
 
 // ─────────────────────────────────────────────────────────────
 // PATCH 5.6C — Cognitive Bridge Impact Audit
@@ -28237,6 +30447,7 @@ const _explanationBreakdownActive =
   hasAnchorForRouting &&
   !hasExplicitNewSearchSignal &&
   !_reasoningBreakdownActive &&
+  !_isAnchoredComparisonEstablishing &&
   (
     cognitiveTurnEarly?.turnType === "EXPLANATION_REQUEST" ||
     routingDecision?.mode === "user_confusion_recovery_hold" ||
@@ -28323,6 +30534,7 @@ const _decisionContextChangeActive =
   !hasExplicitNewSearchSignal &&
   !_reasoningBreakdownActive &&
   !_explanationBreakdownActive &&
+  !_isAnchoredComparisonEstablishing &&
   (
     routingDecision?.mode === "explicit_recommendation_change" ||
     detectsLegitimateDecisionContextChange(resolvedQuery || query, {
@@ -28382,80 +30594,259 @@ if (_decisionContextChangeActive) {
   );
 }
 
-// PATCH 8.3C — estabelecer comparação ancorada com discussion set escopado
-if (
-  _isAnchoredComparisonEstablishing &&
-  _prospectiveDiscussionProducts.length >= 2 &&
-  !hasExplicitNewSearchSignal &&
-  routingDecision?.allowNewSearch !== true
-) {
-  const _establishCatalog = Array.isArray(sessionContext.lastProducts)
-    ? sessionContext.lastProducts
-    : [];
-  const { allowedProducts: _establishAllowed } = resolveAllowedProductsForDecision({
-    sessionContext,
-    query: resolvedQuery || query,
-    anchorProduct: _anchorForDiscussionSetRouting,
-    catalogProducts: _establishCatalog,
-  });
-  const _establishAnchor = pickAuthoritativeLastBestProduct(
-    rawSessionContext.lastBestProduct || sessionContext.lastBestProduct,
-    _establishCatalog
-  );
+// PATCH 8.3C + 11A.7F + 11A.7G — comparação ancorada com contrato e degradação segura
+if (_isAnchoredComparisonEstablishing) {
+  let _anchoredComparisonProducts = _prospectiveDiscussionProducts;
 
-  let _establishReply = buildDiscussionSetEstablishmentReply({
-    allowedProducts: _establishAllowed,
-    anchorProduct: _establishAnchor,
-  });
+  if (_anchoredComparisonProducts.length < 2) {
+    const _comparisonPair = await resolveAnchoredComparisonPair({
+      anchorProduct: _anchorForDiscussionSetRouting,
+      query: resolvedQuery || query,
+      rememberedProducts:
+        sessionContext.lastProducts || rawSessionContext.lastProducts || [],
+      resolveProductFn: resolveComparisonProductFromDataLayer,
+    });
 
-  if (!_establishReply) {
-    _establishReply = await buildDecisionEngineReply(
-      _establishAllowed,
-      activePriority,
-      "",
-      routingDecision.shouldPreserveAnchor ? _establishAnchor : null
-    );
+    pipelineTracer.patch({
+      commercial_continuation_runtime_guard: comparisonRuntimeGuardToTrace(
+        _comparisonPair,
+        {
+          runtimeCrashPrevented: true,
+          stateMutationBlocked: isSameProductComparisonContract(_comparisonPair),
+          comparisonExecutionBlocked: !isComparisonExecutionAllowed(_comparisonPair),
+          providerCallsPrevented: isSameProductComparisonContract(_comparisonPair),
+        }
+      ),
+    });
+
+    if (!isComparisonExecutionAllowed(_comparisonPair)) {
+      const _candidate = extractMentionedProductCandidate(
+        resolvedQuery || query,
+        _anchorForDiscussionSetRouting?.product_name || ""
+      );
+      return respondAnchoredComparisonContractOutcome(
+        res,
+        _comparisonPair,
+        {
+          query,
+          resolvedQuery,
+          sessionContext,
+          candidate: _candidate || "",
+          anchorName: _anchorForDiscussionSetRouting?.product_name || "",
+          pipelineTracer,
+          routingDecision,
+          conversationalToneProfile,
+        }
+      );
+    }
+
+    _anchoredComparisonProducts = [
+      _comparisonPair.leftProduct,
+      _comparisonPair.rightProduct,
+    ];
   }
 
-  const _establishSessionOut = buildContextDecisionSessionContext(sessionContext, {
-    query,
-    resolvedQuery,
-    intent: "comparison",
-    activePriority,
-    contextAction: "comparison",
-    incomingLastBest: req.body?.session_context?.lastBestProduct || null,
-  });
+  if (_anchoredComparisonProducts.length >= 2) {
+    const _earlyDistinctnessContract = validateComparisonInputContract({
+      leftProduct: _anchoredComparisonProducts[0] || null,
+      rightProduct: _anchoredComparisonProducts[1] || null,
+      query: resolvedQuery || query,
+    });
 
-  return void respondWithContract(
-    res,
-    pipelineTracer,
-    routingDecision,
-    {
-      reply: _establishReply,
-      prices: [],
-      session_context: _establishSessionOut,
-    },
-    routingDecision.mode === "anchored_comparison_hold"
-      ? "anchored_comparison_establish"
-      : "discussion_set_establish",
-    {
-      response_path: "discussion_set_establish",
-      context_action: "comparison",
-      candidate_products: summarizeProductsForPipelineDebug(_establishAllowed),
-      winner_product: pickProductLabelForPipelineDebug(_establishAnchor),
-      winner_source: "discussion_set_anchor_preserved",
-      decision_engine_winner: pickProductLabelForPipelineDebug(_establishAnchor),
-      final_response_product: pickProductLabelForPipelineDebug(_establishAnchor),
-      winner_real: pickProductLabelForPipelineDebug(_establishAnchor),
-      discussion_set_scoped: true,
-      allowed_products_count: _establishAllowed.length,
-    },
-    {
-      sessionBefore: sessionContext,
-      contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
-      toneProfile: conversationalToneProfile,
+    if (!isComparisonExecutionAllowed(_earlyDistinctnessContract)) {
+      const _candidate = extractMentionedProductCandidate(
+        resolvedQuery || query,
+        _anchorForDiscussionSetRouting?.product_name || ""
+      );
+      return respondAnchoredComparisonContractOutcome(
+        res,
+        _earlyDistinctnessContract,
+        {
+          query,
+          resolvedQuery,
+          sessionContext,
+          candidate: _candidate || "",
+          anchorName: _anchorForDiscussionSetRouting?.product_name || "",
+          pipelineTracer,
+          routingDecision,
+          conversationalToneProfile,
+        }
+      );
     }
-  );
+
+    const _anchoredComparisonPriority =
+      detectUserPriority(query) ||
+      detectUserPriority(resolvedQuery) ||
+      activePriority ||
+      "";
+    const _establishCatalog = Array.isArray(sessionContext.lastProducts)
+      ? sessionContext.lastProducts
+      : [];
+    const lockedComparisonProducts = await Promise.all(
+      _anchoredComparisonProducts.slice(0, 4).map(async (product) => {
+        const productName = cleanTitle(product?.product_name || "");
+        if (!productName) return null;
+        const specs =
+          product.trustedSpecs ||
+          (await getProductSpecsFromSupabase(
+            productName,
+            product.category || detectProductCategory(resolvedQuery) || ""
+          ));
+        if (!specs) return null;
+        return {
+          ...product,
+          product_name: cleanTitle(specs.official_name || productName),
+          trustedSpecs: specs,
+          scoreEngine: buildScoreEngineFromSpecs(specs),
+          familyKey:
+            product.familyKey ||
+            getProductFamilyKey(specs.official_name || productName) ||
+            normalizeProductKey(specs.official_name || productName),
+          normalizedName:
+            product.normalizedName ||
+            normalizeProductKey(specs.official_name || productName),
+          source: product.source || "product_specs",
+          category: product.category || specs.category || "phone",
+        };
+      })
+    ).then((items) =>
+      dedupeCommercialProductsForComparison(items.filter(Boolean))
+    );
+
+    if (lockedComparisonProducts.length < 2) {
+      const _candidate = extractMentionedProductCandidate(
+        resolvedQuery || query,
+        _anchorForDiscussionSetRouting?.product_name || ""
+      );
+      return respondAnchoredComparisonContractOutcome(
+        res,
+        validateComparisonInputContract({
+          leftProduct: _anchoredComparisonProducts[0] || null,
+          rightProduct: _anchoredComparisonProducts[1] || null,
+          query: resolvedQuery || query,
+        }),
+        {
+          query,
+          resolvedQuery,
+          sessionContext,
+          candidate: _candidate || "",
+          anchorName: _anchorForDiscussionSetRouting?.product_name || "",
+          pipelineTracer,
+          routingDecision,
+          conversationalToneProfile,
+        }
+      );
+    }
+
+    const _pairContract = validateComparisonInputContract({
+      leftProduct: lockedComparisonProducts[0] || null,
+      rightProduct: lockedComparisonProducts[1] || null,
+      query: resolvedQuery || query,
+    });
+
+    if (!isComparisonExecutionAllowed(_pairContract)) {
+      const _candidate = extractMentionedProductCandidate(
+        resolvedQuery || query,
+        _anchorForDiscussionSetRouting?.product_name || ""
+      );
+      return respondAnchoredComparisonContractOutcome(
+        res,
+        _pairContract,
+        {
+          query,
+          resolvedQuery,
+          sessionContext,
+          candidate: _candidate || "",
+          anchorName: _anchorForDiscussionSetRouting?.product_name || "",
+          pipelineTracer,
+          routingDecision,
+          conversationalToneProfile,
+        }
+      );
+    }
+
+    decisionResult = await decideComparison({
+      products: lockedComparisonProducts,
+      priority: _anchoredComparisonPriority,
+      query: resolvedQuery,
+      sessionContext: {
+        ...sessionContext,
+        lastComparisonProducts: serializeComparisonProducts(lockedComparisonProducts),
+      },
+    });
+
+    const comparisonReply = finalizeComparisonReplyWithExperience({
+      decisionResult,
+      products: lockedComparisonProducts,
+      query: resolvedQuery,
+      priority: _anchoredComparisonPriority,
+      sessionContext,
+      fallbackReply:
+        "Comparei os modelos pelos dados técnicos da MIA, mas não consegui montar uma resposta completa agora.",
+    });
+
+    const productsForMemory = lockedComparisonProducts.slice(0, 3);
+    const comparisonWinnerForCard =
+      decisionResult?.cardProduct ||
+      decisionResult?.winner ||
+      productsForMemory[0];
+    const winnerName = cleanTitle(
+      comparisonWinnerForCard?.product_name ||
+        comparisonWinnerForCard?.trustedSpecs?.official_name ||
+        ""
+    );
+
+    return void respondWithContract(
+      res,
+      pipelineTracer,
+      routingDecision,
+      {
+        reply: comparisonReply,
+        prices: productsForMemory
+          .filter((p) => p.price || p.link || p.thumbnail)
+          .slice(0, 2),
+        session_context: {
+          ...sessionContext,
+          lastQuery: resolvedQuery,
+          lastIntent: "comparison",
+          lastPriority: _anchoredComparisonPriority,
+          lastTopic: resolvedQuery,
+          lastProductMentioned: winnerName || sessionContext.lastProductMentioned || "",
+          lastInteractionType: "comparison",
+          comparisonContextLocked: true,
+          lastComparisonProducts: serializeComparisonProducts(lockedComparisonProducts),
+          lastComparisonQuery: resolvedQuery,
+          lastProducts: serializeComparisonProducts(productsForMemory),
+          lastBestProduct:
+            serializeComparisonProducts([comparisonWinnerForCard || productsForMemory[0]])[0] ||
+            sessionContext.lastBestProduct,
+        },
+      },
+      "comparison_anchored_establish",
+      {
+        winner_product: winnerName || null,
+        context_action: "comparison",
+      },
+      {
+        sessionBefore: sessionContext,
+        toneProfile: conversationalToneProfile,
+        mixedResponseContext: buildMixedResponseContext(socialBehaviorContractEarly, {
+          message: query,
+          sessionContext,
+          mixedSegmentationApplied,
+          commercialSnapshot: buildCommercialSnapshot({
+            winnerName: winnerName || "",
+            winnerProduct: comparisonWinnerForCard || productsForMemory[0] || null,
+            commercialBody: comparisonReply,
+            comparisonBody: comparisonReply,
+            responsePath: "comparison_anchored_establish",
+          }),
+          responsePath: "comparison_anchored_establish",
+          comparisonActive: true,
+        }),
+      }
+    );
+  }
 }
 
 if (isComparisonFollowUpOverride) {
@@ -28571,21 +30962,23 @@ const followUpComparisonPriority = comparisonIntentMode.priority || "";
       winner: decisionResult?.winner || lockedComparisonFollowUpProducts[0]
     });
 
+    const comparisonFollowUpReply = finalizeComparisonReplyWithExperience({
+      decisionResult,
+      products: lockedComparisonFollowUpProducts,
+      query: resolvedQuery,
+      priority: followUpComparisonPriority || "",
+      sessionContext,
+      comparisonIntentMode,
+      fallbackReply:
+        "Comparei os modelos dentro do contexto anterior, mas não consegui montar uma resposta completa agora.",
+    });
+
     return void respondWithContract(
       res,
       pipelineTracer,
       routingDecision,
       {
-      reply: finalizeComparisonReplyWithExperience({
-        decisionResult,
-        products: lockedComparisonFollowUpProducts,
-        query: resolvedQuery,
-        priority: followUpComparisonPriority || "",
-        sessionContext,
-        comparisonIntentMode,
-        fallbackReply:
-          "Comparei os modelos dentro do contexto anterior, mas não consegui montar uma resposta completa agora.",
-      }),
+      reply: comparisonFollowUpReply,
       prices: [],
       mia_debug: buildComparisonFollowUpMiaDebug({
         decisionResult,
@@ -28622,7 +31015,41 @@ lastProducts: serializedLockedComparisonProducts,
         winner_product: pickProductLabelForPipelineDebug(serializedLockedComparisonWinner),
         winner_source: "comparison_engine_forced"
       },
-      { sessionBefore: sessionContext, contractApply: { incomingLastBest: sessionContext.lastBestProduct }, toneProfile: conversationalToneProfile }
+      {
+        sessionBefore: sessionContext,
+        contractApply: { incomingLastBest: sessionContext.lastBestProduct },
+        toneProfile: conversationalToneProfile,
+        mixedResponseContext: buildMixedResponseContext(socialBehaviorContractEarly, {
+          message: query,
+          sessionContext,
+          mixedSegmentationApplied,
+          commercialSnapshot: buildCommercialSnapshot({
+            winnerName: serializedLockedComparisonWinner?.product_name || "",
+            winnerProduct: serializedLockedComparisonWinner || null,
+            commercialBody: comparisonFollowUpReply,
+            comparisonBody: comparisonFollowUpReply,
+            responsePath: "comparison_followup_forced",
+            prices: serializedLockedComparisonProducts,
+          }),
+          responsePath: "comparison_followup_forced",
+          comparisonActive: true,
+        }),
+        firstAnswerContext: enrichFirstAnswerContextForMixed(
+          {
+            query: resolvedQuery || query,
+            sessionContext,
+            winnerProduct: serializedLockedComparisonWinner || null,
+            responsePath: "comparison_followup_forced",
+          },
+          socialBehaviorContractEarly,
+          query,
+          buildCommercialSnapshot({
+            winnerName: serializedLockedComparisonWinner?.product_name || "",
+            commercialBody: comparisonFollowUpReply,
+            comparisonBody: comparisonFollowUpReply,
+          })
+        ),
+      }
     );
   }
 
@@ -29033,9 +31460,31 @@ lastComparisonQuery: sessionContext.lastComparisonQuery || sessionContext.lastQu
     // 🔥 MODO CONTEXTO / DECISÃO / ANÁLISE DE PRODUTO ANTERIOR
 sessionContext.lastInteractionType = contextAction;
 
+// PATCH 11A.7 — governed commercial continuation uses anchored path, not social-only flow
+if (
+  commercialContinuationRequiredEarly &&
+  semanticContinuationEarly?.commercialAnchorValid &&
+  hasAnchorForRouting &&
+  !_isAnchoredComparisonEstablishing
+) {
+  contextResolution.shouldSkipProductSearch = true;
+  if (contextAction !== "analysis" && contextAction !== "decision") {
+    contextAction = "decision";
+  }
+  if (
+    intent === "emotional_support" ||
+    intent === "social_conversation" ||
+    intent === "clarification"
+  ) {
+    intent = "decision";
+  }
+}
+
 pipelineTracer.patch({
   context_action: contextAction,
-  should_skip_product_search: !!contextResolution.shouldSkipProductSearch
+  should_skip_product_search: !!contextResolution.shouldSkipProductSearch,
+  mixed_continuation_required: !!mixedContinuationRequiredEarly,
+  commercial_continuation_required: !!commercialContinuationRequiredEarly,
 });
 
 const isContextComparison =
@@ -30060,6 +32509,24 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           )
         : decisionWinnerProduct;
 
+    mixedCommercialSnapshotEarly = buildCommercialSnapshot({
+      winnerName:
+        sessionContext.lastBestProduct?.product_name || decisionWinnerProduct || "",
+      winnerProduct: sessionContext.lastBestProduct || null,
+      commercialBody: reply,
+      structuredReply: contextAction === "decision" ? reply : "",
+      comparisonBody: intent === "comparison" ? reply : "",
+      responsePath: resolveContextResponsePath(routingDecision),
+    });
+    mixedResponseContextEarly = buildMixedResponseContext(socialBehaviorContractEarly, {
+      message: query,
+      sessionContext,
+      mixedSegmentationApplied,
+      commercialSnapshot: mixedCommercialSnapshotEarly,
+      responsePath: resolveContextResponsePath(routingDecision),
+      comparisonActive: intent === "comparison",
+    });
+
     return void respondWithContract(
       res,
       pipelineTracer,
@@ -30117,6 +32584,18 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
         sessionBefore: sessionContext,
         contractApply: { incomingLastBest: req.body?.session_context?.lastBestProduct },
         toneProfile: conversationalToneProfile,
+        mixedResponseContext: mixedResponseContextEarly,
+        firstAnswerContext: enrichFirstAnswerContextForMixed(
+          {
+            query: resolvedQuery || query,
+            sessionContext,
+            winnerProduct: sessionContext.lastBestProduct,
+            responsePath: resolveContextResponsePath(routingDecision),
+          },
+          socialBehaviorContractEarly,
+          query,
+          mixedCommercialSnapshotEarly
+        ),
       }
     );
   }
@@ -30162,12 +32641,55 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? llmReply
           : null) || buildAboutMiaDeterministicFallback(resolvedQuery || query);
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {}),
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: "about_mia_flow",
+        routingDecision,
+      });
+    }
+
+    if (
+      (intent === "social_conversation" ||
+        intent === "emotional_support" ||
+        intent === "clarification") &&
+      !commercialContinuationRequiredEarly
+    ) {
+      const roleByIntent = {
+        social_conversation: "social_conversation_reply",
+        emotional_support: "emotional_support_reply",
+        clarification: "clarification_reply",
+      };
+      const sourceByIntent = {
+        social_conversation: "social_conversation_flow",
+        emotional_support: "emotional_support_flow",
+        clarification: "clarification_flow",
+      };
+
+      return runGovernedSocialIntentFlow({
+        res,
+        intent,
+        role: roleByIntent[intent] || resolveSocialConversationPromptRole(intentRecognitionEarly),
+        source: sourceByIntent[intent] || "social_conversation_flow",
+        query,
+        resolvedQuery,
+        budget,
+        wantsNew,
+        period,
+        userStyle,
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        conversationalToneProfile,
+        socialBehaviorContract: socialBehaviorContractEarly,
+        products: hasAnchorForRouting ? [sessionContext.lastBestProduct].filter(Boolean) : [],
+        productLimit: hasAnchorForRouting ? 1 : 0,
+        pipelineTracer,
+        routingDecision,
+        mixedResponseContext: mixedResponseContextEarly,
+        responsePath: sourceByIntent[intent] || "social_conversation_flow",
       });
     }
 
@@ -30210,12 +32732,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredGreetingFallback(sessionContext)
           : buildFallbackReply(intent, null, period));
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30266,12 +32789,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
             ? buildOpenComprehensionSuccessFallback()
             : buildOpenComprehensionFallback()));
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30314,12 +32838,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAcknowledgementFallback(sessionContext)
           : buildOpenAcknowledgementFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30362,12 +32887,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSoftDisagreementFallback(sessionContext)
           : buildOpenSoftDisagreementFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30410,12 +32936,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredDecisionConfirmationFallback(sessionContext)
           : buildOpenDecisionConfirmationFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30458,12 +32985,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAntiRegretFallback(sessionContext)
           : buildOpenAntiRegretFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30506,12 +33034,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredConfidenceChallengeFallback(sessionContext)
           : buildOpenConfidenceChallengeFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30554,12 +33083,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSocialValidationFallback(sessionContext)
           : buildOpenSocialValidationFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30602,12 +33132,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredSecondBestDiscoveryFallback(sessionContext)
           : buildOpenSecondBestDiscoveryFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30650,12 +33181,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredAlternativeExplorationFallback(sessionContext)
           : buildOpenAlternativeExplorationFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
 
@@ -30698,12 +33230,13 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
           ? buildAnchoredConstraintChangeFallback(sessionContext)
           : buildOpenConstraintChangeFallback());
 
-      return void res.status(200).json({
+      return sendLegacySocialDirectResponse(res, pipelineTracer, {
         reply: guardMiaReplyForTone(reply, conversationalToneProfile).response,
-        prices: [],
-        session_context: hasAnchorForRouting
-          ? (req.body?.session_context || sessionContext)
-          : (req.body?.session_context || {})
+        sessionContext,
+        hasAnchorForRouting,
+        req,
+        responsePath: `${intent}_flow`,
+        routingDecision,
       });
     }
     // ======================================================
@@ -31030,7 +33563,40 @@ return void respondWithContract(
       intentPreservation: intentPreservationResult?.metadata?.intentPreservation || null,
     },
   },
-  { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+  {
+    sessionBefore: sessionContext,
+    toneProfile: conversationalToneProfile,
+    mixedResponseContext: buildMixedResponseContext(socialBehaviorContractEarly, {
+      message: query,
+      sessionContext,
+      mixedSegmentationApplied,
+      commercialSnapshot: buildCommercialSnapshot({
+        winnerName: winnerName || "",
+        winnerProduct: comparisonWinnerForCard || productsForMemory[0] || null,
+        commercialBody: comparisonReply,
+        comparisonBody: comparisonReply,
+        responsePath: "comparison_early_explicit",
+        prices: comparisonPrices,
+      }),
+      responsePath: "comparison_early_explicit",
+      comparisonActive: true,
+    }),
+    firstAnswerContext: enrichFirstAnswerContextForMixed(
+      {
+        query: resolvedQuery || query,
+        sessionContext,
+        winnerProduct: comparisonWinnerForCard || productsForMemory[0] || null,
+        responsePath: "comparison_early_explicit",
+      },
+      socialBehaviorContractEarly,
+      query,
+      buildCommercialSnapshot({
+        winnerName: winnerName || "",
+        commercialBody: comparisonReply,
+        comparisonBody: comparisonReply,
+      })
+    ),
+  }
 );
     } catch (comparisonFlowError) {
       logComparisonFlowCrashGuardAudit({
@@ -31119,6 +33685,33 @@ return void respondWithContract(
     {},
     { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
   );
+}
+
+// ─────────────────────────────────────────────────────────────
+// PATCH 11A.2 — Hard commercial entry block (zero providers on deny)
+// ─────────────────────────────────────────────────────────────
+if (commercialEntryGateResult?.commercialEntryAllowed === false && !commercialContinuationRequiredEarly) {
+  return runNonCommercialAuthorityFastBranch({
+    res,
+    intentAuthority,
+    intentRecognitionEarly,
+    socialBehaviorContractEarly,
+    query,
+    resolvedQuery: query,
+    budget,
+    wantsNew,
+    period,
+    userStyle,
+    sessionContext,
+    incomingSessionContext,
+    hasAnchorForRouting,
+    req,
+    conversationalToneProfile,
+    commercialEntryGateResult,
+    commercialEntryGateTracker,
+    pipelineTracer,
+    routingDecision,
+  });
 }
 
 if (shouldSkipCommercialProductPipeline(routingDecision)) {
@@ -31236,13 +33829,14 @@ if (hasPriorityFollowUp) {
     "";
   categoryHintResolved = categoryHint;
 
-  const dataLayerProductsRaw = await searchUniversalDataLayer(resolvedQuery, {
+  const dataLayerSearchQuery = commercialPipelineQuery || resolvedQuery;
+  const dataLayerProductsRaw = await searchUniversalDataLayer(dataLayerSearchQuery, {
     limit: 12,
     categoryHint
   });
 
   const dataLayerIsolation = filterDataLayerCandidatesForCommercialFallback({
-    query: resolvedQuery,
+    query: dataLayerSearchQuery,
     candidates: dataLayerProductsRaw,
     categoryHint,
     detectedVertical: categoryHint,
@@ -31361,6 +33955,7 @@ specificProductLock = await resolveSpecificProductLockForPipeline({
   products,
   dataLayerProducts: dataLayerUsedAsPrimarySource ? dataLayerProductsResolved : [],
   categoryHint: categoryHintResolved,
+  hasActiveAnchor: hasAnchorForRouting,
 });
 if (specificProductLock.active) {
   const lockedProducts = applySpecificProductLockToProducts(products, specificProductLock);
@@ -31443,6 +34038,7 @@ if (Array.isArray(products) && products.length > 0) {
           dataLayerProducts: [],
           categoryHint:
             detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          hasActiveAnchor: hasAnchorForRouting,
         });
       }
       if (specificProductLock?.active) {
@@ -31460,6 +34056,10 @@ if (Array.isArray(products) && products.length > 0) {
         products: commercialDisplayLocked,
       });
       selectedBestProduct = commercialLockWinner.selectedBestProduct;
+      selectedBestProduct = sanitizeWinnerProduct(selectedBestProduct, {
+        rawMessage: query,
+        commercialSearchQuery: commercialPipelineQuery || resolvedQuery,
+      });
       if (specificProductLock?.active) {
         logSpecificProductLockAudit({
           active: true,
@@ -31476,6 +34076,50 @@ if (Array.isArray(products) && products.length > 0) {
         displayProducts: commercialDisplayLocked.length,
         selectedBestProduct: selectedBestProduct?.product_name || null
       });
+
+      if (!selectedBestProduct?.product_name) {
+        const _lockValidation = validateSpecificProductLockCandidate({
+          query: resolvedQuery,
+          lock: specificProductLock,
+          winnerBefore: commercialDisplayProducts[0] || null,
+        });
+        if (process.env.MIA_DEBUG === "true") {
+          pipelineTracer.patch({
+            commercial_continuation_runtime_guard: {
+              specificProductLockRequested: !!specificProductLock?.active,
+              specificProductLockEligible: _lockValidation.eligible,
+              specificProductLockRejectedReason:
+                _lockValidation.reasonCodes?.[0] || specificProductLock?.reason || null,
+              winnerPresentBeforeLock: _lockValidation.winnerPresentBeforeLock,
+              commercialDegradationMode: _lockValidation.fallbackMode || "no_result",
+              stateMutationBlocked: true,
+              runtimeCrashPrevented: true,
+            },
+          });
+        }
+        return void respondWithContract(
+          res,
+          pipelineTracer,
+          routingDecision,
+          {
+            reply: buildCommercialNoResultReply(resolvedQuery),
+            prices: [],
+            session_context: {
+              ...sessionContext,
+              lastQuery: resolvedQuery,
+              lastIntent: intent,
+              lastTopic: resolvedQuery,
+              lastInteractionType: "commercial_resolution_incomplete",
+            },
+          },
+          "commercial_resolution_incomplete",
+          {},
+          {
+            sessionBefore: sessionContext,
+            toneProfile: conversationalToneProfile,
+          }
+        );
+      }
 
       const proposedBest = {
         product_name: cleanTitle(selectedBestProduct.product_name || ""),
@@ -31661,7 +34305,8 @@ if (Array.isArray(products) && products.length > 0) {
             incomingLastBest: sessionContext.lastBestProduct
           },
           toneProfile: conversationalToneProfile,
-          firstAnswerContext: {
+          firstAnswerContext: enrichFirstAnswerContextForMixed(
+            {
             query: resolvedQuery,
             winnerProduct:
               commercialFallbackPropagation.winnerProductForCommercial ||
@@ -31686,6 +34331,11 @@ if (Array.isArray(products) && products.length > 0) {
             isFollowUp:
               !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
           },
+            socialBehaviorContractEarly,
+            query,
+            mixedCommercialSnapshotEarly
+          ),
+          mixedResponseContext: mixedResponseContextEarly,
         }
       );
       }
@@ -31697,29 +34347,39 @@ if (Array.isArray(products) && products.length > 0) {
     intent !== "comparison" &&
     !routingDecision.allowNewSearch
   ) {
-    return void res.status(200).json(
-      pipelineTracer.enrichResponse(
-        {
-          reply: buildMiaSearchGuideReply(resolvedQuery, earlyQuerySignals),
-          prices: [],
-          session_context: {
-            ...sessionContext,
-            lastQuery: resolvedQuery,
-            lastCategory:
-              detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
-            lastIntent: intent,
-            lastPriority: activePriority || sessionContext.lastPriority || "",
-            lastAxis: activePriority || "",
-            lastArchetype: "",
-            lastBehaviorMode: "guide",
-            lastMainConsequence: "",
-            lastTradeoff: "",
-            lastTopic: resolvedQuery,
-            lastInteractionType: "search_guidance"
-          }
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply: buildMiaSearchGuideReply(resolvedQuery, earlyQuerySignals),
+        prices: [],
+        session_context: {
+          ...sessionContext,
+          lastQuery: resolvedQuery,
+          lastCategory:
+            detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          lastIntent: intent,
+          lastPriority: activePriority || sessionContext.lastPriority || "",
+          lastAxis: activePriority || "",
+          lastArchetype: "",
+          lastBehaviorMode: "guide",
+          lastMainConsequence: "",
+          lastTradeoff: "",
+          lastTopic: resolvedQuery,
+          lastInteractionType: "search_guidance",
         },
-        { response_path: "search_guidance" }
-      )
+      },
+      "search_guidance",
+      {
+        routingDecision,
+        degradation: {
+          reasonCode: "search_guidance",
+          providerAttempted: false,
+          providerSucceeded: false,
+        },
+        providerCallDelta: 0,
+        extraTrace: { response_path: "search_guidance" },
+      }
     );
   }
 
@@ -31739,6 +34399,7 @@ if (Array.isArray(products) && products.length > 0) {
         products,
         dataLayerProducts: dataLayerUsedAsPrimarySource ? dataLayerProductsResolved : [],
         categoryHint: categoryHintResolved,
+        hasActiveAnchor: hasAnchorForRouting,
       });
       if (specificProductLock.active) {
         const refreshedLock = applySpecificProductLockToProducts(products, specificProductLock);
@@ -31789,6 +34450,10 @@ if (Array.isArray(products) && products.length > 0) {
     products: displayProducts,
   });
   selectedBestProduct = enforcedWinner.selectedBestProduct;
+  selectedBestProduct = sanitizeWinnerProduct(selectedBestProduct, {
+    rawMessage: query,
+    commercialSearchQuery: commercialPipelineQuery || resolvedQuery,
+  });
   if (specificProductLock?.active) {
     const refreshedDisplay = applySpecificProductLockToProducts(displayProducts, specificProductLock);
     displayProducts = refreshedDisplay.products.slice(0, 3);
@@ -31811,26 +34476,35 @@ if (Array.isArray(products) && products.length > 0) {
   }
 
   if (commercialOfferReset.shouldReset && !selectedBestProduct) {
-    return void res.status(200).json(
-      pipelineTracer.enrichResponse(
-        {
-          reply: buildCommercialNoResultReply(resolvedQuery),
-          prices: [],
-          session_context: {
-            ...sessionContext,
-            lastQuery: resolvedQuery,
-            lastCategory: detectProductCategory(resolvedQuery) || "",
-            lastBestProduct: null,
-            lastProducts: [],
-            lastProductMentioned: "",
-            lastInteractionType: "commercial_new_search_no_result",
-          },
-          mia_debug: {
-            commercialOfferReset,
-          },
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply: buildCommercialNoResultReply(resolvedQuery),
+        prices: [],
+        session_context: {
+          ...sessionContext,
+          lastQuery: resolvedQuery,
+          lastCategory: detectProductCategory(resolvedQuery) || "",
+          lastBestProduct: null,
+          lastProducts: [],
+          lastProductMentioned: "",
+          lastInteractionType: "commercial_new_search_no_result",
         },
-        { response_path: "commercial_new_search_no_result" }
-      )
+        mia_debug: {
+          commercialOfferReset,
+        },
+      },
+      "commercial_new_search_no_result",
+      {
+        routingDecision,
+        degradation: {
+          reasonCode: "no_result",
+          providerAttempted: true,
+          providerSucceeded: false,
+        },
+        extraTrace: { response_path: "commercial_new_search_no_result" },
+      }
     );
   }
 
@@ -32289,6 +34963,7 @@ if (Array.isArray(products) && products.length > 0) {
         query: resolvedQuery,
         winner: selectedBestProduct,
         legacyOffer: selectedBestProduct,
+        env: runtimeExecutionEnvRef.env,
       });
       if (shadowExecution?.diagnostics && !shadowExecution.skipped) {
         pipelineTracer.patch({
@@ -32420,6 +35095,30 @@ if (Array.isArray(products) && products.length > 0) {
   pipelineTracer.patch(buildConditionalProviderFetchTracePatch());
   pipelineTracer.patch(buildProviderBudgetCircuitTracePatch());
 
+  mixedCommercialSnapshotEarly = buildCommercialSnapshot({
+    commercialObjective: socialBehaviorContractEarly?.commercialObjective || "",
+    commercialSearchQuery: commercialPipelineQuery || resolvedQuery || query,
+    winnerName:
+      selectedBestProduct?.product_name ||
+      selectedIdentity?.officialName ||
+      selectedTitle ||
+      "",
+    winnerProduct: selectedBestProduct || null,
+    commercialBody: safeReply,
+    structuredReply: safeReply,
+    comparisonBody: intent === "comparison" ? safeReply : "",
+    responsePath: "return_seguro",
+    prices: commercialDisplayPrices,
+  });
+  mixedResponseContextEarly = buildMixedResponseContext(socialBehaviorContractEarly, {
+    message: query,
+    sessionContext,
+    mixedSegmentationApplied,
+    commercialSnapshot: mixedCommercialSnapshotEarly,
+    responsePath: "return_seguro",
+    comparisonActive: intent === "comparison",
+  });
+
   return void respondWithContract(
     res,
     pipelineTracer,
@@ -32537,7 +35236,8 @@ if (Array.isArray(products) && products.length > 0) {
         specialistPresentation,
         preserveSpecialistPresentation:
           !!(specialistDecisionExplanationApplied && specialistPresentation?.tradeoff?.gains?.length),
-        firstAnswerContext: {
+        firstAnswerContext: enrichFirstAnswerContextForMixed(
+          {
           query: resolvedQuery,
           winnerProduct: selectedBestProduct || returnSeguroSessionContext.lastBestProduct,
           presentation: specialistPresentation,
@@ -32555,6 +35255,11 @@ if (Array.isArray(products) && products.length > 0) {
           isFollowUp:
             !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
         },
+          socialBehaviorContractEarly,
+          query,
+          mixedCommercialSnapshotEarly
+        ),
+        mixedResponseContext: mixedResponseContextEarly,
       }
     );
 }
@@ -32562,26 +35267,35 @@ if (!Array.isArray(products) || !products.length) {
   console.warn("🚫 Sem produtos mesmo após fallback inteligente");
 
   if (commercialOfferReset.shouldReset) {
-    return void res.status(200).json(
-      pipelineTracer.enrichResponse(
-        {
-          reply: buildCommercialNoResultReply(resolvedQuery),
-          prices: [],
-          session_context: {
-            ...sessionContext,
-            lastQuery: resolvedQuery,
-            lastCategory: detectProductCategory(resolvedQuery) || "",
-            lastBestProduct: null,
-            lastProducts: [],
-            lastProductMentioned: "",
-            lastInteractionType: "commercial_new_search_no_result",
-          },
-          mia_debug: {
-            commercialOfferReset,
-          },
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply: buildCommercialNoResultReply(resolvedQuery),
+        prices: [],
+        session_context: {
+          ...sessionContext,
+          lastQuery: resolvedQuery,
+          lastCategory: detectProductCategory(resolvedQuery) || "",
+          lastBestProduct: null,
+          lastProducts: [],
+          lastProductMentioned: "",
+          lastInteractionType: "commercial_new_search_no_result",
         },
-        { response_path: "commercial_new_search_no_result" }
-      )
+        mia_debug: {
+          commercialOfferReset,
+        },
+      },
+      "commercial_new_search_no_result",
+      {
+        routingDecision,
+        degradation: {
+          reasonCode: "no_result",
+          providerAttempted: true,
+          providerSucceeded: false,
+        },
+        extraTrace: { response_path: "commercial_new_search_no_result" },
+      }
     );
   }
 
@@ -32599,11 +35313,33 @@ if (!Array.isArray(products) || !products.length) {
       console.warn("🧩 FALLBACK COMERCIAL LOCAL ATIVADO:", localFallbackProducts.length);
       products = localFallbackProducts;
     } else {
-      return void res.status(200).json({
-        reply:
-          "Não consegui buscar ofertas reais agora. Melhor eu não te recomendar um produto no chute.\n\nTenta novamente em alguns instantes que eu faço a busca certinha com preço e opção real.",
-        prices: []
-      });
+      return void sendRuntimeResponse(
+        res,
+        pipelineTracer,
+        {
+          reply:
+            "Não consegui buscar ofertas reais agora. Melhor eu não te recomendar um produto no chute.\n\nTenta novamente em alguns instantes que eu faço a busca certinha com preço e opção real.",
+          prices: [],
+          session_context: {
+            ...sessionContext,
+            lastQuery: resolvedQuery,
+            lastCategory: detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+            lastBestProduct: sessionContext.lastBestProduct || null,
+            lastProducts: sessionContext.lastProducts || [],
+            lastInteractionType: "commercial_provider_unavailable",
+          },
+        },
+        "commercial_provider_unavailable",
+        {
+          routingDecision,
+          degradation: {
+            reasonCode: "provider_unavailable",
+            providerAttempted: true,
+            providerSucceeded: false,
+          },
+          extraTrace: { response_path: "commercial_provider_unavailable" },
+        }
+      );
     }
   }
 
@@ -32986,7 +35722,8 @@ Regras:
           period,
           products: topProductsForAI,
           productLimit,
-          userStyle
+          userStyle,
+          behaviorInstructions: mixedIntentBehaviorInstructions,
         })
       }
     ];
@@ -33257,7 +35994,52 @@ return void respondWithContract(
   },
   hasComparisonFollowUp ? "comparison_followup" : "legacy_llm_comparison",
   {},
-        { sessionBefore: sessionContext, toneProfile: conversationalToneProfile }
+        {
+          sessionBefore: sessionContext,
+          toneProfile: conversationalToneProfile,
+          mixedResponseContext: buildMixedResponseContext(socialBehaviorContractEarly, {
+            message: query,
+            sessionContext,
+            mixedSegmentationApplied,
+            commercialSnapshot: buildCommercialSnapshot({
+              winnerName:
+                serializedSafeComparisonWinner?.product_name ||
+                decisionResult?.winner?.product_name ||
+                "",
+              winnerProduct: serializedSafeComparisonWinner || decisionResult?.winner || null,
+              commercialBody: reply,
+              comparisonBody: reply,
+              responsePath: hasComparisonFollowUp
+                ? "comparison_followup"
+                : "legacy_llm_comparison",
+              prices: serializedSafeComparisonProducts,
+            }),
+            responsePath: hasComparisonFollowUp
+              ? "comparison_followup"
+              : "legacy_llm_comparison",
+            comparisonActive: true,
+          }),
+          firstAnswerContext: enrichFirstAnswerContextForMixed(
+            {
+              query: resolvedQuery || query,
+              sessionContext,
+              winnerProduct: serializedSafeComparisonWinner || decisionResult?.winner || null,
+              responsePath: hasComparisonFollowUp
+                ? "comparison_followup"
+                : "legacy_llm_comparison",
+            },
+            socialBehaviorContractEarly,
+            query,
+            buildCommercialSnapshot({
+              winnerName:
+                serializedSafeComparisonWinner?.product_name ||
+                decisionResult?.winner?.product_name ||
+                "",
+              commercialBody: reply,
+              comparisonBody: reply,
+            })
+          ),
+        }
 );
 }
 
@@ -33463,22 +36245,37 @@ if (!finalProducts || finalProducts.length === 0) {
   const impossiblePurchase = detectImpossiblePurchase(resolvedQuery);
 
   if (impossiblePurchase) {
-    return void res.status(200).json({
-      reply: impossiblePurchase.reply,
-      prices: [],
-      session_context: {
-        ...sessionContext,
-        lastQuery: resolvedQuery,
-        lastCategory: categoryFromContext || detectProductCategory(resolvedQuery) || "",
-        lastProducts: [],
-        lastBestProduct: null,
-        lastIntent: intent,
-        lastPriority: activePriority || sessionContext?.lastPriority || "",
-        lastTopic: resolvedQuery,
-        lastProductMentioned: "",
-        lastInteractionType: "impossible_purchase"
+    return void sendRuntimeResponse(
+      res,
+      pipelineTracer,
+      {
+        reply: impossiblePurchase.reply,
+        prices: [],
+        session_context: {
+          ...sessionContext,
+          lastQuery: resolvedQuery,
+          lastCategory: categoryFromContext || detectProductCategory(resolvedQuery) || "",
+          lastProducts: [],
+          lastBestProduct: null,
+          lastIntent: intent,
+          lastPriority: activePriority || sessionContext?.lastPriority || "",
+          lastTopic: resolvedQuery,
+          lastProductMentioned: "",
+          lastInteractionType: "impossible_purchase",
+        },
+      },
+      "impossible_purchase",
+      {
+        routingDecision,
+        degradation: {
+          reasonCode: "impossible_purchase",
+          providerAttempted: false,
+          providerSucceeded: false,
+        },
+        providerCallDelta: 0,
+        extraTrace: { response_path: "impossible_purchase" },
       }
-    });
+    );
   }
 
   console.warn("🚫 Fallback final com nova busca bloqueado — regra ativa: 1 pergunta = 1 busca real");
@@ -33628,23 +36425,37 @@ if (weakPurchaseRange) {
     `Entre o que apareceu, o card abaixo foi a opção mais próxima que encontrei, mas eu trataria como alternativa com ressalvas — não como recomendação forte.`;
 
   // 🔒 TRAVA PARA NÃO SOBRESCREVER O ALERTA
-  return void res.status(200).json({
-    reply,
-    prices: productsToShow,
-    session_context: {
-      ...sessionContext,
-      ...searchMemoryUpdate,
-      lastQuery: resolvedQuery,
-      lastCategory: categoryFromContext || detectProductCategory(resolvedQuery) || finalProducts?.[0]?.category || "",
-      lastProducts: serializedSearchProducts,
-      lastBestProduct: serializedSearchBestProduct,
-      lastIntent: intent,
-      lastPriority: activePriority || sessionContext?.lastPriority || "",
-      lastTopic: resolvedQuery,
-      lastProductMentioned: cleanTitle(productsToShow[0]?.product_name || ""),
-      lastInteractionType: "search"
+  return void sendRuntimeResponse(
+    res,
+    pipelineTracer,
+    {
+      reply,
+      prices: productsToShow,
+      session_context: {
+        ...sessionContext,
+        ...searchMemoryUpdate,
+        lastQuery: resolvedQuery,
+        lastCategory: categoryFromContext || detectProductCategory(resolvedQuery) || finalProducts?.[0]?.category || "",
+        lastProducts: serializedSearchProducts,
+        lastBestProduct: serializedSearchBestProduct,
+        lastIntent: intent,
+        lastPriority: activePriority || sessionContext?.lastPriority || "",
+        lastTopic: resolvedQuery,
+        lastProductMentioned: cleanTitle(productsToShow[0]?.product_name || ""),
+        lastInteractionType: "search",
+      },
+    },
+    "commercial_weak_purchase_range",
+    {
+      routingDecision,
+      degradation: {
+        reasonCode: "weak_purchase_range",
+        providerAttempted: true,
+        providerSucceeded: true,
+      },
+      extraTrace: { response_path: "commercial_weak_purchase_range" },
     }
-  });
+  );
 }
   const priorityForReason =
   activePriority ||
@@ -34126,6 +36937,7 @@ if (!specificProductLock?.active && Array.isArray(products) && products.length >
       detectProductCategory(resolvedQuery) ||
       sessionContext.lastCategory ||
       "",
+    hasActiveAnchor: hasAnchorForRouting,
   });
 }
 
@@ -34136,6 +36948,10 @@ const finalEnforcedWinner = enforceSpecificProductLockWinner({
   products: displayProducts.length ? displayProducts : products,
 });
 selectedBestProduct = finalEnforcedWinner.selectedBestProduct;
+selectedBestProduct = sanitizeWinnerProduct(selectedBestProduct, {
+  rawMessage: query,
+  commercialSearchQuery: commercialPipelineQuery || resolvedQuery,
+});
 if (specificProductLock?.active) {
   logSpecificProductLockAudit({
     active: true,
@@ -34236,6 +37052,24 @@ const legacyCommercialPrices = await applyCommercialRuntimeActivationToResponseP
   pipelineTracer,
 });
 
+const legacyResponsePath = isComparison ? "legacy_llm_comparison" : "legacy_llm_search";
+mixedCommercialSnapshotEarly = buildCommercialSnapshot({
+  winnerName: selectedBestProduct?.product_name || "",
+  winnerProduct: selectedBestProduct || null,
+  commercialBody: reply,
+  comparisonBody: isComparison ? reply : "",
+  responsePath: legacyResponsePath,
+  prices: displayProducts,
+});
+mixedResponseContextEarly = buildMixedResponseContext(socialBehaviorContractEarly, {
+  message: query,
+  sessionContext,
+  mixedSegmentationApplied,
+  commercialSnapshot: mixedCommercialSnapshotEarly,
+  responsePath: legacyResponsePath,
+  comparisonActive: isComparison,
+});
+
 return void respondWithContract(
   res,
   pipelineTracer,
@@ -34267,7 +37101,8 @@ return void respondWithContract(
         {
           sessionBefore: sessionContext,
           toneProfile: conversationalToneProfile,
-          firstAnswerContext: {
+          firstAnswerContext: enrichFirstAnswerContextForMixed(
+            {
             query: resolvedQuery,
             winnerProduct: selectedBestProduct,
             presentation: null,
@@ -34285,6 +37120,11 @@ return void respondWithContract(
             isFollowUp:
               !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
           },
+            socialBehaviorContractEarly,
+            query,
+            mixedCommercialSnapshotEarly
+          ),
+          mixedResponseContext: mixedResponseContextEarly,
         }
   );
 }
@@ -34295,5 +37135,8 @@ return void respondWithContract(
       reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
       prices: []
     });
+  } finally {
+    clearActiveRequestExecutionEnv();
+    clearActiveExternalCallAccounting();
   }
 }

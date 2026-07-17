@@ -483,11 +483,13 @@ const raw = await mlStore.findOne({
 assert("41. access and refresh in same blob", !!raw?.encrypted_payload && !raw.access_token);
 assert("42. no partial plaintext columns", validateProviderCredentialRecord(raw).ok === true);
 
-const fallback = await resolveMercadoLivreAccessTokenSource({
-  env: { ...BASE_ENV, MERCADOLIVRE_ACCESS_TOKEN: SYNTHETIC_ACCESS, MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "" },
-  allowEnvFallback: true,
+const noVault = await resolveMercadoLivreAccessTokenSource({
+  env: { ...BASE_ENV, MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED: "" },
 });
-assert("43. env fallback explicit", fallback.envFallbackActive === true && fallback.source === "env_fallback");
+assert(
+  "43. vault unavailable fails closed",
+  noVault.ok === false && noVault.reasonCode === "vault_unavailable" && noVault.envFallbackActive === false
+);
 assert("44. Google out of scope", !read("lib/server/providerCredentialVault.js").includes("google_shopping"));
 assert("45. Apify out of scope", !read("lib/server/providerCredentialVault.js").toLowerCase().includes("apify"));
 assert("46. no Actor", !read("lib/commercial/mercadolivreOAuthTokenPersistence.js").toLowerCase().includes("actor"));

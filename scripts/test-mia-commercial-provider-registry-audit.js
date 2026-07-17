@@ -72,7 +72,7 @@ function test(name, fn) {
 test("registry exists with summary", () => {
   const summary = getCommercialProviderRegistrySummary();
   assert(summary.version === COMMERCIAL_PROVIDER_REGISTRY_VERSION, "version");
-  assert(summary.count >= 2, "count");
+  assert(summary.count >= 3, "count");
   assert(summary.enabledCount >= 2, "enabledCount");
   assert(Array.isArray(summary.providers), "providers array");
 });
@@ -83,6 +83,18 @@ test("google_shopping registered and enabled", () => {
   assertValidProviderMetadata(provider);
   assert(provider.version === "current", "google version");
   assert(isCommercialProviderEnabled(COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING), "enabled");
+});
+
+test("google_shopping_dataforseo registered and disabled by default", () => {
+  const provider = getCommercialProviderById(COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING_DATAFORSEO);
+  assert(provider, "google_shopping_dataforseo missing");
+  assertValidProviderMetadata(provider);
+  assert(provider.version === "05L.2", "dataforseo version");
+  assert(provider.enabled === false, "registry static disabled");
+  assert(
+    isCommercialProviderEnabled(COMMERCIAL_PROVIDER_IDS.GOOGLE_SHOPPING_DATAFORSEO) === false,
+    "runtime disabled by default"
+  );
 });
 
 test("apify_mercadolivre registered and enabled", () => {
