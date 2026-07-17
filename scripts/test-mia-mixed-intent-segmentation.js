@@ -62,6 +62,8 @@ function detectProductCategory(text = "") {
   if (/celular|smartphone|iphone|galaxy|samsung|motorola/.test(q)) return "phone";
   if (/notebook|laptop/.test(q)) return "notebook";
   if (/tv|televis/.test(q)) return "tv";
+  if (/geladeira/.test(q)) return "fridge";
+  if (/maquina de lavar|máquina de lavar/.test(q)) return "washer";
   if (/mouse/.test(q)) return "computer";
   return null;
 }
@@ -252,6 +254,148 @@ test("modo MIXED reconhecido em mensagem mista", () => {
   );
 });
 
+console.log("\nPATCH 11B.2 — Mixed Intent Segmentation (extended)");
+
+function expectMixedCommercial(msg, { pipeIncludes = null, budget = null, excluded = null } = {}) {
+  const r = runMixedPipeline(msg);
+  expectTrue(
+    r.recognition.interactionMode === MIA_INTERACTION_MODES.MIXED ||
+      r.authority.commercialPermission === COMMERCIAL_PERMISSION.MIXED ||
+      (r.recognition.mixedIntentComposition?.isMixed &&
+        r.authority.commercialPermission !== COMMERCIAL_PERMISSION.DENY),
+    "mixed mode"
+  );
+  expectTrue(r.authority.commercialPermission !== COMMERCIAL_PERMISSION.DENY, "commercial authorized");
+  if (pipeIncludes) {
+    expectTrue(String(r.commercialPipelineQuery || "").includes(pipeIncludes), "pipeline query");
+  }
+  if (budget != null) {
+    expect(r.segmentation?.commercialDimension?.commercialConstraints?.budget, budget);
+  }
+  if (excluded != null) {
+    const brands = r.segmentation?.components?.constraints?.excludedBrands || [];
+    expectTrue(brands.some((b) => excluded.includes(b)), "excluded brand");
+  }
+}
+
+function expectNonCommercial(msg) {
+  const r = runMixedPipeline(msg);
+  expect(r.authority.commercialPermission, COMMERCIAL_PERMISSION.DENY);
+  expect(r.commercialPipelineQuery, null);
+}
+
+console.log("\nGrupo A — frustração + compra");
+test("A1: cansado + comprar até 2500", () => {
+  expectMixedCommercial("estou cansado de pesquisar celular, mas quero comprar um até 2500", {
+    budget: 2500,
+  });
+});
+test("A2: não aguento + notebook 4000", () => {
+  expectMixedCommercial("não aguento mais procurar notebook, me recomenda um até 4000", {
+    budget: 4000,
+    pipeIncludes: "notebook",
+  });
+});
+
+console.log("\nGrupo B — medo + recomendação");
+test("B1: medo arrepender + celular", () => {
+  expectMixedCommercial("tenho medo de me arrepender, qual celular você recomenda?", {
+    pipeIncludes: "celular",
+  });
+});
+test("B2: receio gastar + notebook", () => {
+  expectMixedCommercial("estou com receio de gastar errado, me ajuda a escolher um notebook", {
+    pipeIncludes: "notebook",
+  });
+});
+
+console.log("\nGrupo C — opinião + avaliação");
+test("C1: iPhone bonito + vale a pena", () => {
+  expectMixedCommercial("acho o iPhone bonito, mas vale a pena comprar?", { pipeIncludes: "iphone" });
+});
+test("C2: Galaxy gosto + é bom", () => {
+  const r = runMixedPipeline("gosto desse Galaxy, mas ele é bom mesmo?");
+  expectTrue(r.recognition.interactionMode === MIA_INTERACTION_MODES.MIXED);
+});
+
+console.log("\nGrupo D — rejeição + requisito");
+test("D1: não gosto iPhone + bateria", () => {
+  expectMixedCommercial("não gosto de iPhone, mas quero um celular com boa bateria", {
+    pipeIncludes: "celular",
+    excluded: "iphone",
+  });
+});
+test("D2: sem Samsung + outra marca", () => {
+  expectMixedCommercial("não quero Samsung, me recomenda outra marca", { pipeIncludes: "samsung" });
+});
+
+console.log("\nGrupo E — histórico + nova busca");
+test("E1: celular travava + mais rápido", () => {
+  expectMixedCommercial("meu último celular travava, quero um mais rápido", { pipeIncludes: "celular" });
+});
+test("E2: velho + quero trocar", () => {
+  expectMixedCommercial("meu celular está velho e quero trocar", { pipeIncludes: "celular" });
+});
+
+console.log("\nGrupo F — indecisão + orçamento");
+test("F1: dúvida + celular 3000", () => {
+  expectMixedCommercial("estou em dúvida, qual celular até 3000 vale mais a pena?", { budget: 3000, pipeIncludes: "celular" });
+});
+test("F2: perdido + algo bom → clarify", () => {
+  const r = runMixedPipeline("estou perdido, mas quero comprar algo bom");
+  expectTrue(r.recognition.requiresClarification);
+  expect(r.commercialPipelineQuery, null);
+});
+
+console.log("\nGrupo G — elogio + comparação");
+test("G1: dois bonitos + qual melhor", () => {
+  const r = runMixedPipeline("acho os dois bonitos, mas qual é melhor?");
+  expectTrue(r.recognition.interactionMode === MIA_INTERACTION_MODES.MIXED);
+});
+
+console.log("\nGrupo H — relato + necessidade");
+test("H1: TV queimou + comprar", () => {
+  expectMixedCommercial("minha televisão queimou, preciso comprar outra", { pipeIncludes: "tv" });
+});
+
+console.log("\nGrupo I — cancelamento comercial");
+test("I1: não quero comprar agora", () => {
+  expectNonCommercial("não quero comprar agora, só estou comentando");
+});
+test("I2: não precisa pesquisar", () => {
+  expectNonCommercial("não precisa pesquisar, estou apenas desabafando");
+});
+
+console.log("\nGrupo J — não mixed (11B preservado)");
+test("J1: cansado sem ask", () => expectNonCommercial("estou cansado de pesquisar celular"));
+test("J2: Galaxy bonito", () => expectNonCommercial("acho o Galaxy bonito"));
+test("J3: celular velho sem ask", () => expectNonCommercial("meu celular está velho"));
+test("J4: comercial puro", () => {
+  const r = runMixedPipeline("quero comprar um celular até 2500");
+  expect(r.authority.commercialPermission, COMMERCIAL_PERMISSION.ALLOW);
+});
+
+console.log("\nGrupo K — generalização categorias");
+test("K1: geladeira medo", () => {
+  expectMixedCommercial("tenho medo de comprar uma geladeira ruim, me recomenda uma até 4000", {
+    pipeIncludes: "geladeira",
+    budget: 4000,
+  });
+});
+test("K2: máquina quebrou", () => {
+  expectMixedCommercial("minha máquina de lavar quebrou, preciso comprar outra", {
+    pipeIncludes: "maquina de lavar",
+  });
+});
+
+console.log("\nPares mínimos");
+test("pair social vs mixed", () => {
+  expectNonCommercial("estou cansado de pesquisar celular");
+  expectMixedCommercial("estou cansado de pesquisar celular, mas quero comprar um até 2500", {
+    budget: 2500,
+  });
+});
+
 console.log("\n" + "─".repeat(50));
 console.log(`Resultado: ${passed} passed, ${failed} failed`);
 if (failures.length) {
@@ -261,4 +405,4 @@ if (failures.length) {
   }
   process.exit(1);
 }
-console.log("PATCH 11A.3 segmentation tests: OK\n");
+console.log("PATCH 11B.2 mixed intent segmentation tests: OK\n");
