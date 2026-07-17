@@ -18,7 +18,7 @@ import {
 import { buildSpecificGovernedFallback } from "../lib/miaSocialResponsePerception.js";
 import { buildConstraintRefinementDeterministicReply } from "../lib/miaCommercialConstraintRefinement.js";
 import { buildCommercialFollowUpDeterministicReply } from "../lib/miaCommercialFollowUpContinuity.js";
-import { buildFirstAnswerStructuredReply, matchesStrictFirstAnswerContract } from "../lib/miaFirstAnswerResponseContract.js";
+import { buildFirstAnswerStructuredReply, matchesStrictFirstAnswerContract, applyFirstAnswerResponseContract } from "../lib/miaFirstAnswerResponseContract.js";
 import { REFINEMENT_TYPES } from "../lib/miaCommercialConstraintRefinement.js";
 
 let passed = 0;
@@ -123,6 +123,19 @@ expectTrue(
   "strip empty ack",
   stripLeadingEmptyAck("Entendo. A bateria é forte.") === "A bateria é forte."
 );
+
+// Regression: mixed reply sections import must exist in first-answer contract
+const mixedApplied = applyFirstAnswerResponseContract({
+  reply: "Comparar opções cansa.\n\nEu iria no Galaxy A55 porque boa bateria.\n\nO que você ganha\n• Bateria\n\nO que você abre mão\n• Jogos\n\nMesmo com jogos eu manteria o Galaxy A55 porque bateria.",
+  prices: [],
+  responsePath: "return_seguro",
+  query: "celular",
+  winnerProduct: { product_name: "Galaxy A55" },
+  rankedCandidates: [{ product_name: "Galaxy A55" }],
+  gains: ["Bateria forte"],
+  sacrifices: ["Jogos pesados"],
+});
+expectTrue("mixed first answer contract applies", !!mixedApplied?.reply?.includes("Galaxy A55"));
 
 console.log(`\nPATCH 11C polish tests: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);
