@@ -64,7 +64,13 @@ async function apiCall(text, { conversationId, sessionContext = {}, userId = "11
       session_context: sessionContext,
     }),
   });
-  const data = await resp.json();
+  const rawText = await resp.text();
+  let data = {};
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    data = { reply: "", parseError: true, rawStatus: resp.status };
+  }
   return { status: resp.status, data, ms: Date.now() - started, m: metrics(data, resp.status) };
 }
 
@@ -174,13 +180,15 @@ const ra2 = await apiCall("e quanto custa?", { conversationId: convA, userId: "c
 const rb2 = await apiCall("e bateria?", { conversationId: convB, userId: "conc-b", sessionContext: rb1.data?.session_context || {} });
 const anchorA = ra1.data?.session_context?.lastBestProduct?.product_name || "";
 const anchorB = rb1.data?.session_context?.lastBestProduct?.product_name || "";
-record("Concurrency A price follow-up", followUpLooksCommercial(ra2.m) && !ra2.m.replyGenericSocial, {
+record("Concurrency A price follow-up", ra2.status === 200 && followUpLooksCommercial(ra2.m) && !ra2.m.replyGenericSocial, {
   anchorA,
   replySnippet: ra2.m.reply.slice(0, 60),
+  httpStatus: ra2.status,
 });
-record("Concurrency B attribute follow-up", followUpLooksCommercial(rb2.m) && !rb2.m.replyGenericSocial, {
+record("Concurrency B attribute follow-up", rb2.status === 200 && followUpLooksCommercial(rb2.m) && !rb2.m.replyGenericSocial, {
   anchorB,
   replySnippet: rb2.m.reply.slice(0, 60),
+  httpStatus: rb2.status,
 });
 
 // --- Playwright UI multi-turn ---

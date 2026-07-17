@@ -15,6 +15,7 @@ import {
   resolveContextualCommercialFollowUp,
   classifyCommercialFollowUpType,
   COMMERCIAL_FOLLOW_UP_TYPES,
+  buildCommercialFollowUpDeterministicReply,
 } from "../lib/miaCommercialFollowUpContinuity.js";
 import {
   normalizeSemanticSessionState,
@@ -189,6 +190,27 @@ test("pair isolated price no ctx", () => {
     hasActiveAnchor: false,
   });
   expectFalse(followUp.contextualCommercialAuthorized);
+});
+
+console.log("\nGrupo H — verbalização determinística");
+test("price deterministic reply", () => {
+  const followUp = resolveContextualCommercialFollowUp({
+    message: "e quanto custa?",
+    sessionContext: baseCtx(),
+    hasActiveAnchor: true,
+  });
+  const built = buildCommercialFollowUpDeterministicReply(followUp, baseCtx());
+  expectTrue(built?.reply?.includes("iPhone 13"));
+  expectTrue(/\bR\$\s*[\d.,]+/.test(built?.reply || ""));
+});
+test("runner-up deterministic reply", () => {
+  const followUp = resolveContextualCommercialFollowUp({
+    message: "e a segunda opção?",
+    sessionContext: baseCtx(),
+    hasActiveAnchor: true,
+  });
+  const built = buildCommercialFollowUpDeterministicReply(followUp, baseCtx());
+  expectTrue(built?.reply?.includes("iPhone 11"));
 });
 
 console.log("\nGrupo G — generalização categorias");

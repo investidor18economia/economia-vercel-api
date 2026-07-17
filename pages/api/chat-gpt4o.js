@@ -146,6 +146,9 @@ import {
   shouldBypassInstitutionalGeneralAnswerFallback,
 } from "../../lib/miaProductionFallbackGate";
 import {
+  buildCommercialFollowUpDeterministicReply,
+} from "../../lib/miaCommercialFollowUpContinuity.js";
+import {
   buildCognitiveRoutingSignalFromTurn,
   intentRecognitionToTrace,
   recognizeMiaIntent,
@@ -32207,6 +32210,10 @@ ${_discussionSetScopedInstruction}${_cognitiveSignalContextBlock}${_cognitiveSig
      getMiaLLMText(aiResponse)?.trim() ||
       "Pelo contexto, eu iria na opção principal mais equilibrada. Só escolheria outra se sua prioridade for algo bem específico, como bateria ou jogos.";
 
+    let _contextFollowUpPrices = [];
+    let _contextFollowUpFormatter = null;
+    let _contextFollowUpResponsePath = null;
+
         reply = reply
       .replace(/\*\*/g, "")
       .replace(/\n?\s*Se precisar de mais alguma informação.*$/i, "")
@@ -32307,12 +32314,24 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
     rememberedProducts
   );
 
-  reply = await buildDecisionEngineReply(
-    rememberedProducts,
-    activePriority,
-    preferredProductName,
-    routingDecision.shouldPreserveAnchor ? anchorForDecision : null
+  const followUpDeterministic = buildCommercialFollowUpDeterministicReply(
+    intentRecognitionEarly?.contextualFollowUp,
+    sessionContext
   );
+
+  if (followUpDeterministic?.reply) {
+    reply = followUpDeterministic.reply;
+    _contextFollowUpPrices = followUpDeterministic.prices || [];
+    _contextFollowUpFormatter = followUpDeterministic.formatterUsed || null;
+    _contextFollowUpResponsePath = followUpDeterministic.responsePath || null;
+  } else {
+    reply = await buildDecisionEngineReply(
+      rememberedProducts,
+      activePriority,
+      preferredProductName,
+      routingDecision.shouldPreserveAnchor ? anchorForDecision : null
+    );
+  }
 }
     // ─────────────────────────────────────────────────────────────
     // PATCH 7.6O-C — Audit log for Cluster 12 query neutralization
@@ -32554,12 +32573,12 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
       routingDecision,
       {
           reply,
-          prices: [],
+          prices: _contextFollowUpPrices,
           session_context: contextSessionOut
       },
-      resolveContextResponsePath(routingDecision),
+      _contextFollowUpResponsePath || resolveContextResponsePath(routingDecision),
         {
-          response_path: "context_decision_no_search",
+          response_path: _contextFollowUpResponsePath || "context_decision_no_search",
           detected_intent: intent,
           detected_budget: budget || null,
           detected_vertical: sessionContext.lastCategory || "",
@@ -32575,11 +32594,14 @@ if (contextAction === "decision" && !shouldUseRichExplanationPath(routingDecisio
             decisionEngineActualWinner ||
             pickProductLabelForPipelineDebug(rememberedProducts[0]),
           formatter_used:
-            contextAction === "decision"
+            _contextFollowUpFormatter ||
+            (contextAction === "decision"
               ? "buildDecisionEngineReply"
-              : "context_llm_runMiaBrainTask",
+              : "context_llm_runMiaBrainTask"),
           template_used:
-            contextAction === "decision"
+            _contextFollowUpResponsePath
+              ? "commercial_follow_up_deterministic"
+              : contextAction === "decision"
               ? "decision_engine_eu_iria_no"
               : contextAction === "analysis"
                 ? "context_analysis_llm"
