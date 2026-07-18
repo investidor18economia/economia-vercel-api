@@ -5,6 +5,8 @@ import {
   validateHttpMethod,
 } from "../../lib/miaEndpointAccessPolicy.js";
 import { issueUserSessionToken } from "../../lib/miaUserSessionToken.js";
+import { withMiaObservability } from "../../lib/miaObservability.js";
+import { logError } from "../../lib/miaLogger.js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -12,7 +14,7 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-export default async function handler(req, res) {
+async function registerUserHandler(req, res) {
   applyInternalSecurityHeaders(res);
 
   const methodCheck = validateHttpMethod(req, ["POST"]);
@@ -90,7 +92,15 @@ export default async function handler(req, res) {
       session_token: sessionToken,
     });
   } catch (err) {
-    console.error("ERROR /api/register-user:", err);
+    logError({
+      event: "register_user_failed",
+      endpoint: "/api/register-user",
+      reasonCode: "internal_error",
+      message: err?.message || "unexpected_error",
+      status: 500,
+    });
     return res.status(500).json({ success: false, error: "internal_error", reasonCode: "internal_error" });
   }
 }
+
+export default withMiaObservability(registerUserHandler, { endpoint: "/api/register-user" });

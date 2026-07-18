@@ -16,6 +16,8 @@ import {
   validatePublicContentType,
   validatePublicHttpMethod,
 } from "../../lib/miaPublicApiHardening.js";
+import { withMiaObservability } from "../../lib/miaObservability.js";
+import { logInfo, logError } from "../../lib/miaLogger.js";
 
 export const config = {
   api: {
@@ -25,7 +27,7 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
+export default withMiaObservability(async function miaChatHandler(req, res) {
   applyPublicSecurityHeaders(res);
 
   if (req.method === "OPTIONS") {
@@ -71,6 +73,12 @@ export default async function handler(req, res) {
   const rateLimit = evaluatePerimeterRateLimit({ req, conversationId });
   if (!rateLimit.allowed) {
     res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds || 60));
+    logInfo({
+      event: "rate_limit",
+      reasonCode: "perimeter_rate_limited",
+      endpoint: "/api/mia-chat",
+      status: 429,
+    });
     return res.status(429).json(buildPerimeterRateLimit429Payload());
   }
 
@@ -92,11 +100,17 @@ export default async function handler(req, res) {
 
     return res.status(sanitized.status).send(sanitized.bodyText);
   } catch (error) {
-    console.error("mia_chat_proxy_upstream_error:", error?.message || error);
+    logError({
+      event: "upstream_error",
+      endpoint: "/api/mia-chat",
+      reasonCode: "perimeter_upstream_error",
+      message: error?.message || "upstream_unavailable",
+      status: 502,
+    });
     return res.status(502).json({
       error: "upstream_unavailable",
       reasonCode: "perimeter_upstream_error",
       reply: "Não consegui conectar agora. Tenta novamente em instantes.",
     });
   }
-}
+}, { endpoint: "/api/mia-chat" });

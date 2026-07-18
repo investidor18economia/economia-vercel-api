@@ -1,4 +1,5 @@
 import { fetchSerpPrices } from "../../lib/prices";
+import { withMiaObservability, logObservedError } from "../../lib/miaObservability.js";
 import { fetchGoogleShoppingLegacyResult } from "../../lib/productSourceAdapter/adapters/googleShoppingAdapter.js";
 import { fetchMercadoLivreCommercialAdapterResult } from "../../lib/productSourceAdapter/adapters/mercadoLivreAdapter.js";
 import { isMercadoLivreCommercialProviderRuntimeEnabled } from "../../lib/productSourceAdapter/commercialProviderRegistry.js";
@@ -27470,7 +27471,7 @@ function createMiaChatPipelineTracer(userMessage = "") {
   };
 }
 
-export default async function handler(req, res) {
+async function miaChatCoreHandler(req, res) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -37253,7 +37254,10 @@ return void respondWithContract(
   );
 }
 } catch (err) {
-  console.error("chat-gpt4o.js error:", err);
+  logObservedError(err, {
+    endpoint: "/api/chat-gpt4o",
+    reasonCode: "chat_internal_error",
+  });
 
     return void res.status(500).json({
       reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
@@ -37264,3 +37268,5 @@ return void respondWithContract(
     clearActiveExternalCallAccounting();
   }
 }
+
+export default withMiaObservability(miaChatCoreHandler, { endpoint: "/api/chat-gpt4o" });

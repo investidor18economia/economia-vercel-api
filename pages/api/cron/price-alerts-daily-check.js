@@ -1,8 +1,5 @@
 /**
  * PATCH 8 — Vercel Cron: Daily Price Alert Check
- *
- * Executa send gate do PATCH 4 1x/dia (09:00 BRT / 12:00 UTC).
- * Protegido por MIA_CRON_SECRET. Sem bypass de travas de envio.
  */
 
 import { supabase } from "../../../lib/supabaseClient";
@@ -12,8 +9,10 @@ import {
   runPriceAlertsDailyCron,
   validateCronSecret,
 } from "../../../lib/miaPriceAlertCron.js";
+import { withMiaObservability } from "../../../lib/miaObservability.js";
+import { logAudit } from "../../../lib/miaLogger.js";
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
     return res.status(405).json({
       ok: false,
@@ -25,6 +24,12 @@ export default async function handler(req, res) {
 
   const auth = validateCronSecret(req);
   if (!auth.ok) {
+    logAudit({
+      event: "cron_rejected",
+      reasonCode: auth.code || "cron_auth_invalid",
+      operation: "price_alerts_daily_check",
+      status: auth.status || 401,
+    });
     return res.status(auth.status).json({
       ok: false,
       cron: true,
@@ -34,15 +39,33 @@ export default async function handler(req, res) {
     });
   }
 
+  const startedAt = Date.now();
   try {
     const report = await runPriceAlertsDailyCron({
       supabase,
       debug: parseCronDebugFlag(req.query?.debug),
     });
     const status = report.ok ? 200 : report.code === "send_disabled" ? 503 : 503;
+    logAudit({
+      event: "cron_complete",
+      reasonCode: report.code || (report.ok ? "cron_ok" : "cron_failed"),
+      operation: "price_alerts_daily_check",
+      status,
+      durationMs: Date.now() - startedAt,
+      processed: report.summary?.total_alerts_checked ?? null,
+      sent: report.summary?.sent_count ?? null,
+      failed: report.summary?.failed_count ?? null,
+    });
     return res.status(status).json(report);
   } catch (err) {
-    console.error("[MIA PriceAlert Cron] unexpected error:", err?.message || err);
+    logAudit({
+      event: "cron_failed",
+      reasonCode: "cron_internal_error",
+      operation: "price_alerts_daily_check",
+      status: 500,
+      durationMs: Date.now() - startedAt,
+      message: err?.message || "unexpected_error",
+    });
     return res.status(500).json({
       ok: false,
       cron: true,
@@ -62,3 +85,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default withMiaObservability(handler, { endpoint: "/api/cron/price-alerts-daily-check" });

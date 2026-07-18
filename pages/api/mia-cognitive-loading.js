@@ -16,6 +16,7 @@ import {
   validatePublicHttpMethod,
   validatePublicLoadingRequestBody,
 } from "../../lib/miaPublicApiHardening.js";
+import { withMiaObservability } from "../../lib/miaObservability.js";
 
 export const config = {
   api: {
@@ -25,7 +26,7 @@ export const config = {
   },
 };
 
-export default async function handler(req, res) {
+export default withMiaObservability(async function miaCognitiveLoadingHandler(req, res) {
   applyPublicSecurityHeaders(res);
 
   if (req.method === "OPTIONS") {
@@ -91,4 +92,4 @@ export default async function handler(req, res) {
     applyPublicSecurityHeaders(res, { varyOrigin: cors.crossOrigin && cors.originAllowed });
     return res.status(200).json(getCognitiveLoadingFallbackState());
   }
-}
+}, { endpoint: "/api/mia-cognitive-loading" });

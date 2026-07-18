@@ -5,6 +5,8 @@ import {
   sendPolicyError,
   validateHttpMethod,
 } from "../../../../lib/miaEndpointAccessPolicy.js";
+import { withMiaObservability } from "../../../../lib/miaObservability.js";
+import { logAudit } from "../../../../lib/miaLogger.js";
 
 function isValidUuid(value) {
   return (
@@ -13,7 +15,7 @@ function isValidUuid(value) {
   );
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   applyInternalSecurityHeaders(res);
 
   const methodCheck = validateHttpMethod(req, ["POST"]);
@@ -24,6 +26,12 @@ export default async function handler(req, res) {
   try {
     const validation = validateAnalyticsTrackRequest(req.body || {});
     if (!validation.ok) {
+      logAudit({
+        event: "analytics_rejected",
+        reasonCode: validation.payload.reasonCode || "analytics_event_not_allowed",
+        operation: "analytics_track",
+        status: validation.statusCode,
+      });
       return res.status(validation.statusCode).json(validation.payload);
     }
 
@@ -45,19 +53,40 @@ export default async function handler(req, res) {
     });
 
     if (error) {
-      console.error("Analytics insert error:", error);
+      logAudit({
+        event: "analytics_failed",
+        reasonCode: "analytics_insert_failed",
+        operation: "analytics_track",
+        status: 500,
+      });
       return res.status(500).json({
         error: "analytics_insert_failed",
         reasonCode: "internal_error",
       });
     }
 
+    logAudit({
+      event: "analytics_accepted",
+      reasonCode: "analytics_event_accepted",
+      operation: "analytics_track",
+      eventName: row.event_name,
+      status: 200,
+    });
+
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error("Analytics route error:", err);
+    logAudit({
+      event: "analytics_failed",
+      reasonCode: "analytics_internal_error",
+      operation: "analytics_track",
+      status: 500,
+      message: err?.message || "unexpected_error",
+    });
     return res.status(500).json({
       error: "analytics_internal_error",
       reasonCode: "internal_error",
     });
   }
 }
+
+export default withMiaObservability(handler, { endpoint: "/api/analytics/track" });
