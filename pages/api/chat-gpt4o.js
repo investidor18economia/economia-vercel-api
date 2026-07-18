@@ -259,10 +259,33 @@ import {
   clearActiveRequestExecutionEnv,
   RUNTIME_ENFORCEMENT_VERSION,
 } from "../../lib/miaRuntimeEnforcement.js";
+import { getObservabilityContext } from "../../lib/miaObservabilityContext.js";
+import {
+  bindSharedExternalCallAccounting,
+  bindSharedRequestExecutionEnv,
+  bindSharedRuntimeEnforcement,
+  createInitialSharedRequestState,
+  createSharedStateAccessor,
+  runWithSharedRequestState,
+} from "../../lib/miaSharedRequestState.js";
 
-const runtimeExecutionEnvRef = {
+const _fallbackRuntimeExecutionEnvRef = {
   env: process.env,
 };
+
+const _fallbackSemanticGovernanceRef = {
+  ctx: null,
+  finalRoutingDecision: null,
+  commercialEntryGate: null,
+  legacyIntentSignal: null,
+};
+
+const _fallbackRuntimeEnforcementRef = createRuntimeEnforcementContext();
+
+const runtimeExecutionEnvRef = createSharedStateAccessor(
+  "runtimeExecutionEnv",
+  _fallbackRuntimeExecutionEnvRef
+);
 
 function resolveRequestRuntimeExecutionEnv(req = {}) {
   const headers = req.headers || {};
@@ -280,14 +303,15 @@ function resolveRequestRuntimeExecutionEnv(req = {}) {
   return process.env;
 }
 
-const semanticGovernanceRef = {
-  ctx: null,
-  finalRoutingDecision: null,
-  commercialEntryGate: null,
-  legacyIntentSignal: null,
-};
+const semanticGovernanceRef = createSharedStateAccessor(
+  "semanticGovernance",
+  _fallbackSemanticGovernanceRef
+);
 
-const runtimeEnforcementRef = createRuntimeEnforcementContext();
+const runtimeEnforcementRef = createSharedStateAccessor(
+  "runtimeEnforcement",
+  _fallbackRuntimeEnforcementRef
+);
 import { shouldUseRichExplanationPath, buildExplanationContext } from "../../lib/miaCognitiveExplanationPath";
 import { buildRichExplanationActivationAudit, logRichExplanationAudit } from "../../lib/miaRichExplanationAudit";
 import { buildExplanationConsistencyAudit, EXPLANATION_CONSISTENCY_FLAGS } from "../../lib/miaExplanationConsistencyAudit"; // PATCH 5.5F
@@ -27501,20 +27525,33 @@ async function miaChatCoreHandler(req, res) {
     });
   }
 
-  runtimeExecutionEnvRef.env = resolveRequestRuntimeExecutionEnv(req);
-  bindActiveRequestExecutionEnv(runtimeExecutionEnvRef.env);
+  const observability = getObservabilityContext();
+  const sharedState = createInitialSharedRequestState({
+    req,
+    requestId: observability?.requestId,
+    correlationId: observability?.correlationId,
+    resolveRequestRuntimeExecutionEnv,
+  });
+
+  return runWithSharedRequestState(sharedState, async () => {
+    bindSharedRuntimeEnforcement(sharedState, createRuntimeEnforcementContext());
+    bindSharedRequestExecutionEnv(sharedState, sharedState.runtimeExecutionEnv.env);
+    bindActiveRequestExecutionEnv(sharedState.runtimeExecutionEnv.env);
+    bindSharedExternalCallAccounting(sharedState, sharedState.runtimeEnforcement);
+    bindActiveExternalCallAccounting(sharedState.runtimeEnforcement);
+    sharedState.semanticGovernance.ctx = null;
+    sharedState.semanticGovernance.finalRoutingDecision = null;
+    sharedState.semanticGovernance.commercialEntryGate = null;
+    sharedState.semanticGovernance.legacyIntentSignal = null;
 
     const { text, image_base64 } = req.body || {};
   const query = (text || "").trim();
   const pipelineTracer = createMiaChatPipelineTracer(query);
   const commercialRequestDedupContext = createCommercialRequestDedupContext({
-    requestId: `chat-${Date.now()}`,
+    requestId: sharedState.requestId || observability?.requestId || `chat-${Date.now()}`,
   });
   attachCommercialDedupAccountingObserver(commercialRequestDedupContext, runtimeEnforcementRef);
   enterCommercialRequestDedupContext(commercialRequestDedupContext);
-  Object.assign(runtimeEnforcementRef, createRuntimeEnforcementContext());
-  bindActiveExternalCallAccounting(runtimeEnforcementRef);
-  semanticGovernanceRef.ctx = null;
   pipelineTracer.commercialRequestDedupContext = commercialRequestDedupContext;
   const imageBase64 = String(image_base64 || "").trim();
   const hasImage = imageBase64.length > 100;
@@ -37267,6 +37304,7 @@ return void respondWithContract(
     clearActiveRequestExecutionEnv();
     clearActiveExternalCallAccounting();
   }
+  });
 }
 
 export default withMiaObservability(miaChatCoreHandler, { endpoint: "/api/chat-gpt4o" });
