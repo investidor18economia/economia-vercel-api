@@ -3,7 +3,7 @@
  * PATCH Comercial 05J.2 — Mercado Livre Controlled Probe (protected fetch, opt-in only)
  *
  * Mode A (public): COMMERCIAL_ML_CONTROLLED_PROBE_ENABLED=true
- * Mode B (token):  COMMERCIAL_ML_AUTHENTICATED_PROBE_ENABLED=true + MERCADOLIVRE_ACCESS_TOKEN
+ * Mode B (vault):  COMMERCIAL_ML_AUTHENTICATED_PROBE_ENABLED=true + Provider Credential Vault
  */
 
 import { writeFileSync, mkdirSync } from "node:fs";
@@ -39,6 +39,8 @@ import {
 } from "../lib/commercial/providerCostGuard.js";
 import { fetchMercadoLivreCommercialAdapterResult } from "../lib/productSourceAdapter/adapters/mercadoLivreAdapter.js";
 import { buildMercadoLivreSearchUrl } from "../lib/productSourceAdapter/adapters/mercadoLivreClient.js";
+import { isMercadoLivreOAuthTokenPersistenceConfigured } from "../lib/commercial/mercadolivreOAuthTokenPersistence.js";
+import { hasLegacyAccessTokenEnv } from "../lib/server/providerAuthenticatedRuntimeProbe.js";
 import { COMMERCIAL_PROVIDER_IDS } from "../lib/productSourceAdapter/commercialProviderRegistry.js";
 import { COMMERCIAL_RUNTIME_MODES } from "../lib/productSourceAdapter/commercialRuntimeMode.js";
 
@@ -105,12 +107,15 @@ async function main() {
     if (String(env[COMMERCIAL_ML_AUTHENTICATED_PROBE_ENABLED_ENV] || "").toLowerCase() !== "true") {
       blockedReasons.push("COMMERCIAL_ML_AUTHENTICATED_PROBE_ENABLED!=true");
     }
-    if (!String(env.MERCADOLIVRE_ACCESS_TOKEN || "").trim()) {
-      blockedReasons.push("MERCADOLIVRE_ACCESS_TOKEN missing");
+    if (!isMercadoLivreOAuthTokenPersistenceConfigured(env)) {
+      blockedReasons.push("vault_unavailable");
+    }
+    if (hasLegacyAccessTokenEnv(env)) {
+      blockedReasons.push("legacy_env_token_must_be_unset");
     }
     const readiness = classifyMercadoLivreOAuthReadiness({ env });
     for (const blocker of readiness.blockers) {
-      if (blocker !== "access_token_missing") {
+      if (blocker !== "vault_unavailable") {
         blockedReasons.push(blocker);
       }
     }
@@ -231,7 +236,7 @@ async function main() {
   const report = {
     ok: adapterResult.ok === true,
     version: MERCADOLIVRE_403_PROTECTED_FETCH_AUDIT_VERSION,
-    probeMode: authenticated ? "authenticated_optional_token" : "public_no_token",
+    probeMode: authenticated ? "vault_authenticated" : "public_no_token",
     query,
     maxCalls,
     latencyMs: Date.now() - startedAt,

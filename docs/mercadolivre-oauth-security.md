@@ -148,14 +148,21 @@ Migration (manual): `docs/commercial/provider-credentials.sql`
 | `MERCADOLIVRE_REDIRECT_URI` | Must match ML Developers panel |
 | `MERCADOLIVRE_OAUTH_STATE_SECRET` | HMAC secret for OAuth state cookie |
 | `MERCADOLIVRE_SITE_ID` | Site id (default `MLB`) |
-| `MERCADOLIVRE_ACCESS_TOKEN` | Runtime bearer (server env only, after secure persistence exists) |
+| `MERCADOLIVRE_OAUTH_TOKEN_PERSISTENCE_ENABLED` | Enable Provider Credential Vault for ML OAuth |
+| `PROVIDER_CREDENTIAL_ENCRYPTION_KEY` | AES-256-GCM key (Base64, 32 bytes) |
+| `PROVIDER_CREDENTIAL_ENCRYPTION_KEY_VERSION` | Key version label (default `1`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase admin key |
 
-Optional metadata (recommended after persistence exists):
+OAuth access and refresh tokens are stored **only** in the Provider Credential Vault after PATCH 05J.9. Do **not** configure `MERCADOLIVRE_ACCESS_TOKEN` or `MERCADOLIVRE_REFRESH_TOKEN` in environment variables.
 
-- `MERCADOLIVRE_REFRESH_TOKEN`
-- `MERCADOLIVRE_TOKEN_ISSUED_AT`
-- `MERCADOLIVRE_TOKEN_EXPIRES_IN`
-- `MERCADOLIVRE_TOKEN_EXPIRES_AT`
+Optional (deprecated — remove if still present):
+
+- ~~`MERCADOLIVRE_ACCESS_TOKEN`~~ — removed in 05J.9
+- ~~`MERCADOLIVRE_REFRESH_TOKEN`~~ — vault only
+- ~~`MERCADOLIVRE_TOKEN_ISSUED_AT`~~ — vault metadata
+- ~~`MERCADOLIVRE_TOKEN_EXPIRES_IN`~~ — vault metadata
+- ~~`MERCADOLIVRE_TOKEN_EXPIRES_AT`~~ — vault metadata
 
 Never commit real values.
 
@@ -168,8 +175,8 @@ If tokens were exposed:
 1. Revoke authorization in Mercado Livre Developers for **MIA Teilor**.
 2. Rotate `MERCADOLIVRE_CLIENT_SECRET` if compromise is suspected.
 3. Rotate `MERCADOLIVRE_OAUTH_STATE_SECRET`.
-4. Remove old `MERCADOLIVRE_ACCESS_TOKEN` / refresh values from all environments.
-5. Implement secure persistence **before** repeating OAuth.
+4. Remove legacy `MERCADOLIVRE_ACCESS_TOKEN` / `MERCADOLIVRE_REFRESH_TOKEN` from all environments (Vercel + local).
+5. Revoke credentials in vault via `revokeMercadoLivreOAuthTokens()` if needed, then repeat OAuth.
 
 ---
 

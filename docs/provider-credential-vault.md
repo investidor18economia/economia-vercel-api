@@ -105,16 +105,30 @@ Requires:
 
 Skew env: `PROVIDER_CREDENTIAL_EXPIRY_SKEW_SECONDS` (default `300`).
 
-## Temporary env fallback
+## Runtime credential source (PATCH 05J.9)
 
-`resolveMercadoLivreAccessTokenSource({ allowEnvFallback: true })`:
+**Provider Credential Vault is the sole official OAuth credential source.**
 
-1. Vault primary when configured and active
-2. `MERCADOLIVRE_ACCESS_TOKEN` env only when explicitly allowed
+Runtime flow:
 
-Diagnostics expose `envFallbackActive: true` — never silent dual sources.
+```
+Commercial Runtime → resolveMercadoLivreRuntimeAccessToken()
+  → ensureActiveProviderOAuthAccessToken() (refresh when needed)
+  → Authorization: Bearer <vault token>
+  → Mercado Livre API
+```
 
-**Remove env fallback after migration.**
+Fail-closed (no env token fallback):
+
+| Condition | reasonCode |
+|-----------|------------|
+| Vault disabled or misconfigured | `vault_unavailable` |
+| Vault active, no credential row | `credential_missing` |
+| Refresh failed | `refresh_failed` |
+
+`MERCADOLIVRE_ACCESS_TOKEN` must **not** be set in production. Remove from Vercel/local env after migration.
+
+Legacy env token detection remains in authenticated probes (`LEGACY_TOKEN_BLOCKED`) for safety.
 
 ## Revocation
 
