@@ -20,7 +20,8 @@
     "test:mia:12c:hardening": "node scripts/test-mia-public-api-hardening.js",
     "test:mia:12d:lockdown": "node scripts/test-mia-open-endpoint-lockdown.js",
     "test:mia:12d:lockdown:http": "node scripts/test-mia-open-endpoint-lockdown-http.mjs",
-    "test:mia:12e:observability": "node scripts/test-mia-observability.js"
+    "test:mia:12e:observability": "node scripts/test-mia-observability.js",
+    "test:mia:12f:shared-state": "node scripts/test-mia-shared-state.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
