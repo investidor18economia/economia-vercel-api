@@ -24,7 +24,8 @@
     "test:mia:12f:shared-state": "node scripts/test-mia-shared-state.js",
     "test:mia:analytics:session-id": "node scripts/test-mia-analytics-session-id.js",
     "test:mia:analytics:suggestion-tracking": "node scripts/test-mia-analytics-suggestion-tracking.js",
-    "test:mia:analytics:sql-dashboards": "node scripts/test-mia-analytics-sql-dashboards-audit.js"
+    "test:mia:analytics:sql-dashboards": "node scripts/test-mia-analytics-sql-dashboards-audit.js",
+    "test:mia:analytics:storage-schema": "node scripts/test-mia-analytics-storage-schema-audit.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

@@ -135,10 +135,15 @@ for (const file of PRODUCTION_SQL) {
 
 {
   const sqlFiles = readdirSync(ANALYTICS_DIR).filter((f) => f.endsWith(".sql"));
+  const SQL_STRUCTURE_EXCLUDED = new Set([
+    "analytics-production-scope.sql",
+    "analytics-events-storage-schema-v1.sql",
+    "analytics-events-schema-inspection.sql",
+  ]);
   for (const file of sqlFiles) {
     const sql = readSql(file);
     if (file === "analytics-qa-overview.sql") continue;
-    if (file === "analytics-production-scope.sql") continue;
+    if (SQL_STRUCTURE_EXCLUDED.has(file)) continue;
     assert(`${file} — basic SQL structure`, /from\s+analytics_events/i.test(sql));
   }
 }

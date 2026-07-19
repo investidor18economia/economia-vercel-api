@@ -11,6 +11,11 @@
 
 Usuários únicos reais dependem da Identity Layer (FASE 3).
 
+## Schema oficial
+
+Storage Schema v1: `ANALYTICS_SCHEMA.md`  
+Migration: `analytics-events-storage-schema-v1.sql` (PATCH 1.4)
+
 ## Arquivos
 
 | Arquivo | Uso |
@@ -32,7 +37,7 @@ Filtro determinístico aplicado nos dashboards de produção:
 2. `event_name LIKE 'price_drop_email_test_%'` ou `'price_drop_email_e2e_%'`
 3. `session_started` com `metadata.user_agent = 'test-agent'` (harness local)
 
-**Limitação:** não existe coluna `environment`. Eventos MIA reais sem esses marcadores entram na visão de produção. Separação definitiva aguarda contrato FASE 2 / schema PATCH 1.4.
+**Limitação:** não existe coluna `environment` no Storage Schema v1 (PATCH 1.4). Eventos MIA reais sem esses marcadores entram na visão de produção. Separação estrutural universal aguarda **FASE 2 — Contrato Oficial dos Eventos**.
 
 ## Métricas corrigidas
 

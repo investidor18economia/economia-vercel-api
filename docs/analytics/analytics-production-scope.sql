@@ -7,8 +7,9 @@
 --   2. Server-side QA event_name prefixes (price_drop_email_test_*, price_drop_email_e2e_*)
 --   3. Harness-marked session_started rows (metadata.user_agent = 'test-agent')
 --
--- Limitation: there is no environment column yet. MIA public events without these
--- markers are included. Definitive environment tagging belongs to FASE 2 / PATCH 1.4.
+-- Limitation: Storage Schema v1 (PATCH 1.4) has no environment column.
+-- See docs/analytics/ANALYTICS_SCHEMA.md
+-- Definitive environment tagging belongs to FASE 2 — Contrato Oficial dos Eventos.
 
 -- Reusable predicate (copy into dashboards):
 --   AND NOT (
