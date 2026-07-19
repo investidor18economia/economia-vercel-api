@@ -22,7 +22,8 @@
     "test:mia:12d:lockdown:http": "node scripts/test-mia-open-endpoint-lockdown-http.mjs",
     "test:mia:12e:observability": "node scripts/test-mia-observability.js",
     "test:mia:12f:shared-state": "node scripts/test-mia-shared-state.js",
-    "test:mia:analytics:session-id": "node scripts/test-mia-analytics-session-id.js"
+    "test:mia:analytics:session-id": "node scripts/test-mia-analytics-session-id.js",
+    "test:mia:analytics:suggestion-tracking": "node scripts/test-mia-analytics-suggestion-tracking.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",

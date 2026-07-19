@@ -46,6 +46,7 @@ import {
 import {
   trackMiaEvent,
   detectAnalyticsCategory,
+  trackMiaQuestionSent,
   trackMiaSessionStarted
 } from "../lib/analytics";
 const PLACEHOLDER_PHRASES = [
@@ -2060,6 +2061,11 @@ useEffect(() => {
         // ✅ ETAPA A: histórico para contexto
         const messagesForApi = buildMessagesForApi(history, pergunta);
 
+        trackMiaQuestionSent(pergunta, {
+          userId: user ? user.id : null,
+          hasImage: false,
+        });
+
         try {
           const resp = await fetch("/api/mia-chat", {
         method: "POST",
@@ -2219,15 +2225,11 @@ useEffect(() => {
     // ✅ ETAPA A: histórico para contexto
     const messagesForApi = buildMessagesForApi(history, pergunta);
 
-    trackMiaEvent("mia_question_sent", {
-      query_text: pergunta || "",
-      category: detectAnalyticsCategory(pergunta),
-      user_id: user ? user.id : null,
-      metadata: {
-        has_image: !!imageToSend
-      }
+    trackMiaQuestionSent(pergunta, {
+      userId: user ? user.id : null,
+      hasImage: !!imageToSend,
     });
-    
+
     try {
       const resp = await fetch("/api/mia-chat", {
         method: "POST",
