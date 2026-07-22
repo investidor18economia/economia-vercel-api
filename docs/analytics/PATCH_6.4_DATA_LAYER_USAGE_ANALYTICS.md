@@ -1,6 +1,6 @@
 # PATCH 6.4 — Data Layer Usage & Effectiveness Analytics
 
-**Status:** 🟡 **EM VALIDAÇÃO FINAL / INVESTIGAÇÃO FUNCIONAL**  
+**Status:** 🟡 **INSTRUMENTAÇÃO OPERACIONAL — Fase 6 encerrada na auditoria 6.5; aprovação formal PATCH 6.4 instrumentação aguardando usuário**  
 **Data deploy:** 2026-07-22  
 **Commit deploy:** `2072e1d` · branch `master`  
 **Produção:** https://economia-ai.vercel.app/app-mia  

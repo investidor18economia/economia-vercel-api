@@ -543,7 +543,23 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Deploy (2026-07-22):** commit `2072e1d` em `master` → Vercel produção. Validação: 9 eventos reais · dashboards Q1–Q4 OK · smoke produção 4/4 caminhos comerciais instrumentados correlacionados.
 
-**Investigação manual UI (2026-07-22 ~20:05 BRT):** três conversas em `/app-mia` correlacionadas com eventos Supabase (sessão `56e604b4-…`). Dois bugs funcionais **preexistentes** confirmados (iPhone→Samsung, TV→notebook); instrumentação registrou caminho real corretamente. Reprodução sessão limpa confirma bugs independentes de contaminação de sessão. Total eventos: **15**. Status: 🟡 **EM VALIDAÇÃO FINAL / INVESTIGAÇÃO FUNCIONAL** — aprovação formal bloqueada. Evidências: [PATCH_6.4_MANUAL_UI_INVESTIGATION.json](./PATCH_6.4_MANUAL_UI_INVESTIGATION.json) · [PATCH_6.4_PRODUCTION_EVIDENCE.json](./PATCH_6.4_PRODUCTION_EVIDENCE.json).
+**Investigação manual UI (2026-07-22 ~20:05 BRT):** três conversas em `/app-mia` correlacionadas com eventos Supabase (sessão `56e604b4-…`). Dois bugs funcionais **preexistentes** confirmados (iPhone→Samsung, TV→notebook); instrumentação registrou caminho real corretamente. Reprodução sessão limpa confirma bugs independentes de contaminação de sessão. Total eventos: **15**. Status instrumentação: 🟡 investigação funcional concluída — bugs registrados em [PATCH_FUNC_64_COMMERCIAL_RUNTIME_FIXES.md](../commercial/PATCH_FUNC_64_COMMERCIAL_RUNTIME_FIXES.md) (fora escopo Analytics). Evidências: [PATCH_6.4_MANUAL_UI_INVESTIGATION.json](./PATCH_6.4_MANUAL_UI_INVESTIGATION.json) · [PATCH_6.4_PRODUCTION_EVIDENCE.json](./PATCH_6.4_PRODUCTION_EVIDENCE.json).
+
+---
+
+## 35. PATCH 6.5 — Auditoria Final da Fase 6 (2026-07-22)
+
+**Objetivo:** auditar integralmente a Fase 6 (patches 6.0–6.4) e confirmar prontidão para encerramento.
+
+**Entregas:**
+
+- [PHASE_6_FINAL_AUDIT.md](./PHASE_6_FINAL_AUDIT.md)
+- [PATCH_FUNC_64_COMMERCIAL_RUNTIME_FIXES.md](../commercial/PATCH_FUNC_64_COMMERCIAL_RUNTIME_FIXES.md) (pendências runtime — escopo externo)
+- Atualização [02_analytics_roadmap.md](./02_analytics_roadmap.md) — Fase 6 alinhada à execução real
+
+**Validação (auditoria 6.5):** 691 verificações executadas — **688 aprovadas** (267 unit 6.1–6.4 + 90 prod 6.1–6.4 + 54 patch-45 + 92 patch-55 + 188 sql-dashboards; 3 falsos negativos sql-dashboards em SQL catálogo 6.1–6.3).
+
+**Veredito:** 🟡 **FASE 6 APROVADA COM PENDÊNCIAS EXTERNAS** — aguardando aprovação formal do usuário.
 
 ---
 

@@ -205,7 +205,7 @@ Patches
 
 PATCH 4.1
 
-Dashboard Executivo
+Governança das Métricas e Dashboard Executivo
 
 PATCH 4.2
 
@@ -234,57 +234,67 @@ Todos os dashboards utilizam dados confiáveis.
 ---
 
 # FASE 5
-## Analytics Executivo
+## Analytics Estratégico
 
 Objetivo
 
-Gerar métricas úteis para tomada de decisão.
+Transformar dados operacionais em inteligência estratégica rastreável para tomada de decisão.
 
 Entregas
 
-- crescimento
-- conversão
-- engajamento
-- intenção de compra
+- crescimento estratégico (cohorts, retenção, tendências)
+- conversação estratégica (profundidade, recorrência, segmentos)
+- conversão estratégica (gargalos, cohorts, tendências)
+- intenção de compra estratégica (sinais, antecedentes, tendências)
 
 Patches
 
+PATCH 5.0
+
+Auditoria da Fase 5 e Validação do Roadmap
+
 PATCH 5.1
 
-Growth Analytics
+Growth Analytics Estratégico
 
 PATCH 5.2
 
-Conversation Analytics
+Conversation Analytics Estratégico
 
 PATCH 5.3
 
-Conversion Funnel
+Conversion Funnel Analytics Estratégico
 
 PATCH 5.4
 
-Buying Intent Analytics
+Buying Intent Analytics Estratégico
 
 PATCH 5.5
 
-Auditoria Final
+Auditoria Final da Fase 5
 
 ---
 
 # FASE 6
-## Data Layer Analytics
+## Data Layer Analytics Estratégico
 
 Objetivo
 
-Medir continuamente a qualidade do Data Layer.
+Medir continuamente a qualidade, cobertura, composição e uso efetivo do Data Layer.
 
 Entregas
 
-- cobertura
-- qualidade
-- estatísticas
+- cobertura (6.1)
+- qualidade (6.2)
+- estatísticas (6.3)
+- uso runtime e efetividade (6.4)
+- auditoria final (6.5)
 
 Patches
+
+PATCH 6.0
+
+Auditoria da Fase 6 e validação do roadmap
 
 PATCH 6.1
 
@@ -299,6 +309,10 @@ PATCH 6.3
 Estatísticas
 
 PATCH 6.4
+
+Uso e efetividade (Data Layer Usage Analytics)
+
+PATCH 6.5
 
 Auditoria Final
 
