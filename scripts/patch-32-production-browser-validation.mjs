@@ -57,7 +57,7 @@ async function sendQuestion(page, text) {
   const input = page.locator("input.mia-input");
   await input.waitFor({ state: "visible", timeout: 60000 });
   await input.fill(text);
-  await page.locator("button.send-btn").click();
+  await page.locator("button.send-btn").click({ force: true });
   await page.waitForFunction(() => document.body.innerText.length > 400, { timeout: 120000 });
   await page.waitForTimeout(2500);
 }
@@ -84,6 +84,11 @@ async function clearConversationViaSettings(page) {
   await page.getByRole("button", { name: "Configurações" }).click();
   await page.locator("button.mia-settings-privacy-btn").click();
   await page.waitForTimeout(2000);
+  await page.getByRole("button", { name: "Fechar preferências da MIΛ" }).click();
+  await page.waitForTimeout(500);
+  await page.locator(".mia-drawer-overlay").click({ force: true, timeout: 5000 }).catch(() => {});
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(1000);
 }
 
 async function main() {
@@ -152,10 +157,8 @@ async function main() {
     `before=${mask(convBeforeReload)} after=${mask(qReload?.conversation_id)}`
   );
 
-  await sendQuestion(page, Q2);
-  await page.waitForTimeout(1000);
-  await clearConversationViaSettings(page);
   const convBeforeClear = qReload?.conversation_id;
+  await clearConversationViaSettings(page);
   analyticsPayloads.length = 0;
   await sendQuestion(page, "Preciso de um fone de ouvido até R$ 400");
   const qAfterClear = analyticsPayloads.find((p) => p.event_name === "mia_question_sent");

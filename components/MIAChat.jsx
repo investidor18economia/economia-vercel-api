@@ -1405,7 +1405,7 @@ useEffect(() => {
 
     try {
       if (typeof window !== "undefined") {
-        const preservedKeys = new Set(["mia_preferences"]);
+        const preservedKeys = new Set(["mia_preferences", "mia_analytics_visitor_id"]);
         const keysToRemove = [];
 
         for (let index = 0; index < localStorage.length; index += 1) {
