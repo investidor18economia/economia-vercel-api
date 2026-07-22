@@ -16,3 +16,7 @@ audit-matrix-after-stderr.txt
 audit-matrix-output-after.json
 audit-matrix-output.json
 audit-matrix-stderr.txt
+
+# Supabase local runtime (managed by supabase/.gitignore too)
+supabase/.branches
+supabase/.temp

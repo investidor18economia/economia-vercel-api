@@ -11,10 +11,16 @@
 
 Usuários únicos reais dependem da Identity Layer (FASE 3).
 
-## Schema oficial
+## Schema e contrato
 
-Storage Schema v1: `ANALYTICS_SCHEMA.md`  
-Migration: `analytics-events-storage-schema-v1.sql` (PATCH 1.4)
+| Documento | Conteúdo |
+|-----------|----------|
+| [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) | Analytics Storage Schema v1 |
+| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | Event Contract v1 — eventos usados nos filtros |
+| [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md) | Colunas consultadas |
+| [README.md](./README.md) | Índice oficial |
+
+Migrations: `supabase/migrations/20260719153000_*` + `20260719153001_*` (PATCH 1.4)
 
 ## Arquivos
 
@@ -37,7 +43,7 @@ Filtro determinístico aplicado nos dashboards de produção:
 2. `event_name LIKE 'price_drop_email_test_%'` ou `'price_drop_email_e2e_%'`
 3. `session_started` com `metadata.user_agent = 'test-agent'` (harness local)
 
-**Limitação:** não existe coluna `environment` no Storage Schema v1 (PATCH 1.4). Eventos MIA reais sem esses marcadores entram na visão de produção. Separação estrutural universal aguarda **FASE 2 — Contrato Oficial dos Eventos**.
+**Limitação:** não existe coluna `environment` no Analytics Storage Schema v1 (PATCH 1.4). Eventos MIA reais sem esses marcadores entram na visão de produção. Separação estrutural universal está documentada no [Event Contract](./contracts/EVENT_CONTRACT.md).
 
 ## Métricas corrigidas
 
@@ -47,3 +53,14 @@ Filtro determinístico aplicado nos dashboards de produção:
 | `sessoes_unicas_diarias` | Idem, agrupado por `date(created_at)` | Não é DAU — são sessões de aba |
 
 `analytics-dau.sql` foi renomeado para `analytics-daily-sessions.sql` (alias `usuarios_ativos` removido).
+
+## Referências
+
+- [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) — definição dos eventos filtrados
+- [analytics-production-scope.sql](./analytics-production-scope.sql) — predicado reutilizável
+- [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) — PATCH 1.3
+- [README.md](./README.md) — índice oficial
+
+---
+
+*Dashboards SQL — PATCH 1.3 · referências PATCH 2.4*

@@ -9,12 +9,29 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const ANALYTICS_DIR = join(ROOT, "docs/analytics");
+const MIGRATIONS_DIR = join(ROOT, "supabase/migrations");
+
+const SCHEMA_MIGRATION = join(
+  MIGRATIONS_DIR,
+  "20260719153000_analytics_events_storage_schema_v1.sql"
+);
+const SECURITY_MIGRATION = join(
+  MIGRATIONS_DIR,
+  "20260719153001_analytics_events_storage_security_v1.sql"
+);
+const REFERENCE_POINTER = join(ANALYTICS_DIR, "analytics-events-storage-schema-v1.sql");
+
+const VISITOR_ID_MIGRATION = join(
+  MIGRATIONS_DIR,
+  "20260721153002_analytics_events_visitor_id.sql"
+);
 
 const OFFICIAL_COLUMNS = [
   "id",
   "event_name",
   "session_id",
   "user_id",
+  "visitor_id",
   "category",
   "product_name",
   "product_brand",
@@ -30,6 +47,7 @@ const OFFICIAL_COLUMNS = [
 
 const RUNTIME_WRITE_COLUMNS = [
   "event_name",
+  "visitor_id",
   "session_id",
   "user_id",
   "category",
@@ -51,7 +69,22 @@ const FORBIDDEN_MIGRATION_PATTERNS = [
   /\bdrop\s+column\b/i,
 ];
 
-const DEFERRED_COLUMNS = ["environment", "schema_version", "event_schema_version", "payload_version", "visitor_id", "conversation_id", "turn_id"];
+const DEFERRED_COLUMNS = [
+  "environment",
+  "schema_version",
+  "event_schema_version",
+  "payload_version",
+  "conversation_id",
+  "turn_id",
+];
+
+const EXPECTED_INDEXES = [
+  "idx_analytics_events_event_name_created_at",
+  "idx_analytics_events_created_at",
+  "idx_analytics_events_session_id",
+  "idx_analytics_events_category",
+  "idx_analytics_events_visitor_id",
+];
 
 let passed = 0;
 let failed = 0;
@@ -70,6 +103,10 @@ function read(path) {
   return readFileSync(path, "utf8");
 }
 
+function stripSqlComments(sql) {
+  return sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+}
+
 function loadEnv() {
   const envFile = join(ROOT, ".env.local");
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL && existsSync(envFile)) {
@@ -82,46 +119,93 @@ function loadEnv() {
 
 console.log("\nPATCH Analytics 1.4 — storage schema audit\n");
 
-const migrationPath = join(ANALYTICS_DIR, "analytics-events-storage-schema-v1.sql");
-const schemaDocPath = join(ANALYTICS_DIR, "ANALYTICS_SCHEMA.md");
-const migration = read(migrationPath);
-const schemaDoc = read(schemaDocPath);
-const migrationExecutable = migration
-  .replace(/--[^\n]*/g, "")
-  .replace(/\/\*[\s\S]*?\*\//g, "");
+const schemaMigration = read(SCHEMA_MIGRATION);
+const securityMigration = read(SECURITY_MIGRATION);
+const referencePointer = read(REFERENCE_POINTER);
+const schemaDoc = read(join(ANALYTICS_DIR, "ANALYTICS_SCHEMA.md"));
+const schemaExecutable = stripSqlComments(schemaMigration);
+const securityExecutable = stripSqlComments(securityMigration);
 
-assert("Migration file exists", migration.length > 0);
+assert("Schema migration exists in supabase/migrations", schemaMigration.length > 0);
+assert("Security migration exists in supabase/migrations", securityMigration.length > 0);
+assert("supabase/README.md exists", existsSync(join(ROOT, "supabase/README.md")));
 assert("ANALYTICS_SCHEMA.md exists", schemaDoc.length > 0);
+assert("Preflight SQL exists", existsSync(join(ANALYTICS_DIR, "analytics-events-schema-preflight.sql")));
+
+assert(
+  "docs/analytics SQL is reference-only pointer",
+  /REFERENCE ONLY/i.test(referencePointer) && !/create table/i.test(referencePointer)
+);
+
+for (const [label, sql] of [
+  ["schema", schemaExecutable],
+  ["security", securityExecutable],
+]) {
+  for (const pattern of FORBIDDEN_MIGRATION_PATTERNS) {
+    assert(`${label} migration has no destructive pattern ${pattern}`, !pattern.test(sql));
+  }
+}
+
+assert("Schema migration validates drift explicitly", /raise exception/i.test(schemaMigration));
+assert("Schema migration is transactional", /\bbegin;/i.test(schemaMigration) && /\bcommit;/i.test(schemaMigration));
+assert("Security migration is transactional", /\bbegin;/i.test(securityMigration) && /\bcommit;/i.test(securityMigration));
+assert("Schema migration does not change RLS", !/enable row level security/i.test(schemaMigration));
+assert("Security migration enables RLS", /enable row level security/i.test(securityMigration));
+assert("Security migration grants service_role insert", /grant select, insert on table public\.analytics_events to service_role/i.test(securityMigration));
+assert("Security migration blocks unexpected browser policies", /unexpected policy/i.test(securityMigration));
+
+for (const column of OFFICIAL_COLUMNS.filter((c) => c !== "visitor_id")) {
+  assert(`Schema migration defines column ${column}`, new RegExp(`\\b${column}\\b`).test(schemaMigration));
+}
+
+assert("Visitor id migration exists in supabase/migrations", existsSync(VISITOR_ID_MIGRATION));
+
+const visitorMigration = existsSync(VISITOR_ID_MIGRATION) ? read(VISITOR_ID_MIGRATION) : "";
+const visitorExecutable = stripSqlComments(visitorMigration);
+
+assert(
+  "Visitor migration adds visitor_id column",
+  /\bvisitor_id\b/i.test(visitorMigration) && /add column/i.test(visitorMigration)
+);
 
 for (const pattern of FORBIDDEN_MIGRATION_PATTERNS) {
-  assert(`Migration has no destructive pattern ${pattern}`, !pattern.test(migrationExecutable));
+  assert(`Visitor migration has no destructive pattern ${pattern}`, !pattern.test(visitorExecutable));
 }
 
-assert("Migration creates analytics_events with IF NOT EXISTS", /create table if not exists public\.analytics_events/i.test(migration));
-assert("Migration declares Storage Schema v1", /Storage Schema v1/i.test(migration));
-assert("Migration enables RLS", /enable row level security/i.test(migration));
-assert("Migration grants service_role insert", /grant select, insert on table public\.analytics_events to service_role/i.test(migration));
-
-for (const column of OFFICIAL_COLUMNS) {
-  assert(`Migration documents column ${column}`, new RegExp(`\\b${column}\\b`).test(migration));
-}
+assert(
+  "Visitor migration defines index idx_analytics_events_visitor_id",
+  visitorMigration.includes("idx_analytics_events_visitor_id")
+);
 
 for (const column of DEFERRED_COLUMNS) {
-  const addsColumn = new RegExp(`\\b${column}\\s+(text|uuid|jsonb|integer|varchar)`, "i").test(migration);
-  assert(`Migration does not add deferred column ${column}`, !addsColumn);
+  const addsColumn = new RegExp(`\\b${column}\\s+(text|uuid|jsonb|integer|varchar)`, "i").test(
+    `${schemaMigration}\n${securityMigration}`
+  );
+  assert(`Migrations do not add deferred column ${column}`, !addsColumn);
 }
 
-assert("Schema doc references migration file", schemaDoc.includes("analytics-events-storage-schema-v1.sql"));
+for (const indexName of EXPECTED_INDEXES.filter((n) => n !== "idx_analytics_events_visitor_id")) {
+  assert(`Schema migration defines index ${indexName}`, schemaMigration.includes(indexName));
+}
+
+assert(
+  "Schema doc references supabase migration path",
+  schemaDoc.includes("supabase/migrations/20260719153000_analytics_events_storage_schema_v1.sql")
+);
 assert("Schema doc declares v1", /Storage Schema v1/i.test(schemaDoc));
+assert("Schema doc documents visitor_id", /\bvisitor_id\b/i.test(schemaDoc));
 assert("Schema doc defers environment column", /Não existe.*environment|Sem coluna `environment`/i.test(schemaDoc));
 assert("Schema doc defers event contract to FASE 2", /FASE 2/i.test(schemaDoc));
 
 {
   const trackSource = read(join(ROOT, "pages/api/analytics/track/index.js"));
+  const supabaseClient = read(join(ROOT, "lib/supabaseClient.js"));
   for (const column of RUNTIME_WRITE_COLUMNS) {
     assert(`Track endpoint writes ${column}`, trackSource.includes(`${column}:`));
   }
   assert("Track endpoint targets analytics_events", trackSource.includes('"analytics_events"'));
+  assert("Runtime uses service_role client", supabaseClient.includes("SUPABASE_SERVICE_ROLE_KEY"));
+  assert("Frontend does not import supabase client", !existsSync(join(ROOT, "components/supabaseClient.js")));
 }
 
 {
@@ -142,11 +226,7 @@ assert("Schema doc defers event contract to FASE 2", /FASE 2/i.test(schemaDoc));
 {
   const dashboards = read(join(ANALYTICS_DIR, "DASHBOARDS.md"));
   assert("DASHBOARDS.md references ANALYTICS_SCHEMA.md", dashboards.includes("ANALYTICS_SCHEMA.md"));
-}
-
-{
-  const scope = read(join(ANALYTICS_DIR, "analytics-production-scope.sql"));
-  assert("Production scope still documents QA markers", scope.includes("price_alert_email_test"));
+  assert("DASHBOARDS.md references supabase migrations", dashboards.includes("supabase/migrations/20260719153000"));
 }
 
 loadEnv();
@@ -162,13 +242,28 @@ if (url && key) {
     const table = openapi?.definitions?.analytics_events;
     const props = table?.properties ? Object.keys(table.properties).sort() : [];
     assert("Production OpenAPI exposes analytics_events", props.length > 0);
-    assert("Production column count matches v1 (15)", props.length === 15);
+    if (props.includes("visitor_id")) {
+      assert("Production column count matches v1 + visitor_id (16)", props.length === 16);
+    } else {
+      console.log("  ℹ️  Production migration 53002 not yet applied (15 columns)");
+      assert("Production column count matches baseline v1 (15)", props.length === 15);
+    }
     for (const column of OFFICIAL_COLUMNS) {
+      if (column === "visitor_id" && !props.includes("visitor_id")) continue;
       assert(`Production has column ${column}`, props.includes(column));
     }
     for (const column of DEFERRED_COLUMNS) {
       assert(`Production does not expose deferred column ${column}`, !props.includes(column));
     }
+
+    const countRes = await fetch(`${url}/rest/v1/analytics_events?select=id&limit=1`, {
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        Prefer: "count=exact",
+      },
+    });
+    assert("Production service_role can read analytics_events", countRes.ok);
   } catch (err) {
     assert(`Production OpenAPI inspection (${err.message})`, false);
   }

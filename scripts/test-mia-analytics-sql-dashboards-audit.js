@@ -139,6 +139,7 @@ for (const file of PRODUCTION_SQL) {
     "analytics-production-scope.sql",
     "analytics-events-storage-schema-v1.sql",
     "analytics-events-schema-inspection.sql",
+    "analytics-events-schema-preflight.sql",
   ]);
   for (const file of sqlFiles) {
     const sql = readSql(file);

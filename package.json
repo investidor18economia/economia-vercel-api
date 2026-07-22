@@ -25,7 +25,12 @@
     "test:mia:analytics:session-id": "node scripts/test-mia-analytics-session-id.js",
     "test:mia:analytics:suggestion-tracking": "node scripts/test-mia-analytics-suggestion-tracking.js",
     "test:mia:analytics:sql-dashboards": "node scripts/test-mia-analytics-sql-dashboards-audit.js",
-    "test:mia:analytics:storage-schema": "node scripts/test-mia-analytics-storage-schema-audit.js"
+    "test:mia:analytics:storage-schema": "node scripts/test-mia-analytics-storage-schema-audit.js",
+    "test:mia:analytics:visitor-id": "node scripts/test-mia-analytics-visitor-id.js",
+    "test:mia:supabase:foundation": "node scripts/test-mia-supabase-foundation-audit.js",
+    "test:mia:supabase:baseline": "node scripts/test-mia-supabase-baseline-audit.js",
+    "supabase": "supabase",
+    "supabase:version": "supabase --version"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -40,6 +45,7 @@
   },
   "type": "module",
   "devDependencies": {
-    "playwright": "^1.61.1"
+    "playwright": "^1.61.1",
+    "supabase": "2.109.1"
   }
 }

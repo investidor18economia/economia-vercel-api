@@ -21,8 +21,8 @@ import {
 } from "../lib/miaPriceAlertE2EValidation.js";
 import {
   PRICE_DROP_EMAIL_E2E_ANALYTICS_EVENTS,
-  buildPriceAlertEmailE2eAnalyticsPayload,
-  emitPriceAlertEmailE2eAnalytics,
+  buildPriceAlertEmailE2EAnalyticsPayload,
+  emitPriceAlertEmailE2EAnalytics,
 } from "../lib/miaPriceAlertEmailAnalytics.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -271,7 +271,7 @@ test("não altera email_send_count", async () => {
 });
 
 test("analytics E2E payload correto", () => {
-  const payload = buildPriceAlertEmailE2eAnalyticsPayload({
+  const payload = buildPriceAlertEmailE2EAnalyticsPayload({
     eventName: PRICE_DROP_EMAIL_E2E_ANALYTICS_EVENTS.SENT,
     context: {
       mode: "controlled-e2e",
@@ -359,8 +359,8 @@ test("analytics falha sem quebrar fluxo principal", async () => {
   );
 });
 
-test("emitPriceAlertEmailE2eAnalytics não lança exception", async () => {
-  const result = await emitPriceAlertEmailE2eAnalytics(null, {
+test("emitPriceAlertEmailE2EAnalytics não lança exception", async () => {
+  const result = await emitPriceAlertEmailE2EAnalytics(null, {
     eventName: PRICE_DROP_EMAIL_E2E_ANALYTICS_EVENTS.SKIPPED,
     context: { mode: "controlled-e2e", productName: MIA_E2E_TEST_PRODUCT_NAME },
   });

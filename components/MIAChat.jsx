@@ -47,7 +47,11 @@ import {
   trackMiaEvent,
   detectAnalyticsCategory,
   trackMiaQuestionSent,
-  trackMiaSessionStarted
+  trackMiaSessionStarted,
+  buildMiaRecommendationShownPayload,
+  buildMiaFavoriteCreatedPayload,
+  buildMiaPriceAlertCreatedPayload,
+  buildMiaOfferClickPayload,
 } from "../lib/analytics";
 const PLACEHOLDER_PHRASES = [
   "Estou pensando em comprar um celular até R$ 2.000",
@@ -2111,19 +2115,17 @@ useEffect(() => {
             pergunta
           );
           if (cardProduct) {
-            trackMiaEvent("mia_recommendation_shown", {
-              query_text: pergunta || "",
-              category: detectAnalyticsCategory(pergunta),
-              product_name: cardProduct.name || cardProduct.title || null,
-              product_brand: cardProduct.brand || null,
-              product_id: cardProduct.id || null,
-              recommendation_name: cardProduct.name || cardProduct.title || null,
-              user_id: user ? user.id : null,
-              metadata: {
-                has_offer_card: true,
-                products_count: productsRaw.length
-              }
-            });
+            trackMiaEvent(
+              "mia_recommendation_shown",
+              buildMiaRecommendationShownPayload({
+                queryText: pergunta,
+                category: detectAnalyticsCategory(pergunta),
+                cardProduct,
+                userId: user ? user.id : null,
+                productsCount: productsRaw.length,
+                productNamePrecedence: "card_response",
+              })
+            );
           }
           const commercialFallback = resolveCommercialFallbackFlag(data);
           const displayResponse = formatAssistantReplyForDisplay(finalResponse, {
@@ -2275,19 +2277,17 @@ useEffect(() => {
         pergunta
       );
       if (cardProduct) {
-        trackMiaEvent("mia_recommendation_shown", {
-          query_text: pergunta || "",
-          category: detectAnalyticsCategory(pergunta),
-          product_name: cardProduct.product_name || cardProduct.name || cardProduct.title || null,
-          product_brand: cardProduct.brand || null,
-          product_id: cardProduct.id || null,
-          recommendation_name: cardProduct.product_name || cardProduct.name || cardProduct.title || null,
-          user_id: user ? user.id : null,
-          metadata: {
-            has_offer_card: true,
-            products_count: productsRaw.length
-          }
-        });
+        trackMiaEvent(
+          "mia_recommendation_shown",
+          buildMiaRecommendationShownPayload({
+            queryText: pergunta,
+            category: detectAnalyticsCategory(pergunta),
+            cardProduct,
+            userId: user ? user.id : null,
+            productsCount: productsRaw.length,
+            productNamePrecedence: "standard",
+          })
+        );
       }
       const commercialFallback = resolveCommercialFallbackFlag(data);
       const displayResponse = formatAssistantReplyForDisplay(finalResponse, {
@@ -2424,19 +2424,14 @@ function detectPriorityFromText(text = "") {
           if (findProductByIdentity(prev, newFav)) return prev;
           return [newFav, ...prev.filter((f) => f.id !== newFav.id)];
         });
-        trackMiaEvent("favorite_created", {
-          category: detectAnalyticsCategory(prod.product_name || prod.title || prod.name || ""),
-          product_name: prod.product_name || prod.name || prod.title || null,
-          product_brand: prod.brand || null,
-          product_id: prod.id || null,
-          offer_store: prod.source || prod.store || null,
-          offer_price: prod.numericPrice || prod.price || null,
-          offer_url: prod.link || null,
-          user_id: actingUser ? actingUser.id : null,
-          metadata: {
-            action_source: "offer_card"
-          }
-        });
+        trackMiaEvent(
+          "favorite_created",
+          buildMiaFavoriteCreatedPayload({
+            prod,
+            userId: actingUser ? actingUser.id : null,
+            detectCategory: detectAnalyticsCategory,
+          })
+        );
         showActionToast("⭐ Produto favoritado!", "success");
       } else {
         showActionToast("Não consegui favoritar agora. Tente de novo.", "error");
@@ -2495,21 +2490,17 @@ function detectPriorityFromText(text = "") {
       upsertAlert(data.data[0], actingUser.id);
     }
     
-    trackMiaEvent("price_alert_created", {
-      category: detectAnalyticsCategory(prod.product_name || prod.title || prod.name || ""),
-      product_name: prod.product_name || prod.name || prod.title || null,
-      product_brand: prod.brand || null,
-      product_id: prod.id || null,
-      offer_store: prod.source || prod.store || null,
-      offer_price: numericPrice || null,
-      offer_url: prod.link || null,
-      user_id: actingUser ? actingUser.id : null,
-      metadata: {
-        action_source: targetOverride != null ? "alert_form" : "offer_card",
-        target_price: targetPrice || null,
-        current_price: numericPrice || null
-      }
-    });
+    trackMiaEvent(
+      "price_alert_created",
+      buildMiaPriceAlertCreatedPayload({
+        prod,
+        userId: actingUser ? actingUser.id : null,
+        targetPrice,
+        numericPrice,
+        actionSource: targetOverride != null ? "alert_form" : "offer_card",
+        detectCategory: detectAnalyticsCategory,
+      })
+    );
     
     return true;
   }
@@ -2919,18 +2910,13 @@ function detectPriorityFromText(text = "") {
                        target="_blank"
                        rel="noreferrer"
                        onClick={() => {
-                         trackMiaEvent("offer_click", {
-                           category: detectAnalyticsCategory(offerCard.product_name || offerCard.title || ""),
-                           product_name: offerCard.product_name || offerCard.name || offerCard.title || null,
-                           product_brand: offerCard.brand || null,
-                           product_id: offerCard.id || null,
-                           offer_store: offerCard.source || offerCard.store || null,
-                           offer_price: offerCard.numericPrice || offerCard.price || null,
-                           offer_url: offerCard.link || null,
-                           metadata: {
-                             button_text: "Ver oferta"
-                           }
-                         });
+                         trackMiaEvent(
+                           "offer_click",
+                           buildMiaOfferClickPayload({
+                             offerCard,
+                             detectCategory: detectAnalyticsCategory,
+                           })
+                         );
                        }}
                      >
                           Ver oferta

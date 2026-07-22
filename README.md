@@ -97,6 +97,40 @@ O core (`/api/chat-gpt4o`) é **interno** — acessível apenas via proxy com `A
 
 ---
 
+## Infraestrutura Supabase
+
+Documentação oficial consolidada (roadmap SUPABASE-01 → 08 concluído):
+
+| Documento | Conteúdo |
+|---|---|
+| [PROJECT_RECOVERY.md](docs/infrastructure/PROJECT_RECOVERY.md) | Recuperação completa do projeto |
+| [SUPABASE_OPERATIONS.md](docs/infrastructure/SUPABASE_OPERATIONS.md) | Manual operacional (CLI, backup, repair) |
+| [SUPABASE_ARCHITECTURE.md](docs/infrastructure/SUPABASE_ARCHITECTURE.md) | Arquitetura local/remota |
+| [SUPABASE_MIGRATIONS.md](docs/infrastructure/SUPABASE_MIGRATIONS.md) | As 10 migrations oficiais |
+| [BACKUP_POLICY.md](docs/infrastructure/BACKUP_POLICY.md) | Política de backup (plano Free) |
+| [CHANGELOG_SUPABASE.md](docs/infrastructure/CHANGELOG_SUPABASE.md) | Cronologia do roadmap |
+
+Diretório: [`docs/infrastructure/`](docs/infrastructure/)
+
+---
+
+## Analytics
+
+Documentação oficial consolidada — **Analytics Storage Schema v1** + **Event Contract v1** (FASE 2):
+
+| Documento | Conteúdo |
+|---|---|
+| [README.md](docs/analytics/README.md) | **Índice oficial** — mapa de toda a documentação |
+| [contracts/](docs/analytics/contracts/) | Event Contract v1 — eventos, campos, ciclo de vida |
+| [ANALYTICS_SCHEMA.md](docs/analytics/ANALYTICS_SCHEMA.md) | Analytics Storage Schema v1 |
+| [ANALYTICS_DATA_DICTIONARY.md](docs/analytics/ANALYTICS_DATA_DICTIONARY.md) | Dicionário das 15 colunas |
+| [ANALYTICS_TABLE_REFERENCE.md](docs/analytics/ANALYTICS_TABLE_REFERENCE.md) | Escritores e leitores |
+| [ANALYTICS_CHANGELOG.md](docs/analytics/ANALYTICS_CHANGELOG.md) | Histórico PATCH 1.1–2.4 |
+
+Diretório: [`docs/analytics/`](docs/analytics/)
+
+---
+
 ## Outros documentos
 
 - [Routing contract](docs/mia-routing-contract.md)

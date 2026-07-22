@@ -24,11 +24,14 @@ session_id = identificador anônimo da sessão atual da aba do navegador
 Quando o usuário está autenticado, eventos podem incluir `user_id` (UUID Supabase).
 
 ```text
+visitor_id → visitante anônimo persistente (localStorage, PATCH 3.1)
 session_id → sessão anônima da aba
 user_id    → usuário autenticado, quando disponível
 ```
 
-Um usuário autenticado pode ter várias sessões (`session_id` diferentes). Isso é esperado.
+Um usuário autenticado pode ter várias sessões (`session_id` diferentes). Um visitante pode ter várias sessões ao longo do tempo. Isso é esperado.
+
+Ver [VISITOR_ID.md](./VISITOR_ID.md) para a identidade persistente.
 
 ## Armazenamento
 
@@ -43,3 +46,14 @@ Valores legados em `localStorage.mia_session_id` **não são reutilizados** e s�
 
 - `lib/analytics.js` — `getMiaSessionId()`, `trackMiaEvent()`, `trackMiaSessionStarted()`
 - `lib/miaOpeningSystem.js` — reutiliza a mesma chave `mia_session_id` em `sessionStorage` para abertura da MIA
+
+## Referências
+
+- [Event Contract v1 — `session_id`](./contracts/EVENT_FIELD_SPECIFICATION.md) — campo no contrato
+- [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md) — coluna no banco
+- [contracts/EVENT_LIFECYCLE.md](./contracts/EVENT_LIFECYCLE.md) — quando `session_id` é enviado
+- [README.md](./README.md) — índice oficial
+
+---
+
+*SESSION_ID — PATCH 1.1 · referências PATCH 2.4*
