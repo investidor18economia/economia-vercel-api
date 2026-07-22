@@ -129,7 +129,7 @@ Todo evento possui:
 | Origem | Eventos |
 |--------|---------|
 | Browser → API | 7 eventos da allowlist pública |
-| Backend (service role) | 10 eventos `price_drop_email_*` |
+| Backend (service role) | 11 eventos server-side (`price_drop_email_*` + `data_layer_resolution`) |
 | Operador / cron | Indiretamente via módulos de price alert |
 
 ### Quem **consome** eventos
@@ -154,7 +154,7 @@ Todo evento possui:
 
 ### 6.2 Server-side — INSERT direto
 
-- **Módulo:** `lib/miaPriceAlertEmailAnalytics.js`
+- **Módulos:** `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` (PATCH 6.4)
 - **Sem allowlist HTTP** — nomes técnicos inseridos diretamente
 - **Sanitização:** remove chaves proibidas (`email`, `token`, `secret`, etc.) de `metadata`
 
@@ -162,7 +162,7 @@ Todo evento possui:
 
 ## 7. Catálogo de eventos
 
-Total: **17** `event_name` distintos em produção hoje (7 públicos via API allowlist).
+Total: **18** `event_name` distintos em produção hoje (7 públicos via API allowlist + 11 server-side).
 
 ### 7.1 Eventos públicos (frontend → API)
 
@@ -330,12 +330,53 @@ Total: **17** `event_name` distintos em produção hoje (7 públicos via API all
 
 **Metadata marcadores:** `controlled_test: true`, `not_market_real: true`, `flow: "price_alert_e2e"`, `template_rendered`, etc.
 
-### 7.5 Classificação de `conversation_id` (PATCH 3.2)
+---
+
+### 7.5 Evento server-side — Data Layer usage (`data_layer_resolution`) — PATCH 6.4
+
+**Categoria:** `data_layer_usage` (produção) · `data_layer_usage_test` (smoke controlado)  
+**Writer:** `emitDataLayerUsageAnalytics()` via `pages/api/chat-gpt4o.js` (pipeline comercial)  
+**Persistência:** INSERT direto — correlaciona `session_id`, `visitor_id`, `conversation_id` quando enviados pelo frontend  
+**Versionamento:** `metadata.event_version = "6.4.0"` (ausência em eventos históricos não quebra dashboards)
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `data_layer_resolution` | Classificar uso/efetividade do Data Layer numa consulta comercial | Após resolução comercial (`return_seguro`, `commercial_only_fallback`, `NO_COMMERCIAL_RESULT`, etc.) |
+
+**Decisão:** evento único parametrizado (`response_classification`, flags booleanos) em vez de múltiplos eventos redundantes.
+
+**Classificações:** `FULL_DATA_LAYER` · `PARTIAL_DATA_LAYER` · `FALLBACK_ONLY` · `NO_COMMERCIAL_RESULT`
+
+**Metadata principal:** `request_id`, `response_path`, `intent`, `data_layer_used`, `fallback_used`, `hybrid_response`, `fallback_kind`, `candidates_found`, `candidates_used`, `hybrid_enrich_count`, `query_duration_ms`, `winner_source`, `final_provider`, `model_family`
+
+**Exemplo:**
+
+```json
+{
+  "event_name": "data_layer_resolution",
+  "category": "data_layer_usage",
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "conversation_id": "6ba7b811-9dad-11d1-80b4-00c04fd430c8",
+  "query_text": "celular até 2000",
+  "metadata": {
+    "event_version": "6.4.0",
+    "response_classification": "PARTIAL_DATA_LAYER",
+    "data_layer_used": true,
+    "fallback_used": true,
+    "hybrid_response": true,
+    "fallback_kind": "expected"
+  }
+}
+```
+
+Detalhamento: [DATA_LAYER_USAGE_ANALYTICS.md](../DATA_LAYER_USAGE_ANALYTICS.md)
+
+### 7.6 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
 |-----------|---------|
 | **NULL por semântica** | `session_started`; todos os `price_drop_email_*` / `_test_*` / `_e2e_*` |
-| **Obrigatório no fluxo chat** | `mia_question_sent`; `mia_recommendation_shown` (quando emitido após pergunta) |
+| **Obrigatório no fluxo chat** | `mia_question_sent`; `mia_recommendation_shown`; `data_layer_resolution` (quando `analytics_context` presente) |
 | **Opcional conforme origem** | `offer_click`, `favorite_created`, `price_alert_created` — presente se conversa ativa em `localStorage` |
 
 Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
@@ -351,7 +392,7 @@ Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
 | Cliente frontend | `lib/analytics.js` |
 | UI MIA | `components/MIAChat.jsx` |
 | API track | `pages/api/analytics/track/index.js` |
-| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` |
+| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` |
 | Send gate (produção) | `lib/miaPriceAlertSendGate.js` |
 | Analytics Storage Schema | `supabase/migrations/20260719153000_*` + `53002_*` + `53003_*` |
 | Dashboards | [DASHBOARDS.md](../DASHBOARDS.md) |

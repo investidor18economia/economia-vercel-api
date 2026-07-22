@@ -95,6 +95,8 @@ import {
   shouldForceCommercialProductExplanation,
 } from "../../lib/miaProductExplanationBuilder.js";
 import { attachCommercialKnowledgeMetadataToChatResponse } from "../../lib/miaCommercialKnowledgeTransparencyPayload.js";
+import { emitDataLayerUsageAnalytics } from "../../lib/miaDataLayerUsageAnalytics.js";
+import { isAnalyticsUuid } from "../../lib/miaAnalyticsPayload.js";
 import {
   buildFallbackCandidateIsolationDiagnostics,
   filterDataLayerCandidatesForCommercialFallback,
@@ -27154,6 +27156,13 @@ function respondWithContract(
     dataLayerPrimary: !!firstAnswerContext?.dataLayerPrimary,
   });
 
+  if (firstAnswerContext?.dataLayerUsageAnalytics?.summary) {
+    body = {
+      ...body,
+      data_layer_usage_analytics: firstAnswerContext.dataLayerUsageAnalytics.summary,
+    };
+  }
+
   const contractExtras = {
     ...buildContractPipelineExtras({
       responsePath,
@@ -33931,6 +33940,48 @@ const categoryFromContext =
   let products = [];
  let commercialSearchUnavailable = false;
  let dataLayerUsedAsPrimarySource = false;
+ const dataLayerUsageSearchMetrics = {
+   pipelineStartedAt: Date.now(),
+   candidatesRaw: 0,
+   candidatesAfterIsolation: 0,
+   isolationApplied: false,
+   isolationReason: null,
+   hybridEnrichCount: 0,
+   intelligentFallbackUsed: false,
+ };
+
+ async function recordDataLayerUsageForCommercialTurn({
+   responsePath,
+   products: commercialProducts = [],
+   displayProducts: commercialDisplayProducts = [],
+   selectedBestProduct: commercialWinner = null,
+   winnerSource = null,
+   confidence = null,
+ }) {
+   return emitDataLayerUsageAnalytics(supabase, {
+     requestId: sharedState?.requestId || observability?.requestId || null,
+     analyticsContext: {
+       session_id: req.body?.analytics_context?.session_id || null,
+       visitor_id: req.body?.analytics_context?.visitor_id || null,
+       conversation_id:
+         req.body?.conversation_id || req.body?.analytics_context?.conversation_id || null,
+       user_id: isAnalyticsUuid(req.body?.user_id) ? req.body.user_id : null,
+     },
+     query: resolvedQuery,
+     category: categoryHintResolved || detectProductCategory(resolvedQuery) || null,
+     intent,
+     responsePath,
+     dataLayerUsedAsPrimarySource,
+     hasPriorityFollowUp,
+     commercialSearchUnavailable,
+     products: commercialProducts,
+     displayProducts: commercialDisplayProducts,
+     selectedBestProduct: commercialWinner,
+     searchMetrics: dataLayerUsageSearchMetrics,
+     winnerSource,
+     confidence,
+   });
+ }
 
 const currentPriority =
   detectUserPriority(query) ||
@@ -34006,6 +34057,14 @@ if (hasPriorityFollowUp) {
 
   const dataLayerProducts = dataLayerIsolation.candidates;
   dataLayerProductsResolved = dataLayerProducts;
+  dataLayerUsageSearchMetrics.candidatesRaw = Array.isArray(dataLayerProductsRaw)
+    ? dataLayerProductsRaw.length
+    : 0;
+  dataLayerUsageSearchMetrics.candidatesAfterIsolation = Array.isArray(dataLayerProducts)
+    ? dataLayerProducts.length
+    : 0;
+  dataLayerUsageSearchMetrics.isolationApplied = !!dataLayerIsolation.applied;
+  dataLayerUsageSearchMetrics.isolationReason = dataLayerIsolation.reason || null;
 
   pipelineTracer.patch({
     non_data_layer_fallback_candidate_isolation: buildFallbackCandidateIsolationDiagnostics(
@@ -34095,6 +34154,7 @@ if (hasPriorityFollowUp) {
 
   if (!products.length && rawProducts.length && dataLayerProducts.length === 0) {
     console.warn("⚠️ Fallback inteligente ativado");
+    dataLayerUsageSearchMetrics.intelligentFallbackUsed = true;
 
     products = fallbackRankProducts(
       rawProducts,
@@ -34279,6 +34339,13 @@ if (Array.isArray(products) && products.length > 0) {
           {
             sessionBefore: sessionContext,
             toneProfile: conversationalToneProfile,
+            firstAnswerContext: {
+              dataLayerUsageAnalytics: await recordDataLayerUsageForCommercialTurn({
+                responsePath: "commercial_resolution_incomplete",
+                products: [],
+                displayProducts: [],
+              }),
+            },
           }
         );
       }
@@ -34421,6 +34488,17 @@ if (Array.isArray(products) && products.length > 0) {
             resolvedQuery
           );
 
+      const dataLayerUsageAnalytics = await recordDataLayerUsageForCommercialTurn({
+        responsePath: "commercial_only_fallback",
+        products: commercialDisplayLocked,
+        displayProducts: commercialDisplayLocked,
+        selectedBestProduct:
+          commercialFallbackSessionContext.lastBestProduct || selectedBestProduct,
+        winnerSource: routingDecision.allowReplaceWinner
+          ? "commercial_serp_only"
+          : "anchor_preserved_commercial_enrich",
+      });
+
       return void respondWithContract(
         res,
         pipelineTracer,
@@ -34492,6 +34570,7 @@ if (Array.isArray(products) && products.length > 0) {
             routingDecision,
             isFollowUp:
               !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
+            dataLayerUsageAnalytics,
           },
             socialBehaviorContractEarly,
             query,
@@ -34552,6 +34631,9 @@ if (Array.isArray(products) && products.length > 0) {
       "post_ranking"
     );
     products = [...enrichedDisplayCandidates, ...products.slice(3)];
+    dataLayerUsageSearchMetrics.hybridEnrichCount = enrichedDisplayCandidates.filter(
+      (product) => product.commercialEnriched
+    ).length;
     if (specificProductLock?.active) {
       const refreshedLock = applySpecificProductLockToProducts(products, specificProductLock);
       products = refreshedLock.products;
@@ -34638,6 +34720,12 @@ if (Array.isArray(products) && products.length > 0) {
   }
 
   if (commercialOfferReset.shouldReset && !selectedBestProduct) {
+    await recordDataLayerUsageForCommercialTurn({
+      responsePath: "commercial_new_search_no_result",
+      products: [],
+      displayProducts: [],
+    });
+
     return void sendRuntimeResponse(
       res,
       pipelineTracer,
@@ -35281,6 +35369,17 @@ if (Array.isArray(products) && products.length > 0) {
     comparisonActive: intent === "comparison",
   });
 
+  const dataLayerUsageAnalytics = await recordDataLayerUsageForCommercialTurn({
+    responsePath: "return_seguro",
+    products,
+    displayProducts,
+    selectedBestProduct,
+    winnerSource: dataLayerUsedAsPrimarySource
+      ? "data_layer_rankLocalFallback"
+      : "commercial_serp_rankLocalFallback",
+    confidence: searchCognition.assertiveness || null,
+  });
+
   return void respondWithContract(
     res,
     pipelineTracer,
@@ -35416,6 +35515,7 @@ if (Array.isArray(products) && products.length > 0) {
           routingDecision,
           isFollowUp:
             !!sessionContext?.lastBestProduct?.product_name && !routingDecision?.allowNewSearch,
+          dataLayerUsageAnalytics,
         },
           socialBehaviorContractEarly,
           query,
@@ -35429,6 +35529,12 @@ if (!Array.isArray(products) || !products.length) {
   console.warn("🚫 Sem produtos mesmo após fallback inteligente");
 
   if (commercialOfferReset.shouldReset) {
+    await recordDataLayerUsageForCommercialTurn({
+      responsePath: "commercial_new_search_no_result",
+      products: [],
+      displayProducts: [],
+    });
+
     return void sendRuntimeResponse(
       res,
       pipelineTracer,

@@ -56,7 +56,10 @@ import {
   buildMiaFavoriteCreatedPayload,
   buildMiaPriceAlertCreatedPayload,
   buildMiaOfferClickPayload,
+  getMiaSessionId,
+  getOrCreateAnalyticsVisitorId,
 } from "../lib/analytics";
+import { buildDataLayerUsageRecommendationMetadata } from "../lib/miaDataLayerUsageAnalytics.js";
 const PLACEHOLDER_PHRASES = [
   "Estou pensando em comprar um celular até R$ 2.000",
   "Qual notebook faz sentido para trabalhar?",
@@ -695,6 +698,33 @@ export default function MIAChat() {
       options.authUser = fromUser;
     }
     return options;
+  }
+
+  function buildAnalyticsContextForChat(conversationId) {
+    return {
+      session_id: getMiaSessionId(),
+      visitor_id: getOrCreateAnalyticsVisitorId(),
+      conversation_id: conversationId,
+    };
+  }
+
+  function buildRecommendationShownPayloadFromApiResponse({
+    pergunta,
+    cardProduct,
+    productsCount,
+    apiResponse,
+    productNamePrecedence,
+  }) {
+    return buildMiaRecommendationShownPayload({
+      queryText: pergunta,
+      category: detectAnalyticsCategory(pergunta),
+      cardProduct,
+      productsCount,
+      productNamePrecedence,
+      dataLayerUsage: buildDataLayerUsageRecommendationMetadata(
+        apiResponse?.data_layer_usage_analytics
+      ),
+    });
   }
 
   function handleLogout() {
@@ -2116,6 +2146,7 @@ useEffect(() => {
   image_base64: "",
   user_id: user ? user.id : "guest",
   conversation_id: conversationId,
+  analytics_context: buildAnalyticsContextForChat(conversationId),
   messages: messagesForApi,
   session_context: buildApiSessionContext(sessionContext)
 })
@@ -2152,11 +2183,11 @@ useEffect(() => {
           if (cardProduct) {
             trackMiaEvent(
               "mia_recommendation_shown",
-              buildMiaRecommendationShownPayload({
-                queryText: pergunta,
-                category: detectAnalyticsCategory(pergunta),
+              buildRecommendationShownPayloadFromApiResponse({
+                pergunta,
                 cardProduct,
                 productsCount: productsRaw.length,
+                apiResponse: data,
                 productNamePrecedence: "card_response",
               }),
               buildAnalyticsTrackOptions(user, { conversationId })
@@ -2281,6 +2312,7 @@ useEffect(() => {
   image_base64: imageToSend || "",
   user_id: user ? user.id : "guest",
   conversation_id: conversationId,
+  analytics_context: buildAnalyticsContextForChat(conversationId),
   messages: messagesForApi,
   session_context: buildApiSessionContext(sessionContext)
 })
@@ -2317,11 +2349,11 @@ useEffect(() => {
       if (cardProduct) {
         trackMiaEvent(
           "mia_recommendation_shown",
-          buildMiaRecommendationShownPayload({
-            queryText: pergunta,
-            category: detectAnalyticsCategory(pergunta),
+          buildRecommendationShownPayloadFromApiResponse({
+            pergunta,
             cardProduct,
             productsCount: productsRaw.length,
+            apiResponse: data,
             productNamePrecedence: "standard",
           }),
           buildAnalyticsTrackOptions(user, { conversationId })
