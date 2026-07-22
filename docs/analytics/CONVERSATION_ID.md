@@ -1,5 +1,7 @@
 # Analytics — Identidade de `conversation_id` (PATCH 3.2)
 
+> **Identity Layer:** índice canônico em [IDENTITY_LAYER.md](./IDENTITY_LAYER.md).
+
 ## 1. Objetivo
 
 O `conversation_id` é a **identidade anônima de um fluxo conversacional** com a MIA dentro de uma sessão de navegação.
@@ -17,7 +19,7 @@ Complementa — não substitui — `visitor_id`, `session_id` e `user_id`.
 | **`visitor_id`** | Navegador/origem (anônimo) | `localStorage` — semanas/meses | Não (nullable no banco) |
 | **`session_id`** | Aba/sessão atual | `sessionStorage` — até fechar aba | Não |
 | **`conversation_id`** | Thread de chat MIA | Memória (`conversationIdRef` em `MIAChat.jsx`) — vida da conversa ativa na aba | Não (nullable no banco) |
-| **`user_id`** | Usuário autenticado Supabase | Conta/login | Não |
+| **`user_id`** | Usuário autenticado (`public.users.id`) | Conta OTP verificada | Não |
 
 ```text
 visitor_id
@@ -155,11 +157,12 @@ Recarregar a página encerra a conversa em memória. O histórico de mensagens *
 
 ## 10. Integração com eventos
 
-Classificação oficial dos **16** `event_name` (PATCH 3.2):
+Classificação de `conversation_id` por evento — catálogo completo em [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) §7 (Event Contract v1, incl. `user_authenticated` PATCH 3.4):
 
 | Evento | `conversation_id` | Categoria |
 |--------|-------------------|-----------|
 | `session_started` | **NULL** (explícito) | NULL por semântica |
+| `user_authenticated` | **NULL** (marco de login) | NULL por semântica |
 | `mia_question_sent` | **Obrigatório** no fluxo chat | Cria/reutiliza conversa |
 | `mia_recommendation_shown` | **Obrigatório** quando emitido no chat | Mesmo ID da pergunta/resposta |
 | `offer_click` | Opcional | Presente se conversa ativa |
@@ -201,7 +204,7 @@ Propagação futura de `conversation_id` para pipelines server-side fica fora de
 
 | Cenário | Efeito |
 |---------|--------|
-| Abas simultâneas (mesma origem) | Mesmo `conversation_id` via `localStorage` |
+| Abas simultâneas (mesma origem) | `conversation_id` **independente** por aba (memória React) |
 | Antes da primeira pergunta | Sem `conversation_id` — eventos não conversacionais ok |
 | Dados históricos pré-PATCH 3.2 | `conversation_id` NULL — sem backfill |
 | Server-side / e-mail | `conversation_id` NULL por design |

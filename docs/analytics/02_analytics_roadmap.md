@@ -172,6 +172,8 @@ PATCH 3.5
 
 Identity Documentation & Validation
 
+Status: concluído (documentação consolidada — ver IDENTITY_LAYER.md)
+
 PATCH 3.6
 
 Auditoria Final da Fase 3

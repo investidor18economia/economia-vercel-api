@@ -1,6 +1,8 @@
 # Retention Foundation — PATCH 3.4
 
-**Status:** Implementado — aguardando deploy do app (código) para produção; migration aplicada  
+> **Identity Layer:** índice canônico em [IDENTITY_LAYER.md](./IDENTITY_LAYER.md).
+
+**Status:** Implementado e validado em produção (commit `e4423c1`)  
 **Fonte da verdade:** `public.analytics_events` (append-only)  
 **Princípio:** nenhuma tabela de métricas calculadas; retenção derivada em query time
 
@@ -147,7 +149,8 @@ Eventos históricos sem `user_authenticated`: first login derivável via `MIN(cr
 
 | Patch | Conteúdo |
 |-------|----------|
-| **3.5** | Identity Documentation & Validation |
+| **3.5** | [Identity Documentation & Validation](./IDENTITY_LAYER.md) — **concluído** |
+| **3.6** | Auditoria final FASE 3 |
 | **FASE 4** | Dashboards DAU / cohorts / retenção (SQL agregado) |
 | **COMM-R01B** | Correção roteamento comercial (domínio separado) |
 
@@ -155,6 +158,7 @@ Eventos históricos sem `user_authenticated`: first login derivável via `MIN(cr
 
 ## Referências
 
+- [IDENTITY_LAYER.md](./IDENTITY_LAYER.md)
 - [VISITOR_ID.md](./VISITOR_ID.md)
 - [SESSION_ID.md](./SESSION_ID.md)
 - [CONVERSATION_ID.md](./CONVERSATION_ID.md)

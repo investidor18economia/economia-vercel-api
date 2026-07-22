@@ -27,7 +27,7 @@ README.md (este arquivo)
     ↓
 ANALYTICS_SCHEMA.md          ← Analytics Storage Schema v1 (estrutura física)
     ↓
-contracts/EVENT_CONTRACT.md  ← Event Contract v1 (16 eventos)
+contracts/EVENT_CONTRACT.md  ← Event Contract v1 (catálogo §7)
     ↓
 contracts/EVENT_FIELD_SPECIFICATION.md
     ↓
@@ -37,7 +37,7 @@ ANALYTICS_DATA_DICTIONARY.md ← colunas PostgreSQL
     ↓
 ANALYTICS_TABLE_REFERENCE.md ← escritores / leitores
     ↓
-SESSION_ID.md · VISITOR_ID.md · CONVERSATION_ID.md · AUTHENTICATED_IDENTITY.md · DASHBOARDS.md
+SESSION_ID.md · VISITOR_ID.md · CONVERSATION_ID.md · AUTHENTICATED_IDENTITY.md · IDENTITY_LAYER.md · DASHBOARDS.md
     ↓
 ANALYTICS_CHANGELOG.md
 ```
@@ -59,7 +59,7 @@ ANALYTICS_CHANGELOG.md
 | Arquivo | Descrição |
 |---------|-----------|
 | [contracts/README.md](./contracts/README.md) | Índice do Event Contract |
-| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | **Contrato principal** — catálogo dos 16 eventos |
+| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | **Contrato principal** — Event Contract v1 |
 | [contracts/EVENT_FIELD_SPECIFICATION.md](./contracts/EVENT_FIELD_SPECIFICATION.md) | Campos top-level e chaves de `metadata` |
 | [contracts/EVENT_LIFECYCLE.md](./contracts/EVENT_LIFECYCLE.md) | Ciclo de vida frontend → banco → dashboards |
 
@@ -81,6 +81,7 @@ ANALYTICS_CHANGELOG.md
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md) | Identidade autenticada (PATCH 3.3) |
 | [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) | Fundação de retenção (PATCH 3.4) |
+| [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) | **Identity Layer consolidada (PATCH 3.5)** |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Índice dos dashboards SQL (PATCH 1.3) |
 
 ### Roadmap e especificação futura (não substituem o contrato atual)
@@ -147,6 +148,7 @@ ANALYTICS_CHANGELOG.md
 | O que é `conversation_id` | [CONVERSATION_ID.md](./CONVERSATION_ID.md) |
 | Identidade autenticada (`user_id`) | [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md) |
 | Fundação de retenção (timelines) | [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) |
+| **Identity Layer (documentação oficial)** | [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) |
 | Rodar dashboard SQL | [DASHBOARDS.md](./DASHBOARDS.md) |
 | Histórico de patches | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) |
 | Roadmap futuro | [02_analytics_roadmap.md](./02_analytics_roadmap.md) |
@@ -162,7 +164,7 @@ ANALYTICS_CHANGELOG.md
 1. [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) — o que existe no banco
 2. [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) — o que cada evento significa
 3. [contracts/EVENT_LIFECYCLE.md](./contracts/EVENT_LIFECYCLE.md) — como os dados chegam lá
-4. [SESSION_ID.md](./SESSION_ID.md) + [CONVERSATION_ID.md](./CONVERSATION_ID.md) + [DASHBOARDS.md](./DASHBOARDS.md)
+4. [SESSION_ID.md](./SESSION_ID.md) + [CONVERSATION_ID.md](./CONVERSATION_ID.md) + [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) + [DASHBOARDS.md](./DASHBOARDS.md)
 
 **Implementação / auditoria:**
 

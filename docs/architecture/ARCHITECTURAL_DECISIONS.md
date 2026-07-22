@@ -275,9 +275,31 @@ A plataforma permanece compreensível mesmo após muitos ciclos de evolução.
 - Documentation is part of the Architecture.
 - Backward Compatibility First.
 - Auditability by Design.
+- Analytics Identity Layer: eventos como fonte única (`ADR-013`).
 
 ---
 
-**Última atualização:** Bloco 12 (PATCH 12G)
+---
+
+# ADR-013 — Analytics Identity Layer
+
+**Status:** Accepted (PATCH 3.5)
+
+## Decisão
+
+A identidade analítica da MIA é composta por quatro identificadores complementares (`visitor_id`, `session_id`, `conversation_id`, `user_id`) persistidos como colunas em `analytics_events`, com marco explícito `user_authenticated` para login verificado.
+
+Toda métrica de retenção e engajamento futura será **derivada** desses eventos. Não se criam tabelas paralelas, snapshots ou caches de métricas calculadas.
+
+## Consequências
+
+- Fonte única: `public.analytics_events`.
+- Merge visitor↔user: associação prospectiva — sem backfill.
+- `user_id`: resolução server-side exclusiva; body HTTP ignorado.
+- Documentação canônica: `docs/analytics/IDENTITY_LAYER.md`.
+
+---
+
+**Última atualização:** PATCH 3.5 (Identity Layer)
 
 **Status:** Documento oficial da arquitetura da MIA.

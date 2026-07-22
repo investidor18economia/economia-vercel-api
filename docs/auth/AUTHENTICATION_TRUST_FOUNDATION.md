@@ -1,5 +1,7 @@
 # Authentication Trust Foundation — PATCH 3.3A
 
+> **Identity Layer (Analytics):** [IDENTITY_AND_ANALYTICS.md](./IDENTITY_AND_ANALYTICS.md) · [IDENTITY_LAYER.md](../analytics/IDENTITY_LAYER.md)
+
 Correção da fundação de confiança exigida antes de concluir o PATCH 3.3 — Authenticated Identity.
 
 ---
@@ -248,10 +250,25 @@ Cenários cobrindo crypto, rate limit distribuído, delivery gate, register-user
 ## 22. Referências
 
 - [AUTHENTICATED_IDENTITY.md](../analytics/AUTHENTICATED_IDENTITY.md)
+- [CRYPTOGRAPHIC_SECRET_POLICY.md](./CRYPTOGRAPHIC_SECRET_POLICY.md) — PATCH 3.3A.2 (concluído)
+- [AUTH_ABUSE_PROTECTION.md](./AUTH_ABUSE_PROTECTION.md) — PATCH 3.3A.1
+- `lib/miaAuthSecrets.js`
 - `lib/miaAuthChallengeCrypto.js`
 - `lib/miaAuthChallengeStore.js`
 - `pages/api/auth/request-code.js`
 - `pages/api/auth/verify-code.js`
+
+---
+
+## 23. Isolamento de domínios (pós–3.3A.2)
+
+| Patch | Domínio | Status |
+|-------|---------|--------|
+| 3.3A.2 | Segredos criptográficos auth | **Concluído** |
+| 3.3A.1 | Rate limit + email identity | Concluído (infra) |
+| **COMM-R01** | Roteamento comercial (comparação) | **Aberto** — [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md) |
+
+Regressões conversacionais comerciais **não** são corrigidas dentro do PATCH 3.3A.
 
 ---
 

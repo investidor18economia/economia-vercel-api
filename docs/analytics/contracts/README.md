@@ -23,7 +23,7 @@ Payloads padronizados em código: `lib/miaAnalyticsPayload.js` (PATCH 2.2).
 
 | Arquivo | Conteúdo |
 |---------|----------|
-| [EVENT_CONTRACT.md](./EVENT_CONTRACT.md) | **Documento principal** — princípios, catálogo dos 16 eventos |
+| [EVENT_CONTRACT.md](./EVENT_CONTRACT.md) | **Documento principal** — catálogo Event Contract v1 (ver §7) |
 | [EVENT_FIELD_SPECIFICATION.md](./EVENT_FIELD_SPECIFICATION.md) | Colunas e chaves de `metadata` em uso |
 | [EVENT_LIFECYCLE.md](./EVENT_LIFECYCLE.md) | Ciclo de vida frontend → banco → dashboards |
 
@@ -77,6 +77,7 @@ ANALYTICS_CHANGELOG.md · ../README.md
 | Escritores / leitores | [ANALYTICS_TABLE_REFERENCE.md](../ANALYTICS_TABLE_REFERENCE.md) |
 | Queries SQL | [DASHBOARDS.md](../DASHBOARDS.md) |
 | `session_id` | [SESSION_ID.md](../SESSION_ID.md) |
+| Identity Layer | [IDENTITY_LAYER.md](../IDENTITY_LAYER.md) |
 | Índice geral Analytics | [../README.md](../README.md) |
 
 ---

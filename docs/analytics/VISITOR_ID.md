@@ -1,5 +1,7 @@
 # Analytics — Identidade de `visitor_id` (PATCH 3.1)
 
+> **Identity Layer:** índice canônico em [IDENTITY_LAYER.md](./IDENTITY_LAYER.md).
+
 ## 1. Objetivo
 
 O `visitor_id` é a **identidade anônima persistente** do Analytics, associada ao navegador e à origem (first-party).
@@ -17,7 +19,7 @@ Complementa — não substitui — `session_id` e `user_id`.
 | **`visitor_id`** | Navegador/origem (anônimo) | `localStorage` — semanas/meses | Não (nullable no banco) |
 | **`session_id`** | Aba/sessão atual | `sessionStorage` — até fechar aba | Não |
 | **`conversation_id`** | Thread de chat MIA | Memória (`MIAChat.jsx`) — vida da conversa na aba | Não (nullable no banco) |
-| **`user_id`** | Usuário autenticado Supabase | Conta/login | Não |
+| **`user_id`** | Usuário autenticado (`public.users.id`) | Conta OTP verificada | Não |
 
 ```text
 visitor_id       → identidade anônima persistente do navegador

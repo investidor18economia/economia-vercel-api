@@ -247,15 +247,34 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
-## 11. Próximo patch
+## 11. PATCH 3.5 — Identity Documentation & Validation (2026-07-22)
 
-**PATCH 3.5 — Identity Documentation & Validation** (roadmap oficial)
+**Objetivo:** consolidar documentação oficial da Identity Layer (patches 3.1–3.4) — **sem alteração de código, contratos de eventos, banco ou APIs**.
+
+**Entregas:**
+
+- [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) — documento canônico
+- [PATCH_3.5_DOCUMENTATION_AUDIT.md](./PATCH_3.5_DOCUMENTATION_AUDIT.md) — auditoria documental
+- [../architecture/IDENTITY_LAYER.md](../architecture/IDENTITY_LAYER.md) — ponte arquitetura
+- [../auth/IDENTITY_AND_ANALYTICS.md](../auth/IDENTITY_AND_ANALYTICS.md) — Auth ↔ Analytics
+- **ADR-013** em [ARCHITECTURAL_DECISIONS.md](../architecture/ARCHITECTURAL_DECISIONS.md)
+- Correções de inconsistências em docs de identidade (storage `conversation_id`, nomenclatura `user_id`, status 3.4)
+
+**Testes:** `npm run test:mia:analytics:identity-layer-docs`
+
+**Veredito:** PATCH 3.5 **concluído** (documentação).
+
+---
+
+## 12. Próximo patch
+
+**PATCH 3.6 — Auditoria Final da Fase 3** (roadmap oficial)
 
 **Dívida comercial paralela:** [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md)
 
 ---
 
-## 12. Referências
+## 13. Referências
 
 | Documento | Conteúdo |
 |-----------|----------|
@@ -263,6 +282,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 | [contracts/](./contracts/) | Event Contract v1 |
 | [02_analytics_roadmap.md](./02_analytics_roadmap.md) | Roadmap completo FASE 1–12 |
 | [01_analytics_foundation.md](./01_analytics_foundation.md) | Princípios permanentes |
+| [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) | Identity Layer consolidada (PATCH 3.5) |
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [CHANGELOG_SUPABASE.md](../infrastructure/CHANGELOG_SUPABASE.md) | Roadmap infraestrutura |
 | `supabase/planning/SUPABASE-07B-execution-report.md` | Reconciliação produção |

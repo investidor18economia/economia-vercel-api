@@ -1,5 +1,7 @@
 # Authenticated Identity — `user_id` (PATCH 3.3)
 
+> **Identity Layer:** índice canônico em [IDENTITY_LAYER.md](./IDENTITY_LAYER.md).
+
 Identidade autenticada no Analytics Teilor/MIA.
 
 ---
@@ -70,7 +72,8 @@ Fluxo real:
 2. `POST /api/auth/request-code` envia OTP por e-mail (hash armazenado; código nunca persistido).
 3. Usuário informa código de 6 dígitos.
 4. `POST /api/auth/verify-code` valida posse, cria/recupera `public.users`, define `email_verified_at`, emite `session_token`.
-5. Eventos subsequentes enviam token no header; a API grava `user_id` oficial.
+5. `completeAuthenticatedLogin()` emite `user_authenticated` (`trackMiaUserAuthenticated()` — PATCH 3.4).
+6. Eventos subsequentes enviam token no header; a API grava `user_id` oficial.
 
 Não há backfill de eventos anteriores ao login.
 
@@ -134,11 +137,16 @@ Não se presume propriedade permanente de um navegador por uma pessoa.
 
 ---
 
-## 12. Eventos (16)
+## 12. Eventos e `user_id`
+
+Catálogo completo de `event_name`: [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) §7 (Event Contract v1).
+
+Resumo por origem de `user_id`:
 
 | Evento | Origem legítima de `user_id` |
 |--------|------------------------------|
 | `session_started` | Token válido no track → UUID; senão `NULL` |
+| `user_authenticated` | Token válido no track → UUID; marco de login (PATCH 3.4) |
 | `mia_question_sent` | Idem |
 | `mia_recommendation_shown` | Idem |
 | `offer_click` | Idem |
@@ -155,7 +163,7 @@ Não se presume propriedade permanente de um navegador por uma pessoa.
 | `price_drop_email_e2e_failed` | `NULL` |
 | `price_drop_email_e2e_skipped` | `NULL` |
 
-Eventos públicos (6 primeiros): resolução via token no `/api/analytics/track`.
+Eventos públicos via `/api/analytics/track` (7): resolução via token — inclui `user_authenticated`.
 
 ---
 
@@ -220,7 +228,8 @@ Ver [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md).
 | [VISITOR_ID.md](./VISITOR_ID.md) | Identidade anônima persistente |
 | [SESSION_ID.md](./SESSION_ID.md) | Sessão de aba |
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Thread do chat |
-| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | 16 eventos |
+| [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) | Documentação consolidada (PATCH 3.5) |
+| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | Event Contract v1 |
 | [contracts/EVENT_FIELD_SPECIFICATION.md](./contracts/EVENT_FIELD_SPECIFICATION.md) | Campo `user_id` |
 | [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) | Coluna física |
 | `lib/miaAnalyticsAuth.js` | Resolução server-side |

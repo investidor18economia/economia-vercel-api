@@ -1,5 +1,7 @@
 # Analytics — Identidade de `session_id` (PATCH 1.1)
 
+> **Identity Layer:** índice canônico em [IDENTITY_LAYER.md](./IDENTITY_LAYER.md).
+
 ## Definição oficial
 
 ```text
@@ -44,12 +46,12 @@ Ver [CONVERSATION_ID.md](./CONVERSATION_ID.md).
 
 ## `user_id`
 
-Quando o usuário está autenticado, eventos podem incluir `user_id` (UUID Supabase).
+Quando o usuário está autenticado, eventos podem incluir `user_id` (`public.users.id`, resolvido server-side).
 
 ```text
 visitor_id       → visitante anônimo persistente (localStorage, PATCH 3.1)
 session_id       → sessão anônima da aba
-conversation_id  → conversa MIA ativa (localStorage, PATCH 3.2)
+conversation_id  → conversa MIA ativa (memória, PATCH 3.2)
 user_id          → usuário autenticado, quando disponível
 ```
 
