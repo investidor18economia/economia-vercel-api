@@ -145,10 +145,20 @@ Reutilização retorna `auth_challenge_consumed`.
 | Escopo | Limite | Janela |
 |--------|--------|--------|
 | Por e-mail | 3 solicitações | 15 min |
-| Por IP (hash) | 12 solicitações | 15 min |
+| Por origem (hash) | 12 solicitações | 15 min |
 | Tentativas OTP | 5 por challenge | — |
 
-Implementação in-memory por processo (mesmo padrão PATCH 12B).
+**PATCH 3.3A.1:** contadores persistidos em Postgres (`mia_auth_rate_limits`) via RPC atômico. Não depende de memória serverless.
+
+Ver [AUTH_ABUSE_PROTECTION.md](./AUTH_ABUSE_PROTECTION.md).
+
+---
+
+## 13.1 Identidade por e-mail
+
+Coluna `email_normalized` + índice unique após preflight remoto.
+
+Ver [EMAIL_IDENTITY_POLICY.md](./EMAIL_IDENTITY_POLICY.md).
 
 ---
 
@@ -202,7 +212,7 @@ Analytics metadata sem e-mail, OTP, token ou nome de credencial.
 
 - Sessão em localStorage (risco XSS residual)
 - Logout não revoga token server-side
-- Rate limit in-memory (não global cross-instance)
+- ~~Rate limit in-memory (não global cross-instance)~~ corrigido no PATCH 3.3A.1
 - E-mail-only MVP (sem senha/OAuth)
 
 ---
@@ -226,9 +236,12 @@ Scripts operacionais:
 
 ```bash
 npm run test:mia:auth:trust-foundation
+npm run test:mia:auth:distributed-rate-limit
+npm run test:mia:auth:email-identity-consistency
+npm run audit:mia:auth:email-preflight
 ```
 
-29 cenários cobrindo crypto, rate limit, register-user bloqueado, sessão com purpose, Analytics.
+Cenários cobrindo crypto, rate limit distribuído, delivery gate, register-user bloqueado, sessão com purpose, Analytics.
 
 ---
 

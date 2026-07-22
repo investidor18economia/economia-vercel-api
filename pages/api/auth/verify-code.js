@@ -1,12 +1,5 @@
 import { supabase } from "../../../lib/supabaseClient";
-import { normalizeAuthEmail } from "../../../lib/miaAuthEmailNormalize.js";
-import {
-  consumeAuthChallenge,
-  evaluateAuthChallengeState,
-  incrementAuthChallengeAttempt,
-  loadAuthChallengeById,
-  verifyAuthChallengeCode,
-} from "../../../lib/miaAuthChallengeStore.js";
+import { verifyAuthChallengeViaRpc } from "../../../lib/miaAuthChallengeStore.js";
 import { resolveVerifiedUser } from "../../../lib/miaAuthUser.js";
 import { issueUserSessionToken } from "../../../lib/miaUserSessionToken.js";
 import {
@@ -46,31 +39,18 @@ async function verifyCodeHandler(req, res) {
       });
     }
 
-    const challenge = await loadAuthChallengeById(supabase, challengeId);
-    const state = evaluateAuthChallengeState(challenge);
-    if (!state.ok) {
+    const verification = await verifyAuthChallengeViaRpc(supabase, { challengeId, code });
+    if (!verification.ok) {
       return res.status(400).json({
         success: false,
-        error: state.reasonCode,
-        reasonCode: state.reasonCode,
+        error: verification.reasonCode,
+        reasonCode: verification.reasonCode,
       });
     }
 
-    const codeValid = verifyAuthChallengeCode(challenge, code);
-    if (!codeValid) {
-      await incrementAuthChallengeAttempt(supabase, challenge.id, Number(challenge.attempt_count || 0));
-      return res.status(400).json({
-        success: false,
-        error: "auth_code_invalid",
-        reasonCode: "auth_code_invalid",
-      });
-    }
-
-    await consumeAuthChallenge(supabase, challenge.id);
-
-    const pendingName = bodyName || String(challenge.pending_name || "").trim();
+    const pendingName = bodyName || String(verification.pendingName || "").trim();
     const { user, created } = await resolveVerifiedUser(supabase, {
-      emailNormalized: challenge.email_normalized,
+      emailNormalized: verification.emailNormalized,
       pendingName,
     });
 

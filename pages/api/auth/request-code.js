@@ -2,10 +2,10 @@ import { supabase } from "../../../lib/supabaseClient";
 import { normalizeAuthEmail } from "../../../lib/miaAuthEmailNormalize.js";
 import {
   AUTH_CHALLENGE_SENT_MESSAGE,
-  createAuthChallenge,
-  invalidateActiveAuthChallenges,
+  markAuthChallengeDelivered,
+  markAuthChallengeDeliveryFailed,
+  reserveAuthChallengeViaRpc,
 } from "../../../lib/miaAuthChallengeStore.js";
-import { checkAuthRequestRateLimit } from "../../../lib/miaAuthRateLimit.js";
 import { sendAuthLoginOtpEmail, isAuthEmailDeliveryConfigured } from "../../../lib/miaAuthLoginEmail.js";
 import {
   applyInternalSecurityHeaders,
@@ -33,16 +33,6 @@ async function requestCodeHandler(req, res) {
       });
     }
 
-    const rateLimit = checkAuthRequestRateLimit({ emailNormalized, req });
-    if (!rateLimit.ok) {
-      return res.status(429).json({
-        success: false,
-        error: "rate_limited",
-        reasonCode: "auth_rate_limited",
-        retry_after_seconds: rateLimit.retryAfterSeconds,
-      });
-    }
-
     if (!isAuthEmailDeliveryConfigured()) {
       return res.status(503).json({
         success: false,
@@ -53,13 +43,25 @@ async function requestCodeHandler(req, res) {
 
     const pendingName = String(req.body?.name || "").trim().slice(0, 120) || null;
 
-    await invalidateActiveAuthChallenges(supabase, emailNormalized);
-    const { challenge, code } = await createAuthChallenge(supabase, {
+    const reserved = await reserveAuthChallengeViaRpc(supabase, {
       emailNormalized,
       pendingName,
+      req,
     });
 
-    if (!challenge?.id) {
+    if (!reserved.ok) {
+      if (reserved.reasonCode === "auth_rate_limited") {
+        if (reserved.retryAfterSeconds > 0) {
+          res.setHeader("Retry-After", String(reserved.retryAfterSeconds));
+        }
+        return res.status(429).json({
+          success: false,
+          error: "rate_limited",
+          reasonCode: "auth_rate_limited",
+          retry_after_seconds: reserved.retryAfterSeconds,
+        });
+      }
+
       return res.status(500).json({
         success: false,
         error: "challenge_create_failed",
@@ -67,12 +69,9 @@ async function requestCodeHandler(req, res) {
       });
     }
 
-    const emailResult = await sendAuthLoginOtpEmail(emailNormalized, code);
+    const emailResult = await sendAuthLoginOtpEmail(emailNormalized, reserved.code);
     if (!emailResult.ok) {
-      await supabase
-        .from("mia_auth_challenges")
-        .update({ consumed_at: new Date().toISOString() })
-        .eq("id", challenge.id);
+      await markAuthChallengeDeliveryFailed(supabase, reserved.challengeId);
 
       logAudit({
         event: "auth_challenge_email_failed",
@@ -81,6 +80,16 @@ async function requestCodeHandler(req, res) {
         status: 503,
       });
 
+      return res.status(503).json({
+        success: false,
+        error: "auth_email_send_failed",
+        reasonCode: "auth_email_send_failed",
+      });
+    }
+
+    const delivered = await markAuthChallengeDelivered(supabase, reserved.challengeId);
+    if (!delivered) {
+      await markAuthChallengeDeliveryFailed(supabase, reserved.challengeId);
       return res.status(503).json({
         success: false,
         error: "auth_email_send_failed",
@@ -98,7 +107,7 @@ async function requestCodeHandler(req, res) {
     return res.status(200).json({
       success: true,
       message: AUTH_CHALLENGE_SENT_MESSAGE,
-      challenge_id: challenge.id,
+      challenge_id: reserved.challengeId,
     });
   } catch (err) {
     logError({

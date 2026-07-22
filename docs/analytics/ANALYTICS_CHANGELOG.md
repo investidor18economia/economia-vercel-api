@@ -195,11 +195,23 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Testes:** `npm run test:mia:auth:trust-foundation` (29/29)
 
+---
+
+## 8. PATCH 3.3A.1 — Distributed Auth Abuse Protection (2026-07-22)
+
+**Problema corrigido:** rate limit OTP em memória serverless; unicidade de e-mail sem preflight.
+
+**Solução:** `mia_auth_rate_limits` + RPC atômicos; `email_normalized` + unique após preflight.
+
+**Documentação:** [AUTH_ABUSE_PROTECTION.md](../auth/AUTH_ABUSE_PROTECTION.md), [EMAIL_IDENTITY_POLICY.md](../auth/EMAIL_IDENTITY_POLICY.md)
+
+**Testes:** `npm run test:mia:auth:distributed-rate-limit`, `npm run test:mia:auth:email-identity-consistency`, `npm run audit:mia:auth:email-preflight`
+
 **Testes:** 26/26 authenticated-identity; regressões PATCH 3.1–3.2 + suítes Analytics aprovadas.
 
 ---
 
-## 7. Próximo patch
+## 9. Próximo patch
 
 **PATCH 3.4 — Retention Foundation** (roadmap oficial)
 

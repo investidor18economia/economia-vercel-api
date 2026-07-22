@@ -16,9 +16,7 @@ comment on column public.users.name is
 comment on column public.users.email_verified_at is
   'Timestamp when email ownership was verified via OTP (PATCH 3.3A). NULL means never verified.';
 
-create unique index if not exists idx_users_email_normalized
-  on public.users (lower(trim(email)))
-  where email is not null;
+-- Unique email identity deferred to PATCH 3.3A.1 (email_normalized + preflight).
 
 create table if not exists public.mia_auth_challenges (
   id uuid primary key default gen_random_uuid(),

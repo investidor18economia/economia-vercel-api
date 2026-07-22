@@ -15,8 +15,11 @@ import {
   MIA_AUTH_OTP_LENGTH,
 } from "../lib/miaAuthChallengeCrypto.js";
 import {
-  checkAuthRequestRateLimit,
-  resetAuthRateLimitStore,
+  MIA_AUTH_REQUEST_MAX_PER_EMAIL,
+  buildAuthRequestRateLimitKeys,
+  evaluateDistributedRateLimitBucket,
+  hashAuthRateLimitKey,
+  parseAuthRateLimitRpcResult,
 } from "../lib/miaAuthRateLimit.js";
 import {
   evaluateAuthChallengeState,
@@ -108,6 +111,8 @@ console.log("\nPATCH 3.3A — authentication trust foundation tests\n");
   const active = {
     id: crypto.randomUUID(),
     consumed_at: null,
+    delivery_sent_at: new Date().toISOString(),
+    delivery_failed_at: null,
     expires_at: buildAuthChallengeExpiry(),
     attempt_count: 0,
     max_attempts: 5,
@@ -134,19 +139,57 @@ console.log("\nPATCH 3.3A — authentication trust foundation tests\n");
   assert("wrapper rejects invalid code", !verifyAuthChallengeCode(challenge, "654321", TEST_ENV));
 }
 
-// Rate limit
+// Rate limit (distributed bucket semantics)
 {
-  resetAuthRateLimitStore();
   const store = new Map();
   const req = { headers: { "x-forwarded-for": "203.0.113.10" } };
   const email = "rate-limit@test.invalid";
+  const { emailKeyHash } = buildAuthRequestRateLimitKeys({ emailNormalized: email, req }, TEST_ENV);
+  const nowMs = Date.UTC(2026, 6, 22, 12, 0, 0);
   let okCount = 0;
-  for (let index = 0; index < 3; index += 1) {
-    if (checkAuthRequestRateLimit({ emailNormalized: email, req }, {}, store).ok) okCount += 1;
+  for (let index = 0; index < MIA_AUTH_REQUEST_MAX_PER_EMAIL; index += 1) {
+    const result = evaluateDistributedRateLimitBucket(store, {
+      scope: "request_email",
+      keyHash: emailKeyHash,
+      windowSeconds: 900,
+      maxRequests: MIA_AUTH_REQUEST_MAX_PER_EMAIL,
+      nowMs,
+    });
+    if (result.allowed) okCount += 1;
   }
-  const blocked = checkAuthRequestRateLimit({ emailNormalized: email, req }, {}, store);
-  assert("first three email requests allowed", okCount === 3);
-  assert("fourth email request blocked", blocked.ok === false);
+  const blocked = evaluateDistributedRateLimitBucket(store, {
+    scope: "request_email",
+    keyHash: emailKeyHash,
+    windowSeconds: 900,
+    maxRequests: MIA_AUTH_REQUEST_MAX_PER_EMAIL,
+    nowMs,
+  });
+  const parsed = parseAuthRateLimitRpcResult({
+    ok: false,
+    reason_code: "auth_rate_limited",
+    retry_after_seconds: 30,
+  });
+  assert("first three email requests allowed", okCount === MIA_AUTH_REQUEST_MAX_PER_EMAIL);
+  assert("fourth email request blocked", blocked.allowed === false);
+  assert("rate limit rpc parser handles 429", parsed.ok === false);
+  assert("rate key uses HMAC not raw email", !hashAuthRateLimitKey("request_email", email, TEST_ENV).includes("@"));
+}
+
+// Delivery gate
+{
+  const undelivered = {
+    id: crypto.randomUUID(),
+    consumed_at: null,
+    delivery_sent_at: null,
+    delivery_failed_at: null,
+    expires_at: buildAuthChallengeExpiry(),
+    attempt_count: 0,
+    max_attempts: 5,
+  };
+  assert(
+    "undelivered challenge rejected",
+    evaluateAuthChallengeState(undelivered).reasonCode === "auth_challenge_delivery_failed"
+  );
 }
 
 // Session token purpose
