@@ -28,6 +28,7 @@
     "test:mia:analytics:storage-schema": "node scripts/test-mia-analytics-storage-schema-audit.js",
     "test:mia:analytics:visitor-id": "node scripts/test-mia-analytics-visitor-id.js",
     "test:mia:analytics:conversation-id": "node scripts/test-mia-analytics-conversation-id.js",
+    "test:mia:analytics:authenticated-identity": "node scripts/test-mia-analytics-authenticated-identity.js",
     "test:mia:supabase:foundation": "node scripts/test-mia-supabase-foundation-audit.js",
     "test:mia:supabase:baseline": "node scripts/test-mia-supabase-baseline-audit.js",
     "supabase": "supabase",

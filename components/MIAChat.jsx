@@ -14,7 +14,7 @@ import FeedPanel from "./FeedPanel";
 import MIAMenuSymbol from "./MIAMenuSymbol";
 import { getFeedItemGallery } from "../lib/feedImageResolver";
 import { findProductByIdentity, getProductIdentityKey } from "../lib/productIdentity";
-import { loadStoredUser, loadUserProfile, saveStoredUser, saveUserProfile } from "../lib/userProfileStorage";
+import { loadStoredUser, loadUserProfile, saveStoredUser, saveUserProfile, clearStoredUser } from "../lib/userProfileStorage";
 import { buildUserSessionHeaders } from "../lib/miaClientSession";
 import { readImageFileAsDataUrl, validateImageFile } from "../lib/chatImageFile";
 import { requestImageAnalysis } from "../lib/imageAnalysisClient";
@@ -186,7 +186,12 @@ export default function MIAChat() {
     );
   }, []);
   useEffect(() => {
-    trackMiaSessionStarted();
+    setHasMounted(true);
+    const storedUser = loadStoredUser();
+    if (storedUser) setUser(storedUser);
+    trackMiaSessionStarted(
+      storedUser?.session_token ? { authUser: storedUser } : {}
+    );
   }, []);
   function incrementSessionSearchCount() {
     sessionSearchCount.current += 1;
@@ -665,11 +670,21 @@ export default function MIAChat() {
     scrollToAlertsCreateForm();
   }
 
-  useEffect(() => {
-    setHasMounted(true);
-    const storedUser = loadStoredUser();
-    if (storedUser) setUser(storedUser);
-  }, []);
+  function buildAnalyticsTrackOptions(fromUser = user, extra = {}) {
+    const options = { ...extra };
+    if (fromUser?.session_token) {
+      options.authUser = fromUser;
+    }
+    return options;
+  }
+
+  function handleLogout() {
+    clearStoredUser();
+    setUser(null);
+    setUserProfile({ displayName: "", photoDataUrl: "" });
+    closeSideMenu();
+    showActionToast("Você saiu da sua conta.", "success");
+  }
 
   useEffect(() => {
     if (!user?.email || user?.session_token) return undefined;
@@ -1427,6 +1442,8 @@ useEffect(() => {
         requestIdRef.current += 1;
         setHistory([]);
         setSessionContext({});
+        setUser(null);
+        setUserProfile({ displayName: "", photoDataUrl: "" });
       }
 
       showActionToast("Cache local limpo com sucesso.", "success");
@@ -2094,9 +2111,9 @@ useEffect(() => {
         const conversationId = resolveConversationIdForSend();
 
         trackMiaQuestionSent(pergunta, {
-          userId: user ? user.id : null,
           hasImage: false,
           conversationId,
+          authUser: user,
         });
 
         try {
@@ -2150,11 +2167,10 @@ useEffect(() => {
                 queryText: pergunta,
                 category: detectAnalyticsCategory(pergunta),
                 cardProduct,
-                userId: user ? user.id : null,
                 productsCount: productsRaw.length,
                 productNamePrecedence: "card_response",
               }),
-              { conversationId }
+              buildAnalyticsTrackOptions(user, { conversationId })
             );
           }
           const commercialFallback = resolveCommercialFallbackFlag(data);
@@ -2260,9 +2276,9 @@ useEffect(() => {
     const conversationId = resolveConversationIdForSend();
 
     trackMiaQuestionSent(pergunta, {
-      userId: user ? user.id : null,
       hasImage: !!imageToSend,
       conversationId,
+      authUser: user,
     });
 
     try {
@@ -2316,11 +2332,10 @@ useEffect(() => {
             queryText: pergunta,
             category: detectAnalyticsCategory(pergunta),
             cardProduct,
-            userId: user ? user.id : null,
             productsCount: productsRaw.length,
             productNamePrecedence: "standard",
           }),
-          { conversationId }
+          buildAnalyticsTrackOptions(user, { conversationId })
         );
       }
       const commercialFallback = resolveCommercialFallbackFlag(data);
@@ -2462,10 +2477,12 @@ function detectPriorityFromText(text = "") {
           "favorite_created",
           buildMiaFavoriteCreatedPayload({
             prod,
-            userId: actingUser ? actingUser.id : null,
             detectCategory: detectAnalyticsCategory,
           }),
-          getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
+          buildAnalyticsTrackOptions(
+            actingUser,
+            getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
+          )
         );
         showActionToast("⭐ Produto favoritado!", "success");
       } else {
@@ -2529,13 +2546,15 @@ function detectPriorityFromText(text = "") {
       "price_alert_created",
       buildMiaPriceAlertCreatedPayload({
         prod,
-        userId: actingUser ? actingUser.id : null,
         targetPrice,
         numericPrice,
         actionSource: targetOverride != null ? "alert_form" : "offer_card",
         detectCategory: detectAnalyticsCategory,
       }),
-      getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
+      buildAnalyticsTrackOptions(
+        actingUser,
+        getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
+      )
     );
     
     return true;
@@ -2953,7 +2972,10 @@ function detectPriorityFromText(text = "") {
                              offerCard,
                              detectCategory: detectAnalyticsCategory,
                            }),
-                           activeConversationId ? { conversationId: activeConversationId } : {}
+                           buildAnalyticsTrackOptions(
+                             user,
+                             activeConversationId ? { conversationId: activeConversationId } : {}
+                           )
                          );
                        }}
                      >
@@ -3419,6 +3441,19 @@ function detectPriorityFromText(text = "") {
                   <span className="mia-drawer-nav-icon" aria-hidden="true">⚙️</span>
                   Configurações
                 </button>
+                {user && (
+                  <button
+                    type="button"
+                    className="mia-drawer-nav-item"
+                    onClick={() => {
+                      closeSideMenu();
+                      handleLogout();
+                    }}
+                  >
+                    <span className="mia-drawer-nav-icon" aria-hidden="true">↩</span>
+                    Sair da conta
+                  </button>
+                )}
                 <button
                   type="button"
                   className="mia-drawer-nav-item"

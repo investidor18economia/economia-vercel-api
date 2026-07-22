@@ -103,7 +103,6 @@ console.log("\nPATCH Analytics 1.2 — suggestion tracking tests\n");
   };
 
   await trackMiaQuestionSent("📱 Celular até 2.000", {
-    userId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     hasImage: false,
     conversationId: createAnalyticsConversationId(),
   });
@@ -112,8 +111,8 @@ console.log("\nPATCH Analytics 1.2 — suggestion tracking tests\n");
   assert("Test 2 — query_text equals suggestion text", captured[0]?.query_text === "📱 Celular até 2.000");
   assert("Test 2 — category detected for smartphone suggestion", captured[0]?.category === "smartphones");
   assert(
-    "Test 2 — user_id preserved when provided",
-    captured[0]?.user_id === "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"
+    "Test 2 — client payload omits user_id (PATCH 3.3 server-side resolution)",
+    !("user_id" in captured[0])
   );
 }
 
@@ -128,7 +127,6 @@ console.log("\nPATCH Analytics 1.2 — suggestion tracking tests\n");
   let threw = false;
   try {
     await trackMiaQuestionSent("teste", {
-      userId: null,
       hasImage: false,
       conversationId: createAnalyticsConversationId(),
     });

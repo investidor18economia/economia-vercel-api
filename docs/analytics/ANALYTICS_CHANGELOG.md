@@ -167,13 +167,29 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
-## 6. Próximo patch
+## 6. PATCH 3.3 — Authenticated Identity (2026-07-22)
 
-**PATCH 3.3 — Authenticated Identity** (roadmap oficial)
+**Objetivo:** `user_id` seguro no Analytics — resolução server-side, anti-spoofing, logout, merge prospectivo.
+
+**Implementação:**
+
+- `lib/miaAnalyticsAuth.js` — `resolveAuthenticatedAnalyticsUserId` / `resolveAnalyticsTrackInsertUserId`
+- `/api/analytics/track` — ignora `user_id` do body; usa token MIA verificado
+- `lib/analytics.js` — envia `Authorization: Bearer` quando logado; remove `user_id` do payload cliente
+- `MIAChat.jsx` — logout; `session_started` com token restaurado; headers auth nos tracks
+- Migration `20260722120000_analytics_events_user_id_index.sql` — índice parcial em `user_id`
+- Documentação: [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md)
+- Testes: `npm run test:mia:analytics:authenticated-identity`
+
+**Merge:** estratégia prospectiva; sem tabela `analytics_identity_links`; sem backfill.
+
+**Testes:** 26/26 authenticated-identity; regressões PATCH 3.1–3.2 + suítes Analytics aprovadas.
 
 ---
 
-## 7. Referências
+## 7. Próximo patch
+
+**PATCH 3.4 — Retention Foundation** (roadmap oficial)
 
 | Documento | Conteúdo |
 |-----------|----------|

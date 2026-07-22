@@ -1,6 +1,7 @@
 import { supabase } from "../../../../lib/supabaseClient";
 import { validateAnalyticsTrackRequest } from "../../../../lib/miaAnalyticsAllowlist.js";
 import { isAnalyticsUuid, assembleAnalyticsInsertRow } from "../../../../lib/miaAnalyticsPayload.js";
+import { resolveAnalyticsTrackInsertUserId } from "../../../../lib/miaAnalyticsAuth.js";
 import {
   applyInternalSecurityHeaders,
   sendPolicyError,
@@ -30,13 +31,14 @@ async function handler(req, res) {
     }
 
     const row = validation.row;
+    const authenticatedUserId = resolveAnalyticsTrackInsertUserId(req);
     const { error } = await supabase.from("analytics_events").insert(
       assembleAnalyticsInsertRow({
         event_name: row.event_name,
         visitor_id: isAnalyticsUuid(row.visitor_id) ? row.visitor_id : null,
         session_id: row.session_id || null,
         conversation_id: isAnalyticsUuid(row.conversation_id) ? row.conversation_id : null,
-        user_id: isAnalyticsUuid(row.user_id) ? row.user_id : null,
+        user_id: authenticatedUserId,
         category: row.category || null,
         product_name: row.product_name || null,
         product_brand: row.product_brand || null,

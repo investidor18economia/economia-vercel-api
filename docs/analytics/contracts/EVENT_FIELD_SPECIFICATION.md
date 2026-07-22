@@ -132,10 +132,10 @@ Ver [VISITOR_ID.md](../VISITOR_ID.md).
 | **Tipo** | `uuid` |
 | **Obrigatório** | Não |
 | **Descrição** | UUID Supabase Auth quando disponível e válido |
-| **Origem** | Payload do cliente ou `alert.user_id` server-side |
+| **Origem** | **Servidor:** token MIA verificado → `public.users.id` no `/api/analytics/track`. **Server-side e-mail:** `alert.user_id` com ownership confiável. **Body HTTP:** ignorado (PATCH 3.3) |
 | **Exemplo** | `f47ac10b-58cc-4372-a567-0e02b2c3d479` |
-| **Quem popula** | Frontend (exceto `offer_click` hoje) ou `miaPriceAlertEmailAnalytics` |
-| **Quando nulo** | Sessão anônima; testes controlados; `offer_click` |
+| **Quem popula** | API track (sessão) ou `miaPriceAlertEmailAnalytics` (alerta) |
+| **Quando nulo** | Sessão anônima; logout; token inválido/expirado; `offer_click` anônimo; eventos de teste/E2E |
 
 **Regra API:** valores não-UUID são descartados → `null`.
 

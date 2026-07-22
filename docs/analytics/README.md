@@ -37,7 +37,7 @@ ANALYTICS_DATA_DICTIONARY.md ← colunas PostgreSQL
     ↓
 ANALYTICS_TABLE_REFERENCE.md ← escritores / leitores
     ↓
-SESSION_ID.md · VISITOR_ID.md · CONVERSATION_ID.md · DASHBOARDS.md
+SESSION_ID.md · VISITOR_ID.md · CONVERSATION_ID.md · AUTHENTICATED_IDENTITY.md · DASHBOARDS.md
     ↓
 ANALYTICS_CHANGELOG.md
 ```
@@ -45,7 +45,8 @@ ANALYTICS_CHANGELOG.md
 **Implementação (código, não duplicar na documentação):**
 
 - Payloads: `lib/miaAnalyticsPayload.js` (PATCH 2.2)
-- Identidade: `lib/analytics.js` — `getOrCreateAnalyticsVisitorId()` (PATCH 3.1), `createAnalyticsConversationId()` (PATCH 3.2); lifecycle em `MIAChat.jsx` (`conversationIdRef`); `getMiaSessionId()` (PATCH 1.1)
+- Identidade: `lib/analytics.js` — `getOrCreateAnalyticsVisitorId()` (PATCH 3.1), `createAnalyticsConversationId()` (PATCH 3.2); lifecycle em `MIAChat.jsx` (`conversationIdRef`); `getMiaSessionId()` (PATCH 1.1); auth headers (PATCH 3.3)
+- Auth Analytics: `lib/miaAnalyticsAuth.js` (PATCH 3.3)
 - Frontend: `lib/analytics.js` · Allowlist: `lib/miaAnalyticsAllowlist.js`
 - Server-side: `lib/miaPriceAlertEmailAnalytics.js`
 
