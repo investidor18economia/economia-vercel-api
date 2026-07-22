@@ -1417,7 +1417,12 @@ useEffect(() => {
 
         keysToRemove.forEach((key) => localStorage.removeItem(key));
 
-        clearSessionOpeningState();
+        try {
+          window.sessionStorage.removeItem("mia_session_opening");
+        } catch {
+          /* preserve analytics session_id (mia_session_id) */
+        }
+
         resetCurrentConversation();
         requestIdRef.current += 1;
         setHistory([]);
