@@ -178,6 +178,8 @@ PATCH 3.6
 
 Auditoria Final da Fase 3
 
+Status: concluída — Fase 3 **APROVADA** (ver PATCH_3.6_PHASE_3_FINAL_AUDIT.md)
+
 Critério de conclusão
 
 Toda a arquitetura de identidade encontra-se consistente e preparada para crescimento.

@@ -266,15 +266,30 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
-## 12. Próximo patch
+## 12. PATCH 3.6 — Auditoria Final da Fase 3 (2026-07-22)
 
-**PATCH 3.6 — Auditoria Final da Fase 3** (roadmap oficial)
+**Objetivo:** consolidação read-only dos patches 3.1–3.5 — sem alteração de código.
+
+**Entregas:**
+
+- [PATCH_3.6_PHASE_3_FINAL_AUDIT.md](./PATCH_3.6_PHASE_3_FINAL_AUDIT.md)
+- Evidências: 333+ testes automatizados (0 falhas), migrations sincronizadas, produção validada
+
+**Veredito:** **FASE 3 — IDENTITY LAYER — APROVADA**
+
+**Débitos não bloqueantes:** docs periféricos 6/16 eventos (DT-01), COMM-R01 comercial (domínio separado).
+
+---
+
+## 13. Próximo passo
+
+**FASE 4 — Consolidação dos Dashboards SQL** (aguardar aprovação formal deste relatório 3.6)
 
 **Dívida comercial paralela:** [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md)
 
 ---
 
-## 13. Referências
+## 14. Referências
 
 | Documento | Conteúdo |
 |-----------|----------|
@@ -283,6 +298,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 | [02_analytics_roadmap.md](./02_analytics_roadmap.md) | Roadmap completo FASE 1–12 |
 | [01_analytics_foundation.md](./01_analytics_foundation.md) | Princípios permanentes |
 | [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) | Identity Layer consolidada (PATCH 3.5) |
+| [PATCH_3.6_PHASE_3_FINAL_AUDIT.md](./PATCH_3.6_PHASE_3_FINAL_AUDIT.md) | Auditoria final Fase 3 (PATCH 3.6) |
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [CHANGELOG_SUPABASE.md](../infrastructure/CHANGELOG_SUPABASE.md) | Roadmap infraestrutura |
 | `supabase/planning/SUPABASE-07B-execution-report.md` | Reconciliação produção |

@@ -82,6 +82,7 @@ ANALYTICS_CHANGELOG.md
 | [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md) | Identidade autenticada (PATCH 3.3) |
 | [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) | Fundação de retenção (PATCH 3.4) |
 | [IDENTITY_LAYER.md](./IDENTITY_LAYER.md) | **Identity Layer consolidada (PATCH 3.5)** |
+| [PATCH_3.6_PHASE_3_FINAL_AUDIT.md](./PATCH_3.6_PHASE_3_FINAL_AUDIT.md) | Auditoria final Fase 3 (PATCH 3.6) |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Índice dos dashboards SQL (PATCH 1.3) |
 
 ### Roadmap e especificação futura (não substituem o contrato atual)
