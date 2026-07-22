@@ -40,4 +40,18 @@ Tokens assinados com `API_SHARED_KEY` **não** são mais aceitos após PATCH 3.3
 
 Rotacionar apenas o segredo comprometido. Nunca reutilizar o mesmo valor entre domínios.
 
+## Status operacional
+
+| Item | Status |
+|------|--------|
+| Implementação | Concluída (`6cde47b`) |
+| Testes locais | 506/506 + `test:mia:auth:secret-separation` 22/22 |
+| Vercel Production (3 segredos) | Configurada |
+| OTP / login / logout / analytics auth | Validados em produção |
+| **Veredito** | **PATCH 3.3A.2 concluído** (domínio auth/crypto) |
+
+Regressão conversacional comercial (`câmera e bateria` → falso positivo de comparação) **não pertence a este patch**. Ver [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md).
+
+---
+
 *PATCH 3.3A.2 — Cryptographic Secret Separation*

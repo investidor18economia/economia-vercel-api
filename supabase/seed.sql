@@ -1,0 +1,4 @@
+-- Teilor / MIA — local database seed (SUPABASE-01)
+--
+-- Intentionally empty. Production data is never copied or seeded locally.
+-- Add controlled fixtures here only when a future patch requires reproducible local data.

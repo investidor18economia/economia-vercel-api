@@ -2,6 +2,8 @@
 
 Governança de roteamento (Patches 1–4). O contrato **não escolhe produto**; define **permissões de rota**.
 
+> **Dívida ativa (domínio comercial):** falso positivo de comparação em prioridades `"câmera e bateria"` — [PATCH COMM-R01](./commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md). **Fora** do escopo PATCH 3.3A (auth).
+
 ## Fluxo
 
 ```text

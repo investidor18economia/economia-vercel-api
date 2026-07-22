@@ -6,6 +6,20 @@ Cada item indica se é **aceito no MVP** ou planejado **pós-MVP**.
 
 ---
 
+## Ativo — correção pendente (COMM-R01)
+
+### Comparison intent false positive (`" e "` entre prioridades)
+
+| Aspecto | Detalhe |
+|---|---|
+| **O quê** | `COMPARISON_INTENT_PATTERN` trata `"câmera e bateria"` como comparação explícita |
+| **Impacto** | Recomendações com budget + multi-prioridade caem em `comparison_early_not_found`; turno 2 perde histórico |
+| **Auth relacionado?** | **Não** — reproduzível anônimo; PATCH 3.3A.2 validado separadamente |
+| **Patch registrado** | [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md) |
+| **Status** | ⏳ Aberto (domínio comercial, fora PATCH 3.3A) |
+
+---
+
 ## Aceito no MVP
 
 ### Monólito `chat-gpt4o.js`
