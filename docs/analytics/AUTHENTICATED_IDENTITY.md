@@ -196,16 +196,24 @@ Armazenado: `user_id` (UUID pseudônimo interno), `visitor_id`, `session_id`, `c
 
 ---
 
-## 17. Fora do escopo
+## 17. Retenção (PATCH 3.4)
+
+Fundação de retenção: evento `user_authenticated` + derivação de timelines a partir de `analytics_events`.
+
+Ver [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md).
+
+---
+
+## 18. Fora do escopo
 
 - Cross-device identity graph / CDP
 - Merge funcional de favoritos/alertas anônimos
 - Supabase Auth migration
-- PATCH 3.4 (Retenção / DAU / cohorts)
+- Cálculo de DAU/WAU/MAU neste patch
 
 ---
 
-## 18. Referências
+## 19. Referências
 
 | Documento | Conteúdo |
 |-----------|----------|

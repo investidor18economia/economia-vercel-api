@@ -79,6 +79,8 @@ ANALYTICS_CHANGELOG.md
 | [SESSION_ID.md](./SESSION_ID.md) | Semântica de `session_id` (PATCH 1.1) |
 | [VISITOR_ID.md](./VISITOR_ID.md) | Semântica de `visitor_id` (PATCH 3.1) |
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
+| [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md) | Identidade autenticada (PATCH 3.3) |
+| [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) | Fundação de retenção (PATCH 3.4) |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Índice dos dashboards SQL (PATCH 1.3) |
 
 ### Roadmap e especificação futura (não substituem o contrato atual)
@@ -143,10 +145,12 @@ ANALYTICS_CHANGELOG.md
 | O que é `session_id` | [SESSION_ID.md](./SESSION_ID.md) |
 | O que é `visitor_id` | [VISITOR_ID.md](./VISITOR_ID.md) |
 | O que é `conversation_id` | [CONVERSATION_ID.md](./CONVERSATION_ID.md) |
+| Identidade autenticada (`user_id`) | [AUTHENTICATED_IDENTITY.md](./AUTHENTICATED_IDENTITY.md) |
+| Fundação de retenção (timelines) | [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) |
 | Rodar dashboard SQL | [DASHBOARDS.md](./DASHBOARDS.md) |
 | Histórico de patches | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) |
 | Roadmap futuro | [02_analytics_roadmap.md](./02_analytics_roadmap.md) |
-| Migrations executáveis | `supabase/migrations/20260719153000_*` + `53001_*` + `53002_*` (visitor_id) + `53003_*` (conversation_id) |
+| Migrations executáveis | `supabase/migrations/20260719153000_*` + `53001_*` + visitor/conversation + `20260722180000_analytics_retention_foundation_v1.sql` |
 | Operações Supabase | [docs/infrastructure/SUPABASE_OPERATIONS.md](../infrastructure/SUPABASE_OPERATIONS.md) |
 
 ---

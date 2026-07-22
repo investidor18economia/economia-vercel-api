@@ -20,6 +20,7 @@ Documentos relacionados:
 | [SESSION_ID.md](./SESSION_ID.md) | Semântica de `session_id` (PATCH 1.1) |
 | [VISITOR_ID.md](./VISITOR_ID.md) | Semântica de `visitor_id` (PATCH 3.1) |
 | [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
+| [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md) | Fundação de retenção (PATCH 3.4) |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Consultas SQL (PATCH 1.3) |
 | [01_analytics_foundation.md](./01_analytics_foundation.md) | Princípios permanentes |
 | [02_analytics_roadmap.md](./02_analytics_roadmap.md) | Roadmap oficial |

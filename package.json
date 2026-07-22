@@ -29,6 +29,8 @@
     "test:mia:analytics:visitor-id": "node scripts/test-mia-analytics-visitor-id.js",
     "test:mia:analytics:conversation-id": "node scripts/test-mia-analytics-conversation-id.js",
     "test:mia:analytics:authenticated-identity": "node scripts/test-mia-analytics-authenticated-identity.js",
+    "test:mia:analytics:retention-foundation": "node scripts/test-mia-analytics-retention-foundation.js",
+    "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",
     "test:mia:auth:distributed-rate-limit": "node scripts/test-mia-auth-distributed-rate-limit.js",

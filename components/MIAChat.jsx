@@ -49,6 +49,7 @@ import {
   detectAnalyticsCategory,
   trackMiaQuestionSent,
   trackMiaSessionStarted,
+  trackMiaUserAuthenticated,
   createAnalyticsConversationId,
   removeLegacyAnalyticsConversationIdFromLocalStorage,
   buildMiaRecommendationShownPayload,
@@ -2648,6 +2649,7 @@ function detectPriorityFromText(text = "") {
     setShowLoginPopup(false);
     resetLoginFlow();
     setPendingAction(null);
+    trackMiaUserAuthenticated({ authUser: nextUser });
 
     if (action) {
       setTimeout(() => {

@@ -211,7 +211,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
-## 10. PATCH 3.3A.2 — Cryptographic Secret Separation (2026-07-22)
+## 9. PATCH 3.3A.2 — Cryptographic Secret Separation (2026-07-22)
 
 **Problema corrigido:** reutilização de `API_SHARED_KEY` entre sessão, OTP e rate limit.
 
@@ -219,13 +219,43 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Documentação:** [CRYPTOGRAPHIC_SECRET_POLICY.md](../auth/CRYPTOGRAPHIC_SECRET_POLICY.md)
 
-**Testes:** `npm run test:mia:auth:secret-separation`
+**Testes:** `npm run test:mia:auth:secret-separation` (22/22); regressões 506/506; build OK.
+
+**Validação operacional (auth):** concluída — push `6cde47b`, Vercel Production configurada, OTP/login/logout/analytics autenticado aprovados.
+
+**Veredito escopo auth:** PATCH 3.3A.2 **concluído** no domínio criptográfico/autenticação.
+
+**Regressão comercial identificada (fora deste patch):** falso positivo de comparação em `"câmera e bateria"` — registrada como [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md), domínio comercial separado de PATCH 3.3A.
+
+---
+
+## 10. PATCH 3.4 — Retention Foundation (2026-07-22)
+
+**Objetivo:** infraestrutura para futuras métricas de retenção (DAU/WAU/MAU/cohorts) **sem calculá-las neste patch**.
+
+**Implementação:**
+
+- Evento `user_authenticated` (marco de login OTP verificado)
+- `lib/miaAnalyticsRetentionFoundation.js` — derivação de timelines a partir de eventos
+- Migration `20260722180000_analytics_retention_foundation_v1.sql` — índices temporais
+- SQL de referência: [sql/analytics-retention-foundation.sql](./sql/analytics-retention-foundation.sql)
+- Documentação: [RETENTION_FOUNDATION.md](./RETENTION_FOUNDATION.md)
+
+**Testes:** `npm run test:mia:analytics:retention-foundation`
+
+**Princípio:** fonte da verdade permanece `analytics_events`; sem tabelas de métricas.
 
 ---
 
 ## 11. Próximo patch
 
-**PATCH 3.4 — Retention Foundation** (roadmap oficial)
+**PATCH 3.5 — Identity Documentation & Validation** (roadmap oficial)
+
+**Dívida comercial paralela:** [PATCH COMM-R01](../commercial/PATCH_COMM_R01_COMPARISON_INTENT_ROUTING.md)
+
+---
+
+## 12. Referências
 
 | Documento | Conteúdo |
 |-----------|----------|

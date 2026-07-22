@@ -31,6 +31,11 @@ const CONVERSATION_ID_MIGRATION = join(
   "20260721153003_analytics_events_conversation_id.sql"
 );
 
+const RETENTION_FOUNDATION_MIGRATION = join(
+  MIGRATIONS_DIR,
+  "20260722180000_analytics_retention_foundation_v1.sql"
+);
+
 const OFFICIAL_COLUMNS = [
   "id",
   "event_name",
@@ -203,6 +208,32 @@ assert(
   conversationMigration.includes("idx_analytics_events_conversation_id")
 );
 
+assert("Retention foundation migration exists in supabase/migrations", existsSync(RETENTION_FOUNDATION_MIGRATION));
+
+const retentionMigration = existsSync(RETENTION_FOUNDATION_MIGRATION) ? read(RETENTION_FOUNDATION_MIGRATION) : "";
+const retentionExecutable = stripSqlComments(retentionMigration);
+
+for (const pattern of FORBIDDEN_MIGRATION_PATTERNS) {
+  assert(`Retention migration has no destructive pattern ${pattern}`, !pattern.test(retentionExecutable));
+}
+
+assert(
+  "Retention migration defines visitor timeline index",
+  retentionMigration.includes("idx_analytics_events_visitor_id_created_at")
+);
+assert(
+  "Retention migration defines user timeline index",
+  retentionMigration.includes("idx_analytics_events_user_id_created_at")
+);
+assert(
+  "Retention migration defines conversation timeline index",
+  retentionMigration.includes("idx_analytics_events_conversation_id_created_at")
+);
+assert(
+  "Retention migration has no new table",
+  !/\bcreate\s+table\b/i.test(retentionExecutable)
+);
+
 for (const column of DEFERRED_COLUMNS) {
   const addsColumn = new RegExp(`\\b${column}\\s+(text|uuid|jsonb|integer|varchar)`, "i").test(
     `${schemaMigration}\n${securityMigration}`
@@ -241,6 +272,7 @@ assert("Schema doc defers event contract to FASE 2", /FASE 2/i.test(schemaDoc));
   const allowlist = read(join(ROOT, "lib/miaAnalyticsAllowlist.js"));
   const publicEvents = [
     "session_started",
+    "user_authenticated",
     "mia_question_sent",
     "mia_recommendation_shown",
     "offer_click",

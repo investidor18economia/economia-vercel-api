@@ -134,7 +134,7 @@ function listApiEndpoints() {
   const blocked = validateAnalyticsTrackRequest({ event_name: "admin_override_all_metrics" });
   expectTrue("analytics allowlist accepts known event", allowed.ok === true);
   expectTrue("analytics allowlist rejects unknown event", blocked.ok === false);
-  expectTrue("analytics events documented", ALLOWED_ANALYTICS_EVENTS.length >= 6);
+  expectTrue("analytics events documented", ALLOWED_ANALYTICS_EVENTS.length >= 7);
 }
 
 {

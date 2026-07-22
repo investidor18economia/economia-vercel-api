@@ -305,9 +305,10 @@ Somente chaves encontradas nos writers oficiais (`lib/analytics.js`, `MIAChat.js
 
 | Chave | Tipo | Eventos | Obrigatória | Descrição | Quem popula | Pode ser nulo |
 |-------|------|---------|-------------|-----------|-------------|---------------|
-| `page` | string | `session_started` | Não* | Pathname da página | `trackMiaSessionStarted` | Sim (`referrer` sim) |
+| `page` | string | `session_started`, `user_authenticated` | Não* | Pathname da página | `trackMiaSessionStarted`, `trackMiaUserAuthenticated` | Sim (`referrer` sim em session) |
 | `user_agent` | string | `session_started` | Não* | User-Agent do navegador | `trackMiaSessionStarted` | Não na prática |
 | `referrer` | string \| null | `session_started` | Não | Referrer document | `trackMiaSessionStarted` | Sim |
+| `auth_method` | string | `user_authenticated` | Não* | Método de autenticação | `trackMiaUserAuthenticated` | Não (`"otp_email"`) |
 | `has_image` | boolean | `mia_question_sent` | Não* | Pergunta inclui imagem | `trackMiaQuestionSent` | Não (sempre bool) |
 | `has_offer_card` | boolean | `mia_recommendation_shown` | Não* | Resposta tinha card | `MIAChat.jsx` | Não |
 | `products_count` | number | `mia_recommendation_shown` | Não* | Qtd. produtos na resposta | `MIAChat.jsx` | Não |

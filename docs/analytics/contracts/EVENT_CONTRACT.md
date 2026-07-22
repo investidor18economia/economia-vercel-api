@@ -81,7 +81,7 @@ Detalhamento: [EVENT_LIFECYCLE.md](./EVENT_LIFECYCLE.md).
 
 | Papel | Responsabilidade |
 |-------|------------------|
-| **Frontend** (`components/MIAChat.jsx`, `lib/analytics.js`) | Gerar `session_id`, `visitor_id`, `conversation_id`; disparar 6 eventos públicos; nunca escrever no Supabase diretamente |
+| **Frontend** (`components/MIAChat.jsx`, `lib/analytics.js`) | Gerar `session_id`, `visitor_id`, `conversation_id`; disparar 7 eventos públicos; nunca escrever no Supabase diretamente |
 | **API pública** (`pages/api/analytics/track/index.js`) | Validar allowlist e limites; normalizar campos; INSERT via service role |
 | **Server-side** (`lib/miaPriceAlertEmailAnalytics.js`, callers) | Montar payload; sanitizar metadata; INSERT direto (sem allowlist) |
 | **Banco** (`analytics_events`) | Persistir linha; gerar `id` e `created_at` |
@@ -128,7 +128,7 @@ Todo evento possui:
 
 | Origem | Eventos |
 |--------|---------|
-| Browser → API | 6 eventos da allowlist pública |
+| Browser → API | 7 eventos da allowlist pública |
 | Backend (service role) | 10 eventos `price_drop_email_*` |
 | Operador / cron | Indiretamente via módulos de price alert |
 
@@ -162,7 +162,7 @@ Todo evento possui:
 
 ## 7. Catálogo de eventos
 
-Total: **16** `event_name` distintos em produção hoje.
+Total: **17** `event_name` distintos em produção hoje (7 públicos via API allowlist).
 
 ### 7.1 Eventos públicos (frontend → API)
 
@@ -177,6 +177,20 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Persistência** | API → `analytics_events` |
 | **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` **NULL**; `metadata.page`, `metadata.user_agent`, `metadata.referrer` |
 | **Exemplo** | `{ "event_name": "session_started", "visitor_id": "f47ac10b-…", "session_id": "mia-sess-…", "conversation_id": null, "metadata": { "page": "/app-mia", "user_agent": "Mozilla/5.0 …", "referrer": null } }` |
+
+---
+
+#### `user_authenticated` (PATCH 3.4)
+
+| Atributo | Valor |
+|----------|-------|
+| **Objetivo** | Marco de login verificado (retenção / first login) |
+| **Origem** | Frontend |
+| **Quando dispara** | Após OTP verificado em `completeAuthenticatedLogin()` |
+| **Quem dispara** | `trackMiaUserAuthenticated()` em `lib/analytics.js` |
+| **Persistência** | API → `analytics_events`; `user_id` resolvido server-side |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` **NULL**; `metadata.page`, `metadata.auth_method: "otp_email"` |
+| **Exemplo** | `{ "event_name": "user_authenticated", "visitor_id": "…", "session_id": "…", "metadata": { "page": "/app-mia", "auth_method": "otp_email" } }` |
 
 ---
 
