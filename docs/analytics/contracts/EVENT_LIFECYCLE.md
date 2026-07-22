@@ -41,6 +41,7 @@ Usuário
    │   lib/analytics.js
    │   • getOrCreateAnalyticsVisitorId() → localStorage
    │   • getMiaSessionId() → sessionStorage
+   │   • getOrCreateAnalyticsConversationId() → localStorage (lazy, PATCH 3.2)
    │   • trackMiaEvent / trackMiaQuestionSent / trackMiaSessionStarted
    │       ↓
    │   POST /api/analytics/track
@@ -51,7 +52,7 @@ Usuário
    │   • metadata objeto JSON
    │       ↓
    │   pages/api/analytics/track/index.js
-   │   • visitor_id / user_id UUID check
+   │   • visitor_id / conversation_id / user_id UUID check
    │   • INSERT via supabaseClient (service role)
    │
    └─ (sem UI) cron / pipeline price alert
@@ -100,9 +101,10 @@ O usuário (ou operador via cron) realiza uma ação observável:
 
 | Ação | Helper |
 |------|--------|
-| Mount da aba | `trackMiaSessionStarted()` |
-| Pergunta (manual ou sugestão) | `trackMiaQuestionSent()` |
-| Card exibido | `trackMiaEvent("mia_recommendation_shown", …)` |
+| Mount da aba | `trackMiaSessionStarted()` — `conversation_id` **NULL** |
+| Pergunta (manual ou sugestão) | `trackMiaQuestionSent()` — cria/reutiliza `conversation_id` |
+| Nova conversa (limpar cache) | `startNewAnalyticsConversation()` em `handleClearLocalCache()` |
+| Card exibido | `trackMiaEvent("mia_recommendation_shown", …)` — mesmo `conversation_id` |
 | Favorito | `trackMiaEvent("favorite_created", …)` |
 | Alerta | `trackMiaEvent("price_alert_created", …)` |
 | Clique oferta | `trackMiaEvent("offer_click", …)` |
@@ -116,10 +118,12 @@ O usuário (ou operador via cron) realiza uma ação observável:
 Responsabilidades:
 
 1. **`getMiaSessionId()`** — lê/cria ID em `sessionStorage`; remove legado de `localStorage`.
-2. **`trackMiaEvent()`** — monta body via `buildAnalyticsTrackPayload()` (`lib/miaAnalyticsPayload.js`).
-3. **`fetch("/api/analytics/track")`** — POST fire-and-forget; erros → `console.warn` apenas.
-4. **`detectAnalyticsCategory()`** — infere `category` a partir do texto.
-5. **Guards** — `session_started` deduplicado via flag `mia_session_started_tracked` em `sessionStorage`.
+2. **`getOrCreateAnalyticsVisitorId()`** — identidade persistente do visitante (PATCH 3.1).
+3. **`getOrCreateAnalyticsConversationId()` / `getCurrentAnalyticsConversationId()` / `startNewAnalyticsConversation()`** — identidade conversacional (PATCH 3.2); chave `mia_conversation_id` compartilhada com `/api/mia-chat`.
+4. **`trackMiaEvent()`** — monta body via `buildAnalyticsTrackPayload()` (`lib/miaAnalyticsPayload.js`); opções `conversationId` e `ensureConversation`.
+5. **`fetch("/api/analytics/track")`** — POST fire-and-forget; erros → `console.warn` apenas.
+6. **`detectAnalyticsCategory()`** — infere `category` a partir do texto.
+7. **Guards** — `session_started` deduplicado via flag `mia_session_started_tracked` em `sessionStorage`; `session_started` força `conversation_id = null`.
 
 **Não faz:** INSERT Supabase, validação de allowlist, persistência local de eventos.
 
@@ -132,7 +136,7 @@ Handler: `pages/api/analytics/track/index.js`
 1. Headers de segurança internos (`applyInternalSecurityHeaders`).
 2. Aceita somente `POST`.
 3. Delega validação a `validateAnalyticsTrackRequest(body)`.
-4. Em sucesso: INSERT nas 13 colunas writer + defaults.
+4. Em sucesso: INSERT nas colunas writer + defaults (`conversation_id` nullable).
 5. Em falha de INSERT: HTTP 500 + log de auditoria.
 6. Observabilidade via `withMiaObservability`.
 
@@ -168,9 +172,9 @@ Tabela append-only em PostgreSQL.
 | Timestamp | `created_at timestamptz` default `now()` |
 | RLS | ON, zero policies → deny default |
 | Grants | INSERT/SELECT apenas `service_role` |
-| Índices | `event_name+created_at`, `created_at`, `session_id`, `category` |
+| Índices | `event_name+created_at`, `created_at`, `session_id`, `visitor_id`, `conversation_id`, `category` |
 
-Migration executável: `20260719153000_*` (schema) + `20260719153001_*` (segurança).
+Migrations executáveis: `20260719153000_*` (schema) + `20260719153001_*` (segurança) + `20260721153002_*` (visitor_id) + `20260721153003_*` (conversation_id).
 
 ---
 
@@ -182,6 +186,7 @@ Padrões comuns:
 
 - agregação por `event_name` e `date_trunc('day', created_at)`;
 - `COUNT(DISTINCT session_id)` para sessões;
+- `COUNT(DISTINCT conversation_id)` para conversas (PATCH 3.2);
 - exclusão de QA via `category` e prefixos `price_drop_email_test_*` / `price_drop_email_e2e_*`;
 - exclusão de harness via `metadata.user_agent = 'test-agent'` em `session_started`.
 
@@ -207,7 +212,8 @@ MIAChat → analytics.js → fetch track API → allowlist → INSERT
 
 Características:
 
-- sempre inclui `session_id` (quando storage disponível);
+- sempre inclui `session_id` e `visitor_id` (quando storage disponível);
+- `conversation_id` NULL em `session_started`; criado na primeira pergunta; reutilizado nos demais eventos conversacionais;
 - restrito à allowlist;
 - falha silenciosa no cliente, falha explícita (4xx/5xx) no servidor.
 
@@ -219,7 +225,7 @@ SendGate / Admin / E2E → miaPriceAlertEmailAnalytics → INSERT direto
 
 Características:
 
-- `session_id` null na maioria dos casos;
+- `session_id` e `conversation_id` null na maioria dos casos;
 - `category` fixa por tipo (`price_alert_email`, `_test`, `_e2e_test`);
 - metadata sanitizada contra segredos;
 - side-effect não bloqueante (`emit*` nunca propaga exception).
@@ -245,7 +251,43 @@ Após INSERT bem-sucedido:
 | API rejeita (400/413) | JSON error; log audit `analytics_rejected` |
 | INSERT falha (500) | JSON error; log audit `analytics_failed` |
 | Server-side insert falha | `{ ok: false, code: … }`; console.warn; fluxo principal continua |
-| Storage indisponível | Novo `session_id` em memória; evento ainda enviado |
+| Storage indisponível | Novo `session_id` em memória; `conversation_id` pode ser omitido; evento ainda enviado |
+
+---
+
+## 3.9 Ciclo de vida conversacional (PATCH 3.2)
+
+Fluxo típico na mesma aba:
+
+```text
+Mount MIAChat
+  → trackMiaSessionStarted()
+  → visitor_id + session_id; conversation_id NULL
+
+Primeira pergunta
+  → getOrCreateAnalyticsConversationId()
+  → trackMiaQuestionSent({ ensureConversation: true })
+  → conversation_id C1 persistido em localStorage
+
+Resposta com card
+  → trackMiaEvent("mia_recommendation_shown")
+  → conversation_id C1 (reutilizado)
+
+Pergunta de continuidade
+  → trackMiaQuestionSent()
+  → conversation_id C1 (mesmo)
+
+Limpar cache local / nova conversa
+  → startNewAnalyticsConversation()
+  → conversation_id C2 (novo UUID)
+  → visitor_id e session_id inalterados na mesma aba
+
+Reload
+  → conversation_id preservado (localStorage)
+  → session_id preservado (sessionStorage)
+```
+
+Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md).
 
 ---
 
@@ -259,10 +301,12 @@ Após INSERT bem-sucedido:
 | [ANALYTICS_DATA_DICTIONARY.md](../ANALYTICS_DATA_DICTIONARY.md) | Colunas PostgreSQL |
 | [ANALYTICS_TABLE_REFERENCE.md](../ANALYTICS_TABLE_REFERENCE.md) | Escritores e leitores |
 | [SESSION_ID.md](../SESSION_ID.md) | Semântica de sessão |
+| [CONVERSATION_ID.md](../CONVERSATION_ID.md) | Semântica conversacional (PATCH 3.2) |
+| [VISITOR_ID.md](../VISITOR_ID.md) | Semântica de visitante |
 | [DASHBOARDS.md](../DASHBOARDS.md) | Queries SQL |
 | [README.md](../README.md) | Índice oficial |
 | [ANALYTICS_CHANGELOG.md](../ANALYTICS_CHANGELOG.md) | Histórico |
 
 ---
 
-*Event Lifecycle v1 — consolidado PATCH 2.4*
+*Event Lifecycle v1 — PATCH 2.4 + PATCH 3.2*

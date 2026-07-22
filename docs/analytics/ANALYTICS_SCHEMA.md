@@ -19,6 +19,7 @@ Documentos relacionados:
 | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) | Histórico de patches |
 | [SESSION_ID.md](./SESSION_ID.md) | Semântica de `session_id` (PATCH 1.1) |
 | [VISITOR_ID.md](./VISITOR_ID.md) | Semântica de `visitor_id` (PATCH 3.1) |
+| [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Consultas SQL (PATCH 1.3) |
 | [01_analytics_foundation.md](./01_analytics_foundation.md) | Princípios permanentes |
 | [02_analytics_roadmap.md](./02_analytics_roadmap.md) | Roadmap oficial |
@@ -85,7 +86,7 @@ Camadas:
 
 | Camada | Responsabilidade |
 |--------|------------------|
-| Frontend | Gera `visitor_id` (localStorage) e `session_id` (sessionStorage); envia eventos allowlist via fetch |
+| Frontend | Gera `visitor_id` e `conversation_id` (localStorage) e `session_id` (sessionStorage); envia eventos allowlist via fetch |
 | API perímetro | Valida allowlist, limites, insere via service_role |
 | Storage | Tabela `analytics_events` versionada por migration |
 | Dashboards | SQL read-only documentado em `DASHBOARDS.md` |
@@ -98,7 +99,7 @@ Camadas:
 Frontend (lib/analytics.js)
         │
         │  POST /api/analytics/track
-        │  { event_name, visitor_id, session_id, ... }
+        │  { event_name, visitor_id, session_id, conversation_id, ... }
         ▼
 API (pages/api/analytics/track/index.js)
         │
@@ -131,7 +132,7 @@ Cron / Admin API → lib/miaPriceAlertEmailAnalytics.js → INSERT service_role 
 
 - **Schema:** `public`
 - **Tipo:** append-only log
-- **Colunas:** 15
+- **Colunas:** 17
 - **PK:** `id` (`uuid`)
 - **FKs:** nenhuma
 - **Enum em `event_name`:** nenhum (texto livre validado na API)
@@ -149,6 +150,7 @@ Detalhamento coluna a coluna: [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DI
 | `id` | `uuid` | NOT NULL | `gen_random_uuid()` | Sim (gerada) |
 | `event_name` | `text` | NOT NULL | — | Sim |
 | `session_id` | `text` | NULL | — | Não |
+| `conversation_id` | `uuid` | NULL | — | Não |
 | `user_id` | `uuid` | NULL | — | Não |
 | `visitor_id` | `uuid` | NULL | — | Não |
 | `category` | `text` | NULL | — | Não |
@@ -163,9 +165,11 @@ Detalhamento coluna a coluna: [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DI
 | `metadata` | `jsonb` | NULL | `'{}'::jsonb` | Não |
 | `created_at` | `timestamptz` | NOT NULL | `now()` | Sim (gerada) |
 
-**Não existem** nesta versão: `environment`, `schema_version`, `event_schema_version`, `payload_version`, `conversation_id`, `turn_id`.
+**Não existem** nesta versão: `environment`, `schema_version`, `event_schema_version`, `payload_version`, `turn_id`.
 
 **Adicionado em PATCH 3.1:** `visitor_id` (migration `20260721153002`). Ver [VISITOR_ID.md](./VISITOR_ID.md).
+
+**Adicionado em PATCH 3.2:** `conversation_id` (migration `20260721153003`). Ver [CONVERSATION_ID.md](./CONVERSATION_ID.md).
 
 ---
 
@@ -180,6 +184,7 @@ Detalhamento coluna a coluna: [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DI
 | `idx_analytics_events_created_at` | `(created_at DESC)` | Séries temporais |
 | `idx_analytics_events_session_id` | `(session_id) WHERE session_id IS NOT NULL` | Sessões únicas |
 | `idx_analytics_events_visitor_id` | `(visitor_id) WHERE visitor_id IS NOT NULL` | Visitantes únicos (PATCH 3.1) |
+| `idx_analytics_events_conversation_id` | `(conversation_id) WHERE conversation_id IS NOT NULL` | Conversas únicas (PATCH 3.2) |
 | `idx_analytics_events_category` | `(category) WHERE category IS NOT NULL` | Filtros QA / exclusões |
 
 ### Nota sobre produção
@@ -293,7 +298,8 @@ Ver [docs/infrastructure/SUPABASE_OPERATIONS.md](../infrastructure/SUPABASE_OPER
 |-----------|-------------------|
 | Sem coluna `environment` | Migration futura aprovada ou evolução do contrato |
 | `visitor_id` ausente em dados históricos | Esperado — sem backfill (PATCH 3.1) |
-| `conversation_id`, `turn_id` | Patches posteriores FASE 3 |
+| `conversation_id` ausente em dados históricos | Esperado — sem backfill (PATCH 3.2) |
+| `turn_id` | Patch futuro FASE 3 |
 | `metadata` sem schema rígido no banco | Chaves documentadas no [Event Contract v1](./contracts/EVENT_FIELD_SPECIFICATION.md) |
 | Separação produção/QA por filtros SQL | PATCH 1.3; ver [DASHBOARDS.md](./DASHBOARDS.md) |
 | Índices legados em produção | Patch opcional futuro |

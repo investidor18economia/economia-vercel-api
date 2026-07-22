@@ -48,6 +48,9 @@ import {
   detectAnalyticsCategory,
   trackMiaQuestionSent,
   trackMiaSessionStarted,
+  getCurrentAnalyticsConversationId,
+  getOrCreateAnalyticsConversationId,
+  startNewAnalyticsConversation,
   buildMiaRecommendationShownPayload,
   buildMiaFavoriteCreatedPayload,
   buildMiaPriceAlertCreatedPayload,
@@ -949,15 +952,14 @@ export default function MIAChat() {
 
 useEffect(() => {
   if (typeof window === "undefined") return;
-  let storedId = localStorage.getItem("mia_conversation_id");
-
-  if (!storedId) {
-    storedId = `mia-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    localStorage.setItem("mia_conversation_id", storedId);
-  }
-
-  conversationIdRef.current = storedId;
+  conversationIdRef.current = getCurrentAnalyticsConversationId();
 }, []);
+
+  function resolveConversationIdForSend() {
+    const conversationId = getOrCreateAnalyticsConversationId();
+    conversationIdRef.current = conversationId;
+    return conversationId;
+  }
 
      async function processImageFile(file, source = "gallery") {
     const validation = validateImageFile(file);
@@ -1398,8 +1400,7 @@ useEffect(() => {
 
         clearSessionOpeningState();
 
-        const nextConversationId = `conv-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-        localStorage.setItem("mia_conversation_id", nextConversationId);
+        const nextConversationId = startNewAnalyticsConversation();
         conversationIdRef.current = nextConversationId;
       }
 
@@ -2065,6 +2066,8 @@ useEffect(() => {
         // ✅ ETAPA A: histórico para contexto
         const messagesForApi = buildMessagesForApi(history, pergunta);
 
+        const conversationId = resolveConversationIdForSend();
+
         trackMiaQuestionSent(pergunta, {
           userId: user ? user.id : null,
           hasImage: false,
@@ -2080,7 +2083,7 @@ useEffect(() => {
   text: pergunta || "",
   image_base64: "",
   user_id: user ? user.id : "guest",
-  conversation_id: conversationIdRef.current,
+  conversation_id: conversationId,
   messages: messagesForApi,
   session_context: buildApiSessionContext(sessionContext)
 })
@@ -2227,6 +2230,8 @@ useEffect(() => {
     // ✅ ETAPA A: histórico para contexto
     const messagesForApi = buildMessagesForApi(history, pergunta);
 
+    const conversationId = resolveConversationIdForSend();
+
     trackMiaQuestionSent(pergunta, {
       userId: user ? user.id : null,
       hasImage: !!imageToSend,
@@ -2242,7 +2247,7 @@ useEffect(() => {
   text: pergunta || "",
   image_base64: imageToSend || "",
   user_id: user ? user.id : "guest",
-  conversation_id: conversationIdRef.current,
+  conversation_id: conversationId,
   messages: messagesForApi,
   session_context: buildApiSessionContext(sessionContext)
 })

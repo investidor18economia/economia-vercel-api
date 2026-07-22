@@ -24,8 +24,8 @@ Este documento lista **somente** campos existentes na implementação atual: col
 
 | Camada | Quantidade | Observação |
 |--------|------------|------------|
-| Colunas `analytics_events` | 16 | 2 geradas pelo banco (`id`, `created_at`) |
-| Colunas preenchidas pelo writer | 14 | Inclui `event_name` |
+| Colunas `analytics_events` | 17 | 2 geradas pelo banco (`id`, `created_at`) |
+| Colunas preenchidas pelo writer | 15 | Inclui `event_name` |
 | Chaves `metadata` documentadas | 28 | Distintas no código atual |
 | Campos do body HTTP não persistidos | 0 | Tudo mapeado para colunas ou `metadata` |
 
@@ -76,6 +76,32 @@ Valores permitidos: catálogo em [EVENT_CONTRACT.md](./EVENT_CONTRACT.md) §7.
 | **Quando nulo** | Eventos server-side; testes E2E/admin |
 
 Ver [SESSION_ID.md](../SESSION_ID.md).
+
+---
+
+### `conversation_id`
+
+| Atributo | Valor |
+|----------|-------|
+| **Tipo** | `uuid` |
+| **Obrigatório** | Não |
+| **Descrição** | Identificador anônimo de um fluxo conversacional com a MIA (PATCH 3.2) |
+| **Origem** | `localStorage.mia_conversation_id` via `getOrCreateAnalyticsConversationId()` / `getCurrentAnalyticsConversationId()` |
+| **Exemplo** | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
+| **Quem popula** | Frontend (eventos conversacionais); API repassa |
+| **Quando nulo** | `session_started`; antes da primeira pergunta; dados históricos; eventos server-side; SSR; storage indisponível |
+
+Ver [CONVERSATION_ID.md](../CONVERSATION_ID.md).
+
+**Regra API:** valores não-UUID são descartados → `null` (mesmo padrão de `visitor_id` e `user_id`).
+
+**Resolução em `trackMiaEvent()`:**
+
+| Opção | Efeito |
+|-------|--------|
+| `{ conversationId: false }` | Força `conversation_id = null` (`session_started`) |
+| `{ ensureConversation: true }` | Cria/reutiliza via `getOrCreateAnalyticsConversationId()` (`mia_question_sent`) |
+| default | Inclui ID atual se existir em `localStorage` |
 
 ---
 

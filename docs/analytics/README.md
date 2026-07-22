@@ -37,7 +37,7 @@ ANALYTICS_DATA_DICTIONARY.md ← colunas PostgreSQL
     ↓
 ANALYTICS_TABLE_REFERENCE.md ← escritores / leitores
     ↓
-SESSION_ID.md · VISITOR_ID.md · DASHBOARDS.md
+SESSION_ID.md · VISITOR_ID.md · CONVERSATION_ID.md · DASHBOARDS.md
     ↓
 ANALYTICS_CHANGELOG.md
 ```
@@ -45,7 +45,7 @@ ANALYTICS_CHANGELOG.md
 **Implementação (código, não duplicar na documentação):**
 
 - Payloads: `lib/miaAnalyticsPayload.js` (PATCH 2.2)
-- Identidade: `lib/analytics.js` — `getOrCreateAnalyticsVisitorId()` (PATCH 3.1), `getMiaSessionId()` (PATCH 1.1)
+- Identidade: `lib/analytics.js` — `getOrCreateAnalyticsVisitorId()` (PATCH 3.1), `getOrCreateAnalyticsConversationId()` / `startNewAnalyticsConversation()` (PATCH 3.2), `getMiaSessionId()` (PATCH 1.1)
 - Frontend: `lib/analytics.js` · Allowlist: `lib/miaAnalyticsAllowlist.js`
 - Server-side: `lib/miaPriceAlertEmailAnalytics.js`
 
@@ -67,7 +67,7 @@ ANALYTICS_CHANGELOG.md
 | Arquivo | Descrição |
 |---------|-----------|
 | [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) | Schema físico, arquitetura, índices, segurança |
-| [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md) | Dicionário das 15 colunas |
+| [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md) | Dicionário das 17 colunas |
 | [ANALYTICS_TABLE_REFERENCE.md](./ANALYTICS_TABLE_REFERENCE.md) | Quem grava/lê `analytics_events` |
 | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) | Histórico oficial de patches |
 
@@ -77,6 +77,7 @@ ANALYTICS_CHANGELOG.md
 |---------|-----------|
 | [SESSION_ID.md](./SESSION_ID.md) | Semântica de `session_id` (PATCH 1.1) |
 | [VISITOR_ID.md](./VISITOR_ID.md) | Semântica de `visitor_id` (PATCH 3.1) |
+| [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [DASHBOARDS.md](./DASHBOARDS.md) | Índice dos dashboards SQL (PATCH 1.3) |
 
 ### Roadmap e especificação futura (não substituem o contrato atual)
@@ -119,6 +120,8 @@ ANALYTICS_CHANGELOG.md
 | Categorias frontend | plural (`smartphones`, `notebooks`, …) | singular (`phone`, `notebook`) |
 | Módulo de payload | `lib/miaAnalyticsPayload.js` | montagem inline duplicada |
 | Chave visitor | `mia_analytics_visitor_id` (`localStorage`) | reutilizar `mia_session_id` |
+| Chave conversa | `mia_conversation_id` (`localStorage`, compartilhada com API MIA) | gerar por evento |
+| Helper conversa | `getOrCreateAnalyticsConversationId()` | ID por pergunta/resposta |
 | Validação UUID | `isAnalyticsUuid()` | `isValidUuid()` local |
 | Helper visitor | `getOrCreateAnalyticsVisitorId()` | fingerprint, PII |
 | Helpers E2E | sufixo `E2E` (`emitPriceAlertEmailE2EAnalytics`) | `E2e` misto |
@@ -138,10 +141,11 @@ ANALYTICS_CHANGELOG.md
 | Quem pode INSERT/SELECT | [ANALYTICS_TABLE_REFERENCE.md](./ANALYTICS_TABLE_REFERENCE.md) |
 | O que é `session_id` | [SESSION_ID.md](./SESSION_ID.md) |
 | O que é `visitor_id` | [VISITOR_ID.md](./VISITOR_ID.md) |
+| O que é `conversation_id` | [CONVERSATION_ID.md](./CONVERSATION_ID.md) |
 | Rodar dashboard SQL | [DASHBOARDS.md](./DASHBOARDS.md) |
 | Histórico de patches | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) |
 | Roadmap futuro | [02_analytics_roadmap.md](./02_analytics_roadmap.md) |
-| Migrations executáveis | `supabase/migrations/20260719153000_*` + `53001_*` + `53002_*` (visitor_id) |
+| Migrations executáveis | `supabase/migrations/20260719153000_*` + `53001_*` + `53002_*` (visitor_id) + `53003_*` (conversation_id) |
 | Operações Supabase | [docs/infrastructure/SUPABASE_OPERATIONS.md](../infrastructure/SUPABASE_OPERATIONS.md) |
 
 ---
@@ -153,7 +157,7 @@ ANALYTICS_CHANGELOG.md
 1. [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) — o que existe no banco
 2. [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) — o que cada evento significa
 3. [contracts/EVENT_LIFECYCLE.md](./contracts/EVENT_LIFECYCLE.md) — como os dados chegam lá
-4. [SESSION_ID.md](./SESSION_ID.md) + [DASHBOARDS.md](./DASHBOARDS.md)
+4. [SESSION_ID.md](./SESSION_ID.md) + [CONVERSATION_ID.md](./CONVERSATION_ID.md) + [DASHBOARDS.md](./DASHBOARDS.md)
 
 **Implementação / auditoria:**
 

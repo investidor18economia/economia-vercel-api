@@ -16,15 +16,19 @@ Complementa — não substitui — `session_id` e `user_id`.
 |-------|--------|--------------|-------------|
 | **`visitor_id`** | Navegador/origem (anônimo) | `localStorage` — semanas/meses | Não (nullable no banco) |
 | **`session_id`** | Aba/sessão atual | `sessionStorage` — até fechar aba | Não |
+| **`conversation_id`** | Thread de chat MIA | `localStorage` (`mia_conversation_id`) — até nova conversa | Não (nullable no banco) |
 | **`user_id`** | Usuário autenticado Supabase | Conta/login | Não |
 
 ```text
-visitor_id → identidade anônima persistente do navegador
-session_id → identidade temporária de uma sessão ou aba
-user_id    → identidade autenticada opcional
+visitor_id       → identidade anônima persistente do navegador
+session_id       → identidade temporária de uma sessão ou aba
+conversation_id  → identidade de um fluxo conversacional com a MIA
+user_id          → identidade autenticada opcional
 ```
 
-Um mesmo `visitor_id` pode possuir vários `session_id`.
+Um mesmo `visitor_id` pode possuir vários `session_id`. Um mesmo `session_id` pode possuir vários `conversation_id`.
+
+Ver [CONVERSATION_ID.md](./CONVERSATION_ID.md) (PATCH 3.2).
 
 ---
 
@@ -63,6 +67,16 @@ Valores legados em `localStorage.mia_session_id` **não** são reutilizados como
 | **SSR / sem browser** | Retorna `null`; tracking não quebra |
 
 Neste patch **não há** expiração automática, rotação periódica, merge de identidade ou identity stitching.
+
+### Status operacional (PATCH 3.1 continuação)
+
+| Item | Estado |
+|------|--------|
+| Migration remota `20260721153002` | Aplicada |
+| Coluna `visitor_id` em produção | 16 colunas totais; nullable UUID |
+| Deploy frontend/API | Produção Vercel ativa |
+| Validação navegador real | Concluída (Playwright em `/app-mia`) |
+| Persistência remota | Confirmada (`session_started`, `mia_question_sent`) |
 
 ---
 
@@ -125,6 +139,7 @@ Regras:
 | Documento | Conteúdo |
 |-----------|----------|
 | [SESSION_ID.md](./SESSION_ID.md) | Semântica de `session_id` |
+| [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | Catálogo de eventos |
 | [contracts/EVENT_FIELD_SPECIFICATION.md](./contracts/EVENT_FIELD_SPECIFICATION.md) | Campo `visitor_id` |
 | [contracts/EVENT_LIFECYCLE.md](./contracts/EVENT_LIFECYCLE.md) | Fluxo frontend → banco |

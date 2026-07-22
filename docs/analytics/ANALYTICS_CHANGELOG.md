@@ -133,11 +133,40 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 | **Resultado** | `getOrCreateAnalyticsVisitorId()` em `lib/analytics.js`; coluna `visitor_id` (migration `20260721153002`); [VISITOR_ID.md](./VISITOR_ID.md). |
 | **Impacto** | Aditivo e compatível; dados históricos permanecem com `visitor_id` NULL; 6 eventos públicos passam a incluir `visitor_id` automaticamente. |
 
+**Validação operacional (continuação PATCH 3.1):**
+
+| | |
+|---|---|
+| **Migration remota** | `20260721153002` aplicada via pipeline oficial (`db query --linked` + `migration repair`) |
+| **Deploy** | `master` → Vercel produção (`economia-ai.vercel.app`) |
+| **Commit** | `dc8974b` — `feat(analytics): add persistent visitor identity` |
+| **Testes finais** | 320/320 automatizados + validação real navegador/produção |
+| **Dados históricos** | 408 linhas preservadas; `visitor_id` NULL em 100% do histórico pré-patch |
+
+---
+
+### PATCH 3.2 — Session & Conversation Identity (`conversation_id`)
+
+| | |
+|---|---|
+| **Objetivo** | Consolidar `session_id` documentalmente e introduzir identidade conversacional `conversation_id`. |
+| **Resultado** | `getOrCreateAnalyticsConversationId()`, `startNewAnalyticsConversation()` em `lib/analytics.js`; chave `mia_conversation_id` compartilhada com API MIA; coluna `conversation_id uuid NULL` (migration `20260721153003`); [CONVERSATION_ID.md](./CONVERSATION_ID.md). |
+| **Impacto** | Aditivo e compatível; 17 colunas totais; Analytics Storage Schema **permanece v1**; `session_started` com `conversation_id` NULL; eventos conversacionais propagam UUID; dados históricos sem backfill. |
+
+**Semântica resumida:**
+
+- Criação lazy na primeira pergunta (`trackMiaQuestionSent` → `ensureConversation`);
+- Nova conversa via `handleClearLocalCache` / `startNewAnalyticsConversation` em `MIAChat.jsx`;
+- Persistência em `localStorage` — sobrevive reload; compartilhado entre abas mesma origem;
+- `session_id` permanece `text` no banco; `conversation_id` é `uuid`.
+
+**Testes:** `scripts/test-mia-analytics-conversation-id.js` (`npm run test:mia:analytics:conversation-id`).
+
 ---
 
 ## 6. Próximo patch
 
-**PATCH 3.2 — Session & Conversation Identity** (roadmap oficial)
+**PATCH 3.3 — Authenticated Identity** (roadmap oficial)
 
 ---
 
@@ -149,9 +178,10 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 | [contracts/](./contracts/) | Event Contract v1 |
 | [02_analytics_roadmap.md](./02_analytics_roadmap.md) | Roadmap completo FASE 1–12 |
 | [01_analytics_foundation.md](./01_analytics_foundation.md) | Princípios permanentes |
+| [CONVERSATION_ID.md](./CONVERSATION_ID.md) | Semântica de `conversation_id` (PATCH 3.2) |
 | [CHANGELOG_SUPABASE.md](../infrastructure/CHANGELOG_SUPABASE.md) | Roadmap infraestrutura |
 | `supabase/planning/SUPABASE-07B-execution-report.md` | Reconciliação produção |
 
 ---
 
-*Analytics Changelog — PATCH 2.4*
+*Analytics Changelog — PATCH 3.2*

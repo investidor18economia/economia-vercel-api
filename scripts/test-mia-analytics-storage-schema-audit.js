@@ -26,12 +26,18 @@ const VISITOR_ID_MIGRATION = join(
   "20260721153002_analytics_events_visitor_id.sql"
 );
 
+const CONVERSATION_ID_MIGRATION = join(
+  MIGRATIONS_DIR,
+  "20260721153003_analytics_events_conversation_id.sql"
+);
+
 const OFFICIAL_COLUMNS = [
   "id",
   "event_name",
   "session_id",
   "user_id",
   "visitor_id",
+  "conversation_id",
   "category",
   "product_name",
   "product_brand",
@@ -49,6 +55,7 @@ const RUNTIME_WRITE_COLUMNS = [
   "event_name",
   "visitor_id",
   "session_id",
+  "conversation_id",
   "user_id",
   "category",
   "product_name",
@@ -74,7 +81,6 @@ const DEFERRED_COLUMNS = [
   "schema_version",
   "event_schema_version",
   "payload_version",
-  "conversation_id",
   "turn_id",
 ];
 
@@ -84,6 +90,7 @@ const EXPECTED_INDEXES = [
   "idx_analytics_events_session_id",
   "idx_analytics_events_category",
   "idx_analytics_events_visitor_id",
+  "idx_analytics_events_conversation_id",
 ];
 
 let passed = 0;
@@ -154,7 +161,7 @@ assert("Security migration enables RLS", /enable row level security/i.test(secur
 assert("Security migration grants service_role insert", /grant select, insert on table public\.analytics_events to service_role/i.test(securityMigration));
 assert("Security migration blocks unexpected browser policies", /unexpected policy/i.test(securityMigration));
 
-for (const column of OFFICIAL_COLUMNS.filter((c) => c !== "visitor_id")) {
+for (const column of OFFICIAL_COLUMNS.filter((c) => c !== "visitor_id" && c !== "conversation_id")) {
   assert(`Schema migration defines column ${column}`, new RegExp(`\\b${column}\\b`).test(schemaMigration));
 }
 
@@ -177,6 +184,25 @@ assert(
   visitorMigration.includes("idx_analytics_events_visitor_id")
 );
 
+assert("Conversation id migration exists in supabase/migrations", existsSync(CONVERSATION_ID_MIGRATION));
+
+const conversationMigration = existsSync(CONVERSATION_ID_MIGRATION) ? read(CONVERSATION_ID_MIGRATION) : "";
+const conversationExecutable = stripSqlComments(conversationMigration);
+
+assert(
+  "Conversation migration adds conversation_id column",
+  /\bconversation_id\b/i.test(conversationMigration) && /add column/i.test(conversationMigration)
+);
+
+for (const pattern of FORBIDDEN_MIGRATION_PATTERNS) {
+  assert(`Conversation migration has no destructive pattern ${pattern}`, !pattern.test(conversationExecutable));
+}
+
+assert(
+  "Conversation migration defines index idx_analytics_events_conversation_id",
+  conversationMigration.includes("idx_analytics_events_conversation_id")
+);
+
 for (const column of DEFERRED_COLUMNS) {
   const addsColumn = new RegExp(`\\b${column}\\s+(text|uuid|jsonb|integer|varchar)`, "i").test(
     `${schemaMigration}\n${securityMigration}`
@@ -184,7 +210,9 @@ for (const column of DEFERRED_COLUMNS) {
   assert(`Migrations do not add deferred column ${column}`, !addsColumn);
 }
 
-for (const indexName of EXPECTED_INDEXES.filter((n) => n !== "idx_analytics_events_visitor_id")) {
+for (const indexName of EXPECTED_INDEXES.filter(
+  (n) => n !== "idx_analytics_events_visitor_id" && n !== "idx_analytics_events_conversation_id"
+)) {
   assert(`Schema migration defines index ${indexName}`, schemaMigration.includes(indexName));
 }
 
@@ -194,6 +222,7 @@ assert(
 );
 assert("Schema doc declares v1", /Storage Schema v1/i.test(schemaDoc));
 assert("Schema doc documents visitor_id", /\bvisitor_id\b/i.test(schemaDoc));
+assert("Schema doc documents conversation_id", /\bconversation_id\b/i.test(schemaDoc));
 assert("Schema doc defers environment column", /Não existe.*environment|Sem coluna `environment`/i.test(schemaDoc));
 assert("Schema doc defers event contract to FASE 2", /FASE 2/i.test(schemaDoc));
 
@@ -242,7 +271,9 @@ if (url && key) {
     const table = openapi?.definitions?.analytics_events;
     const props = table?.properties ? Object.keys(table.properties).sort() : [];
     assert("Production OpenAPI exposes analytics_events", props.length > 0);
-    if (props.includes("visitor_id")) {
+    if (props.includes("conversation_id")) {
+      assert("Production column count matches v1 + visitor_id + conversation_id (17)", props.length === 17);
+    } else if (props.includes("visitor_id")) {
       assert("Production column count matches v1 + visitor_id (16)", props.length === 16);
     } else {
       console.log("  ℹ️  Production migration 53002 not yet applied (15 columns)");
@@ -250,6 +281,7 @@ if (url && key) {
     }
     for (const column of OFFICIAL_COLUMNS) {
       if (column === "visitor_id" && !props.includes("visitor_id")) continue;
+      if (column === "conversation_id" && !props.includes("conversation_id")) continue;
       assert(`Production has column ${column}`, props.includes(column));
     }
     for (const column of DEFERRED_COLUMNS) {

@@ -1,7 +1,7 @@
 # Analytics Table Reference
 ## Referência oficial de tabelas — Analytics Storage Schema v1
 
-**Versão:** PATCH 1.4  
+**Versão:** PATCH 1.4 + PATCH 3.1 + PATCH 3.2  
 **Escopo:** somente tabelas existentes hoje — **não** inclui tabelas futuras.
 
 ---
@@ -63,11 +63,13 @@ Armazenar eventos observacionais de produto e eventos técnicos legítimos para 
 
 ### Colunas
 
-16 — ver [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md).
+17 — ver [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md).
+
+Inclui `visitor_id` (PATCH 3.1) e `conversation_id` (PATCH 3.2).
 
 ### Índices
 
-6 (PK + 5 operacionais, incl. `idx_analytics_events_visitor_id`) — ver [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) §6.
+7 (PK + 6 operacionais, incl. `idx_analytics_events_visitor_id` e `idx_analytics_events_conversation_id`) — ver [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) §6.
 
 ### Segurança
 
@@ -113,6 +115,8 @@ Não documentar estas tabelas como parte do Analytics neste patch.
 - [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) — histórico
 - [docs/infrastructure/SUPABASE_ARCHITECTURE.md](../infrastructure/SUPABASE_ARCHITECTURE.md)
 - `supabase/migrations/20260719153000_*` e `20260719153001_*`
+- `supabase/migrations/20260721153002_*` (visitor_id)
+- `supabase/migrations/20260721153003_*` (conversation_id)
 
 ---
 

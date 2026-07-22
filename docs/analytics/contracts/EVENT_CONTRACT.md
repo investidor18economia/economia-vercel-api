@@ -50,6 +50,7 @@ Frontend, backend, dashboards, auditorias e integrações futuras devem tratar e
 | Fail-closed na API pública | Evento fora da allowlist → HTTP 400 |
 | Sem segredos | E-mails, tokens, API keys e senhas **não** entram em payloads |
 | Sessão anônima | `session_id` = aba do navegador (PATCH 1.1); distinto de `user_id` |
+| Conversa MIA | `conversation_id` = thread de chat (PATCH 3.2); distinto de `session_id` |
 | Metadata flexível | `metadata` é JSONB; chaves documentadas aqui refletem uso real, não schema rígido no banco |
 
 ---
@@ -80,7 +81,7 @@ Detalhamento: [EVENT_LIFECYCLE.md](./EVENT_LIFECYCLE.md).
 
 | Papel | Responsabilidade |
 |-------|------------------|
-| **Frontend** (`components/MIAChat.jsx`, `lib/analytics.js`) | Gerar `session_id`; disparar 6 eventos públicos; nunca escrever no Supabase diretamente |
+| **Frontend** (`components/MIAChat.jsx`, `lib/analytics.js`) | Gerar `session_id`, `visitor_id`, `conversation_id`; disparar 6 eventos públicos; nunca escrever no Supabase diretamente |
 | **API pública** (`pages/api/analytics/track/index.js`) | Validar allowlist e limites; normalizar campos; INSERT via service role |
 | **Server-side** (`lib/miaPriceAlertEmailAnalytics.js`, callers) | Montar payload; sanitizar metadata; INSERT direto (sem allowlist) |
 | **Banco** (`analytics_events`) | Persistir linha; gerar `id` e `created_at` |
@@ -149,6 +150,7 @@ Todo evento possui:
 - **Allowlist:** `lib/miaAnalyticsAllowlist.js` → `ALLOWED_ANALYTICS_EVENTS`
 - **Limites:** string 512 chars (padrão), `query_text` 2000, `offer_url` 2048, `metadata` JSON ≤ 4000 chars
 - **`user_id`:** persistido somente se UUID v4 válido; caso contrário `null`
+- **`visitor_id` / `conversation_id`:** mesmo padrão — UUID válido persistido; inválido → `null`; ausente permitido
 
 ### 6.2 Server-side — INSERT direto
 
@@ -173,8 +175,8 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | `useEffect` no mount de `MIAChat`; no máximo 1× por aba |
 | **Quem dispara** | `trackMiaSessionStarted()` em `lib/analytics.js` |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `visitor_id`, `session_id`; `metadata.page`, `metadata.user_agent`, `metadata.referrer` |
-| **Exemplo** | `{ "event_name": "session_started", "visitor_id": "f47ac10b-…", "session_id": "mia-sess-…", "metadata": { "page": "/app-mia", "user_agent": "Mozilla/5.0 …", "referrer": null } }` |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` **NULL**; `metadata.page`, `metadata.user_agent`, `metadata.referrer` |
+| **Exemplo** | `{ "event_name": "session_started", "visitor_id": "f47ac10b-…", "session_id": "mia-sess-…", "conversation_id": null, "metadata": { "page": "/app-mia", "user_agent": "Mozilla/5.0 …", "referrer": null } }` |
 
 ---
 
@@ -187,8 +189,8 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | Antes de `POST /api/mia-chat` — input manual **ou** sugestão clicável (PATCH 1.2) |
 | **Quem dispara** | `trackMiaQuestionSent()` — chamado em `enviar()` e no listener `mia-suggestion` |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `visitor_id`, `session_id`, `query_text`, `category` (`detectAnalyticsCategory`), `user_id` (se autenticado), `metadata.has_image` |
-| **Exemplo** | `{ "event_name": "mia_question_sent", "query_text": "Qual celular até 1500?", "category": "smartphones", "user_id": null, "metadata": { "has_image": false } }` |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id`, `query_text`, `category` (`detectAnalyticsCategory`), `user_id` (se autenticado), `metadata.has_image` |
+| **Exemplo** | `{ "event_name": "mia_question_sent", "visitor_id": "f47ac10b-…", "session_id": "mia-sess-…", "conversation_id": "a1b2c3d4-…", "query_text": "Qual celular até 1500?", "category": "smartphones", "user_id": null, "metadata": { "has_image": false } }` |
 
 ---
 
@@ -201,7 +203,7 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | Após resposta da MIA quando existe `cardProduct` derivado da resposta |
 | **Quem dispara** | `trackMiaEvent("mia_recommendation_shown", …)` em `MIAChat.jsx` |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `query_text`, `category`, `product_name`, `product_brand`, `product_id`, `recommendation_name`, `user_id`, `metadata.has_offer_card`, `metadata.products_count` |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id`, `query_text`, `category`, `product_name`, `product_brand`, `product_id`, `recommendation_name`, `user_id`, `metadata.has_offer_card`, `metadata.products_count` |
 | **Exemplo** | `{ "event_name": "mia_recommendation_shown", "product_name": "Galaxy A15", "recommendation_name": "Galaxy A15", "metadata": { "has_offer_card": true, "products_count": 3 } }` |
 
 ---
@@ -215,7 +217,7 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | Após favorito persistido com sucesso |
 | **Quem dispara** | `trackMiaEvent("favorite_created", …)` em `MIAChat.jsx` |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `category`, `product_*`, `offer_store`, `offer_price`, `offer_url`, `user_id`, `metadata.action_source: "offer_card"` |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` (se conversa ativa), `category`, `product_*`, `offer_*`, `user_id`, `metadata.action_source: "offer_card"` |
 | **Exemplo** | `{ "event_name": "favorite_created", "product_name": "PS5 Slim", "offer_store": "Amazon", "metadata": { "action_source": "offer_card" } }` |
 
 ---
@@ -229,7 +231,7 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | Após alerta criado com sucesso |
 | **Quem dispara** | `trackMiaEvent("price_alert_created", …)` em `MIAChat.jsx` |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `category`, `product_*`, `offer_*`, `user_id`, `metadata.action_source` (`"offer_card"` ou `"alert_form"`), `metadata.target_price`, `metadata.current_price` |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` (se conversa ativa), `category`, `product_*`, `offer_*`, `user_id`, `metadata.action_source` (`"offer_card"` ou `"alert_form"`), `metadata.target_price`, `metadata.current_price` |
 | **Exemplo** | `{ "event_name": "price_alert_created", "metadata": { "action_source": "alert_form", "target_price": 999, "current_price": 1299 } }` |
 
 ---
@@ -243,7 +245,7 @@ Total: **16** `event_name` distintos em produção hoje.
 | **Quando dispara** | Clique no link "Ver oferta" do card |
 | **Quem dispara** | `trackMiaEvent("offer_click", …)` no `onClick` do anchor |
 | **Persistência** | API → `analytics_events` |
-| **Campos típicos** | `category`, `product_*`, `offer_*`, `metadata.button_text: "Ver oferta"` — **não envia `user_id` hoje** |
+| **Campos típicos** | `visitor_id`, `session_id`, `conversation_id` (se conversa ativa), `category`, `product_*`, `offer_*`, `metadata.button_text: "Ver oferta"` — **não envia `user_id` hoje** |
 | **Exemplo** | `{ "event_name": "offer_click", "offer_url": "https://…", "metadata": { "button_text": "Ver oferta" } }` |
 
 ---
@@ -252,7 +254,7 @@ Total: **16** `event_name` distintos em produção hoje.
 
 **Categoria:** `price_alert_email`  
 **Writer:** `emitPriceAlertEmailAnalytics()` via `lib/miaPriceAlertSendGate.js` e callers  
-**Persistência:** INSERT direto — `session_id` geralmente `null`; `user_id` do alerta se UUID válido
+**Persistência:** INSERT direto — `session_id` e `conversation_id` geralmente `null`; `user_id` do alerta se UUID válido
 
 | event_name | Objetivo | Quando dispara |
 |------------|----------|----------------|
@@ -288,7 +290,7 @@ Total: **16** `event_name` distintos em produção hoje.
 
 **Categoria:** `price_alert_email_test`  
 **Writer:** `emitPriceAlertEmailTestAnalytics()` — endpoints/admin de teste  
-**Persistência:** INSERT direto — `session_id` e `user_id` **null**
+**Persistência:** INSERT direto — `session_id`, `conversation_id` e `user_id` **null**
 
 | event_name | Objetivo | Quando dispara |
 |------------|----------|----------------|
@@ -304,7 +306,7 @@ Total: **16** `event_name` distintos em produção hoje.
 
 **Categoria:** `price_alert_e2e_test`  
 **Writer:** `emitPriceAlertEmailE2EAnalytics()` — `lib/miaPriceAlertE2EValidation.js`  
-**Persistência:** INSERT direto — `session_id` e `user_id` **null**
+**Persistência:** INSERT direto — `session_id`, `conversation_id` e `user_id` **null**
 
 | event_name | Objetivo | Quando dispara |
 |------------|----------|----------------|
@@ -313,6 +315,16 @@ Total: **16** `event_name` distintos em produção hoje.
 | `price_drop_email_e2e_skipped` | E2E não executado | Pré-condição não atendida |
 
 **Metadata marcadores:** `controlled_test: true`, `not_market_real: true`, `flow: "price_alert_e2e"`, `template_rendered`, etc.
+
+### 7.5 Classificação de `conversation_id` (PATCH 3.2)
+
+| Categoria | Eventos |
+|-----------|---------|
+| **NULL por semântica** | `session_started`; todos os `price_drop_email_*` / `_test_*` / `_e2e_*` |
+| **Obrigatório no fluxo chat** | `mia_question_sent`; `mia_recommendation_shown` (quando emitido após pergunta) |
+| **Opcional conforme origem** | `offer_click`, `favorite_created`, `price_alert_created` — presente se conversa ativa em `localStorage` |
+
+Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
 
 ---
 
@@ -327,11 +339,11 @@ Total: **16** `event_name` distintos em produção hoje.
 | API track | `pages/api/analytics/track/index.js` |
 | Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` |
 | Send gate (produção) | `lib/miaPriceAlertSendGate.js` |
-| Analytics Storage Schema | `supabase/migrations/20260719153000_*` |
+| Analytics Storage Schema | `supabase/migrations/20260719153000_*` + `53002_*` + `53003_*` |
 | Dashboards | [DASHBOARDS.md](../DASHBOARDS.md) |
 
-Documentação relacionada: [ANALYTICS_SCHEMA.md](../ANALYTICS_SCHEMA.md) · [EVENT_FIELD_SPECIFICATION.md](./EVENT_FIELD_SPECIFICATION.md) · [EVENT_LIFECYCLE.md](./EVENT_LIFECYCLE.md) · [README.md](../README.md) · [ANALYTICS_CHANGELOG.md](../ANALYTICS_CHANGELOG.md)
+Documentação relacionada: [ANALYTICS_SCHEMA.md](../ANALYTICS_SCHEMA.md) · [CONVERSATION_ID.md](../CONVERSATION_ID.md) · [EVENT_FIELD_SPECIFICATION.md](./EVENT_FIELD_SPECIFICATION.md) · [EVENT_LIFECYCLE.md](./EVENT_LIFECYCLE.md) · [README.md](../README.md) · [ANALYTICS_CHANGELOG.md](../ANALYTICS_CHANGELOG.md)
 
 ---
 
-*Event Contract v1 — consolidado PATCH 2.4*
+*Event Contract v1 — PATCH 2.4 + PATCH 3.2 (`conversation_id`)*

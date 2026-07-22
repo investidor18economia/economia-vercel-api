@@ -35,6 +35,7 @@ async function handler(req, res) {
         event_name: row.event_name,
         visitor_id: isAnalyticsUuid(row.visitor_id) ? row.visitor_id : null,
         session_id: row.session_id || null,
+        conversation_id: isAnalyticsUuid(row.conversation_id) ? row.conversation_id : null,
         user_id: isAnalyticsUuid(row.user_id) ? row.user_id : null,
         category: row.category || null,
         product_name: row.product_name || null,

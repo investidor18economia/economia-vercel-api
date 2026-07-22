@@ -1,12 +1,13 @@
 # Analytics Data Dictionary
 ## Dicionário oficial — `public.analytics_events`
 
-**Versão:** Analytics Storage Schema v1 + PATCH 3.1 (`visitor_id`)  
+**Versão:** Analytics Storage Schema v1 + PATCH 3.1 (`visitor_id`) + PATCH 3.2 (`conversation_id`)  
 **Migration:** `supabase/migrations/20260719153000_analytics_events_storage_schema_v1.sql`  
 **Migration identity:** `supabase/migrations/20260721153002_analytics_events_visitor_id.sql`  
+**Migration conversation:** `supabase/migrations/20260721153003_analytics_events_conversation_id.sql`  
 **Documento principal:** [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md)
 
-Este dicionário descreve as **16 colunas** oficiais de `analytics_events`. Campos ainda não implementados (`conversation_id`, etc.) permanecem fora deste dicionário.
+Este dicionário descreve as **17 colunas** oficiais de `analytics_events`. Campos ainda não implementados (`turn_id`, etc.) permanecem fora deste dicionário.
 
 ---
 
@@ -23,7 +24,7 @@ Este dicionário descreve as **16 colunas** oficiais de `analytics_events`. Camp
 | Métrica | Valor |
 |---------|-------|
 | Tabela | `public.analytics_events` |
-| Colunas | 16 |
+| Colunas | 17 |
 | Colunas NOT NULL | `id`, `event_name`, `created_at` |
 | Colunas geradas pelo banco | `id`, `created_at` (default) |
 
@@ -81,6 +82,25 @@ Este dicionário descreve as **16 colunas** oficiais de `analytics_events`. Camp
 | **Quando nula** | Eventos server-side (ex.: e-mail de alerta), testes controlados |
 
 Ver [SESSION_ID.md](./SESSION_ID.md).
+
+---
+
+### `conversation_id`
+
+| Atributo | Valor |
+|----------|-------|
+| **Tipo** | `uuid` |
+| **Obrigatória** | Não |
+| **Nullable** | Sim |
+| **Default** | — |
+| **Descrição** | Identificador anônimo de um fluxo conversacional com a MIA (PATCH 3.2). Não é sessão, não é visitante, não é usuário autenticado. |
+| **Exemplo** | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
+| **Origem** | `localStorage.mia_conversation_id` via `lib/analytics.js` → API (compartilhado com `/api/mia-chat`) |
+| **Quem popula** | Frontend (eventos conversacionais); server-side somente se contexto legítimo |
+| **Quando preenchida** | Após primeira pergunta; eventos derivados da conversa ativa |
+| **Quando nula** | `session_started`; dados históricos; eventos server-side; antes da primeira pergunta |
+
+Ver [CONVERSATION_ID.md](./CONVERSATION_ID.md).
 
 ---
 

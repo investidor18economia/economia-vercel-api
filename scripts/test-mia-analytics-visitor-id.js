@@ -7,6 +7,7 @@ import {
   MIA_ANALYTICS_VISITOR_ID_KEY,
   MIA_ANALYTICS_SESSION_ID_KEY,
   trackMiaEvent,
+  trackMiaQuestionSent,
 } from "../lib/analytics.js";
 import {
   buildAnalyticsTrackPayload,
@@ -198,15 +199,16 @@ console.log("\nPATCH 3.1 — visitor_id tests\n");
     return { ok: true };
   };
 
-  await trackMiaEvent("mia_question_sent", { query_text: "test", metadata: {} });
+  await trackMiaQuestionSent("test");
   assert("Test 10 — one event captured", captured.length === 1);
   assert("Test 10 — payload includes visitor_id", isAnalyticsUuid(captured[0].visitor_id));
   assert("Test 10 — payload includes session_id", typeof captured[0].session_id === "string");
   assert(
-    "Test 10 — canonical order starts event_name, visitor_id, session_id",
+    "Test 10 — canonical order starts event_name, visitor_id, session_id, conversation_id",
     Object.keys(captured[0])[0] === "event_name" &&
       Object.keys(captured[0])[1] === "visitor_id" &&
-      Object.keys(captured[0])[2] === "session_id"
+      Object.keys(captured[0])[2] === "session_id" &&
+      Object.keys(captured[0])[3] === "conversation_id"
   );
 
   delete globalThis.fetch;
