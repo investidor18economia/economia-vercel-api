@@ -925,6 +925,22 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 56. PATCH 10.4 — Anti-Regret Foundation Analytics (2026-07-23)
+
+**Evento:** `mia_anti_regret_foundation` · `10.4.0` · categoria `anti_regret`
+
+**Arquitetura:** derivado de offer_set + decision + price intelligence + savings; hook pós-decisão opcional via acceptance/rejection.
+
+**Score:** `anti_regret_score` 0–100 observacional (interno) · confiança HIGH/MEDIUM/LOW/UNKNOWN
+
+**SQL:** Q1–Q15 em `docs/analytics/sql/patch-104-query*.sql`
+
+**Testes locais:** `test-mia-analytics-patch-104-anti-regret-foundation.js` (68/68)
+
+**Veredito:** 🟡 **PATCH 10.4 EM VALIDAÇÃO** (aguardando deploy + smoke produção)
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

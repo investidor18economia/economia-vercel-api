@@ -637,6 +637,25 @@ Detalhamento: [SAVINGS_ESTIMATION_AND_CONFIDENCE_ANALYTICS.md](../SAVINGS_ESTIMA
 
 Detalhamento: [PRICE_ALERT_LIFECYCLE_ANALYTICS.md](../PRICE_ALERT_LIFECYCLE_ANALYTICS.md)
 
+### 7.22 Evento server-side — Anti-Regret Foundation (`mia_anti_regret_foundation`) — PATCH 10.4
+
+**Categoria:** `anti_regret` (produção) · `anti_regret_test` (smoke)  
+**Writers:** `instrumentAntiRegretFoundationFromOfferSet` · `scheduleAntiRegretFoundationFromPostDecisionSignal`  
+**Versionamento:** `metadata.event_version = "10.4.0"`  
+**Correlação:** `metadata.request_id` · `metadata.decision_request_id` · `session_id` · `conversation_id`
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_anti_regret_foundation` | Fundação observacional anti-regret por decisão | Após offer_set delivery · pós-decisão enriquecido (async) |
+
+**Campos-chave:** `anti_regret_score` (0–100, interno) · `anti_regret_confidence` · `observed_pattern` · `signal_count` · `conflict_detected` · `price_quality` · `savings_type` · `alert_stage`
+
+**Nunca emitir:** `regret_confirmed: true` · `satisfaction_assumed: true` · `purchase_confirmed: true` · PII · URLs · nomes de produto
+
+**Deduplicação:** `request_id + decision_request_id + event_name + event_version`
+
+Detalhamento: [ANTI_REGRET_FOUNDATION_ANALYTICS.md](../ANTI_REGRET_FOUNDATION_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
