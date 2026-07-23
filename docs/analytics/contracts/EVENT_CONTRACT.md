@@ -699,6 +699,16 @@ Detalhamento: [SAVINGS_OUTCOMES_USER_VALUE_ANALYTICS.md](../SAVINGS_OUTCOMES_USE
 
 Detalhamento: [EXECUTIVE_METRICS_API.md](../EXECUTIVE_METRICS_API.md)
 
+### 7.26 PATCH 11.4 — Executive AI Insights (`GET /api/founder/executive-insights`)
+
+**Tipo:** read-only insights API · founder gate · **não** emite eventos  
+**Versionamento:** `insights_version = "11.4.0"`  
+**Fonte:** comparação determinística de `GET /api/executive-metrics` (período atual vs anterior)
+
+**Princípio:** fatos calculados pela Teilor; LLM opcional apenas verbaliza estrutura determinística.
+
+Detalhamento: [EXECUTIVE_AI_INSIGHTS.md](../EXECUTIVE_AI_INSIGHTS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
