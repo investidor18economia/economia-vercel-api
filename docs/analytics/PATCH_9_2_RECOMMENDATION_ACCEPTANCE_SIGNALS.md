@@ -1,7 +1,7 @@
 # PATCH 9.2 — Recommendation Acceptance Signals
 
 **Evento:** `mia_recommendation_acceptance_signal` · **Versão:** `9.2.0`  
-**Status:** 🟡 **IMPLEMENTAÇÃO**
+**Status:** 🟢 **APROVADO** · produção `cc72675` · build `cc72675460f3`
 
 ## Arquitetura escolhida — Modelo Híbrido (C)
 

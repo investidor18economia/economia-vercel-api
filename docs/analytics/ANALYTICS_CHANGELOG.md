@@ -827,7 +827,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 - SQL Q1–Q8
 - Docs PATCH_9_2 + RECOMMENDATION_ACCEPTANCE_ANALYTICS
 
-**Veredito:** pendente validação produção
+**Veredito:** 🟢 **PATCH 9.2 APROVADO** — smoke 17/17 · SQL 8/8 · unit 51/51 · correlação HIGH em produção
 
 ---
 

@@ -1,0 +1,31 @@
+{
+  "patch": "9.2",
+  "health": {
+    "ok": true,
+    "build": "cc72675460f3"
+  },
+  "decision_request_id": "fd2abe87-58f5-4d7d-a95b-6163aae43fa3",
+  "events": [
+    {
+      "signal_type": "RECOMMENDATION_RENDERED",
+      "signal_strength": "WEAK",
+      "signal_target": "OFFER_ONLY",
+      "correlation_method": "REQUEST_ID",
+      "correlation_confidence": "HIGH",
+      "decision_request_id": "fd2abe87-58f5-4d7d-a95b-6163aae43fa3"
+    },
+    {
+      "signal_type": "ALTERNATIVE_OFFER_CLICKED",
+      "signal_strength": "WEAK",
+      "signal_target": "ALTERNATIVE",
+      "correlation_method": "REQUEST_ID",
+      "correlation_confidence": "HIGH",
+      "decision_request_id": "fd2abe87-58f5-4d7d-a95b-6163aae43fa3"
+    }
+  ],
+  "checks": {
+    "total": 17,
+    "passed": 17,
+    "failed": 0
+  }
+}

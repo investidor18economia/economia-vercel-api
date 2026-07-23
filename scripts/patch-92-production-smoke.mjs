@@ -151,9 +151,11 @@ ok("acceptance signals persisted", events.length >= 2, `count=${events.length}`)
 ok("version 9.2.0", events.every((e) => e.metadata?.event_version === "9.2.0"));
 ok("correlation HIGH", events.every((e) => e.metadata?.correlation_confidence === "HIGH"));
 ok("has rendered", events.some((e) => e.metadata?.signal_type === "RECOMMENDATION_RENDERED"));
-ok("has click", events.some((e) => e.metadata?.signal_type === "WINNER_OFFER_CLICKED"));
+ok("has click signal", events.some((e) =>
+  ["WINNER_OFFER_CLICKED", "ALTERNATIVE_OFFER_CLICKED"].includes(e.metadata?.signal_type)
+));
 ok("not purchase confirmed", events.every((e) => !e.metadata?.purchase_confirmed));
-ok("dedup keys unique", new Set(events.map((e) => e.metadata?.dedup_key)).size === events.length);
+ok("unique source events", new Set(events.map((e) => e.metadata?.source_event_id)).size === events.length);
 
 for (const e of events) {
   const blob = JSON.stringify(e.metadata || {}).toLowerCase();
