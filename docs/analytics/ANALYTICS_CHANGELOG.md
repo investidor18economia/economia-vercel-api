@@ -1003,7 +1003,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Documentação:** `PUBLIC_METRICS_PAGE.md`
 
-**Veredito:** 🟢 **PATCH 11.2 APROVADO**
+**Produção:** build `366d379ba795` · smoke 20/20 · unit 35/35 · latência página ~30ms
 
 ---
 

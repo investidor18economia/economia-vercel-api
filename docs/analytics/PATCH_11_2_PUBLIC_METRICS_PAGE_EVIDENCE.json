@@ -5,7 +5,7 @@
   "validated_at": "2026-07-23T20:15:00-03:00",
   "commits": {
     "implementation": "366d379",
-    "evidence": "pending"
+    "evidence": "f4d904f"
   },
   "production": {
     "base_url": "https://economia-ai.vercel.app",
