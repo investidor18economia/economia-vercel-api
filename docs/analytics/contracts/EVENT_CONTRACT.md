@@ -445,6 +445,17 @@ Detalhamento: [RELIABILITY_ERROR_ANALYTICS.md](../RELIABILITY_ERROR_ANALYTICS.md
 
 Detalhamento: [RELIABILITY_LATENCY_ANALYTICS.md](../RELIABILITY_LATENCY_ANALYTICS.md)
 
+### 7.10 Health Analytics — PATCH 7.4 (SQL-derived, sem evento runtime)
+
+**Tipo:** snapshot consolidado via SQL · **não** persiste `mia_health_snapshot`  
+**Versão lógica:** `7.4.0`  
+**Fontes:** `mia_response_outcome` (7.1) · `mia_error_event` (7.2) · `mia_latency_event` (7.3)  
+**Correlação:** `request_id`
+
+Health mede estabilidade operacional (availability, reliability, stability, performance). Estados documentais: `HEALTHY` · `DEGRADED` · `UNSTABLE` · `CRITICAL` · `INSUFFICIENT_DATA`.
+
+Detalhamento: [RELIABILITY_HEALTH_ANALYTICS.md](../RELIABILITY_HEALTH_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |

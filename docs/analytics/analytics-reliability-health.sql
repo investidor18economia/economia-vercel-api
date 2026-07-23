@@ -1,0 +1,4 @@
+-- PATCH 7.4 — Health Metrics Analytics (read-only · SQL consolidated)
+-- Derives health from PATCH 7.1 (mia_response_outcome), 7.2 (mia_error_event), 7.3 (mia_latency_event)
+-- No runtime event INSERT — health is SQL-derived snapshot (see RELIABILITY_HEALTH_ANALYTICS.md)
+-- Splits: docs/analytics/sql/patch-74-query1..4.sql

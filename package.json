@@ -69,6 +69,8 @@
     "test:mia:analytics:patch-73:latency-analytics": "node scripts/test-mia-analytics-patch-73-latency-analytics.js",
     "test:mia:analytics:patch-73:prod-validation": "node scripts/patch-73-production-validation.mjs",
     "test:mia:analytics:patch-73:prod-smoke": "node scripts/patch-73-production-smoke.mjs",
+    "test:mia:analytics:patch-74:health-analytics": "node scripts/test-mia-analytics-patch-74-health-analytics.js",
+    "test:mia:analytics:patch-74:prod-validation": "node scripts/patch-74-production-validation.mjs",
     "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",

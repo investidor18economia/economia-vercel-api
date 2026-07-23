@@ -649,6 +649,26 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 40. PATCH 7.4 — Health Metrics Analytics (2026-07-23)
+
+**Objetivo:** consolidar saúde operacional a partir de PATCH 7.1 + 7.2 + 7.3.
+
+**Entregas:**
+
+- [RELIABILITY_HEALTH_ANALYTICS.md](./RELIABILITY_HEALTH_ANALYTICS.md)
+- [analytics-reliability-health.sql](./analytics-reliability-health.sql)
+- Offline: `lib/miaHealthStatusCatalog.js` · `lib/miaHealthStatusClassifier.js` · `lib/miaHealthSnapshotBuilder.js`
+- Queries split: `sql/patch-74-query1-overall-health.sql` … `query4`
+- [PATCH_7.4_HEALTH_ANALYTICS.md](./PATCH_7.4_HEALTH_ANALYTICS.md)
+
+**Decisão:** **sem evento runtime** — Health SQL-derived (`7.4.0` snapshot lógico).
+
+**Testes:** `npm run test:mia:analytics:patch-74:health-analytics` · `npm run test:mia:analytics:patch-74:prod-validation`
+
+**Status:** 🟡 EM ANDAMENTO — validação produção pendente.
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |
