@@ -104,6 +104,18 @@ import {
   scheduleExplicitErrorAnalytics,
   scheduleRuntimeRecoveredErrorAnalytics,
 } from "../../lib/miaErrorAnalytics.js";
+import {
+  buildLatencyRecommendationMetadata,
+  buildLatencyAnalyticsPayload,
+  scheduleLatencyAnalytics,
+} from "../../lib/miaLatencyAnalytics.js";
+import {
+  createLatencyTracker,
+  markLatencyStage,
+  recordDataLayerStageLatency,
+  recordProviderLatencyAttempt,
+} from "../../lib/miaLatencyTracker.js";
+import { MIA_LATENCY_STAGES } from "../../lib/miaLatencyStageCatalog.js";
 import { isAnalyticsUuid } from "../../lib/miaAnalyticsPayload.js";
 import {
   buildFallbackCandidateIsolationDiagnostics,
@@ -1883,7 +1895,13 @@ console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
 
     console.log("🚀 EXECUTANDO PROVIDER:", provider.name);
 
+const _providerStartedAt = Date.now();
 const result = await provider.fn(query, limit);
+recordProviderLatencyAttempt(getSharedRequestState()?.latencyAnalytics, {
+  provider: provider.name,
+  durationMs: Date.now() - _providerStartedAt,
+  status: result?.ok ? "ok" : "failed",
+});
 
 console.log("✅ PROVIDER FINALIZADO:", provider.name);
     console.log("🧪 PROVIDER RESULT:", result);
@@ -26424,6 +26442,47 @@ function instrumentErrorAnalyticsForDelivery(body, responsePath, options = {}) {
   }
 }
 
+function markRequestLatencyStage(stage, options = {}) {
+  const sharedState = getSharedRequestState();
+  if (sharedState?.latencyAnalytics) {
+    markLatencyStage(sharedState.latencyAnalytics, stage, options);
+  }
+}
+
+function instrumentLatencyAnalyticsForDelivery(body, responsePath, options = {}) {
+  const input = collectResponseOutcomeAnalyticsInput(body, responsePath, options);
+  const outcomeSummary = options.responseOutcomeSummary || null;
+  const outcome = outcomeSummary?.outcome ?? options.responseOutcome ?? null;
+  const httpStatus = options.httpStatus ?? 200;
+  const built = buildLatencyAnalyticsPayload({
+    requestId: input.requestId,
+    analyticsContext: input.analyticsContext,
+    query: input.query,
+    intent: input.intent,
+    responsePath,
+    httpStatus,
+    endpoint: input.endpoint,
+    body,
+    responseOutcome: outcome,
+    errorPresent:
+      httpStatus >= 400 ||
+      outcome === "ERROR" ||
+      String(responsePath || "").toLowerCase().endsWith("_error"),
+    provider:
+      getSharedRequestState()?.latencyAnalytics?.providerAttempts?.slice(-1)?.[0]?.provider ??
+      null,
+    latencyTracker: getSharedRequestState()?.latencyAnalytics ?? null,
+  });
+  scheduleLatencyAnalytics(
+    supabase,
+    {
+      requestId: input.requestId,
+    },
+    built
+  );
+  return built.summary;
+}
+
 function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace, extraTrace = {}) {
   const _blocked = preventDoubleHttpResponse(runtimeEnforcementRef, res);
   if (_blocked.blocked) return;
@@ -26446,9 +26505,14 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
     httpStatus: 200,
     responseOutcomeSummary: _responseOutcomeSummary,
   });
+  const _latencySummary = instrumentLatencyAnalyticsForDelivery(body, responsePath, {
+    httpStatus: 200,
+    responseOutcomeSummary: _responseOutcomeSummary,
+  });
   const _responseBody = {
     ...(body || {}),
     response_outcome_analytics: _responseOutcomeSummary,
+    latency_analytics: buildLatencyRecommendationMetadata(_latencySummary),
   };
 
   res.status(200).json(
@@ -27651,6 +27715,9 @@ async function miaChatCoreHandler(req, res) {
     },
   };
   sharedState.errorAnalytics = { emittedKeys: {} };
+  sharedState.latencyAnalytics = createLatencyTracker({
+    requestStartedAt: sharedState.responseAnalytics.pipelineStartedAt,
+  });
   const pipelineTracer = createMiaChatPipelineTracer(query);
   const commercialRequestDedupContext = createCommercialRequestDedupContext({
     requestId: sharedState.requestId || observability?.requestId || `chat-${Date.now()}`,
@@ -27663,6 +27730,7 @@ async function miaChatCoreHandler(req, res) {
   const conversationMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
 
   if (!query && !hasImage) {
+    markRequestLatencyStage(MIA_LATENCY_STAGES.HTTP_VALIDATION);
     const _emptyQueryBody = {
       reply: "Me manda o que você quer comprar ou envia uma imagem do produto que eu te ajudo.",
       prices: [],
@@ -27677,12 +27745,18 @@ async function miaChatCoreHandler(req, res) {
       responseOutcomeSummary: _emptyQuerySummary,
       responseDelivered: true,
     });
+    instrumentLatencyAnalyticsForDelivery(_emptyQueryBody, "empty_query_rejected", {
+      httpStatus: 400,
+      responseOutcomeSummary: _emptyQuerySummary,
+    });
     return void res.status(400).json({
       ..._emptyQueryBody,
       response_outcome_analytics: _emptyQuerySummary,
     });
   }
- 
+
+  markRequestLatencyStage(MIA_LATENCY_STAGES.HTTP_VALIDATION);
+
   if (hasImage) {
     try {
       const identified = await identifyProductFromImage(imageBase64, query);
@@ -28266,6 +28340,11 @@ if (lockedComparisonContextFromSession) {
     }
   } catch (_intentAuthorityErrEarly) {
     // Authority layer must never break the handler
+  }
+
+  markRequestLatencyStage(MIA_LATENCY_STAGES.INTENT_CLASSIFICATION);
+  if (routingDecision) {
+    markRequestLatencyStage(MIA_LATENCY_STAGES.ROUTER);
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -34068,6 +34147,10 @@ const categoryFromContext =
    winnerSource = null,
    confidence = null,
  }) {
+   recordDataLayerStageLatency(
+     sharedState?.latencyAnalytics,
+     dataLayerUsageSearchMetrics.pipelineStartedAt
+   );
    return emitDataLayerUsageAnalytics(supabase, {
      requestId: sharedState?.requestId || observability?.requestId || null,
      analyticsContext: {
@@ -37525,6 +37608,10 @@ return void respondWithContract(
       reasonCode: "chat_internal_error",
       responseOutcomeSummary: _errorSummary,
       responseDelivered: true,
+    });
+    instrumentLatencyAnalyticsForDelivery(_errorBody, "chat_internal_error", {
+      httpStatus: 500,
+      responseOutcomeSummary: _errorSummary,
     });
     return void res.status(500).json({
       ..._errorBody,

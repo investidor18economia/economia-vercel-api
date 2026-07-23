@@ -616,9 +616,32 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 - [PATCH_7.2_ERROR_ANALYTICS.md](./PATCH_7.2_ERROR_ANALYTICS.md)
 - Event Contract §7.8 — `mia_error_event` (`event_version: 7.2.0`)
 
-**Testes:** `npm run test:mia:analytics:patch-72:error-analytics` · `npm run test:mia:analytics:patch-72:prod-validation`
+**Testes:** `npm run test:mia:analytics:patch-72:error-analytics` · `npm run test:mia:analytics:patch-72:prod-validation` · `npm run test:mia:analytics:patch-72:prod-smoke`
 
 **Princípio:** observação only · deduplicação por request/layer/reason · delta vs 7.1 · fire-and-forget.
+
+**Deploy (2026-07-23):** commit `c541010` em `master` → Vercel produção (`build c541010c8ef4`). Validação: **2 eventos reais** `mia_error_event` (`chat_empty_query` · VALIDATION_ERROR/HTTP · recovered) · dashboards Q1–Q4 OK · correlação 7.1 por `request_id` · regressões 7.1 (**67/67**) e 6.4 (**71/71**) intactas. Evidências: [PATCH_7.2_PRODUCTION_EVIDENCE.json](./PATCH_7.2_PRODUCTION_EVIDENCE.json).
+
+**Veredito:** 🟢 **PATCH 7.2 APROVADO**
+
+---
+
+## 39. PATCH 7.3 — Latency Reliability Analytics (2026-07-23)
+
+**Objetivo:** medir latência E2E servidor, breakdown por etapa, percentis e correlação com 6.4/7.1/7.2.
+
+**Entregas:**
+
+- [RELIABILITY_LATENCY_ANALYTICS.md](./RELIABILITY_LATENCY_ANALYTICS.md)
+- [analytics-reliability-latency.sql](./analytics-reliability-latency.sql)
+- Runtime: `lib/miaLatencyStageCatalog.js` · `lib/miaLatencyTracker.js` · `lib/miaLatencyAnalytics.js`
+- Queries split: `sql/patch-73-query1-latency-overview.sql` … `query4`
+- [PATCH_7.3_LATENCY_ANALYTICS.md](./PATCH_7.3_LATENCY_ANALYTICS.md)
+- Event Contract §7.9 — `mia_latency_event` (`event_version: 7.3.0`)
+
+**Testes:** `npm run test:mia:analytics:patch-73:latency-analytics` · `npm run test:mia:analytics:patch-73:prod-validation` · `npm run test:mia:analytics:patch-73:prod-smoke`
+
+**Princípio:** observação only · 1 evento/requisição · delta vs 6.4 `query_duration_ms` · fire-and-forget.
 
 **Status:** 🟡 EM ANDAMENTO — deploy e produção pendentes.
 

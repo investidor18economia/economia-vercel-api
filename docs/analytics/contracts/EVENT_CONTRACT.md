@@ -426,6 +426,25 @@ Detalhamento: [RELIABILITY_RESPONSE_ANALYTICS.md](../RELIABILITY_RESPONSE_ANALYT
 
 Detalhamento: [RELIABILITY_ERROR_ANALYTICS.md](../RELIABILITY_ERROR_ANALYTICS.md)
 
+### 7.9 Evento server-side — Latency reliability (`mia_latency_event`) — PATCH 7.3
+
+**Categoria:** `reliability_latency` (produção) · `reliability_latency_test` (smoke)  
+**Writer:** `emitLatencyAnalytics()` via `pages/api/chat-gpt4o.js`  
+**Versionamento:** `metadata.event_version = "7.3.0"`  
+**Correlação:** `metadata.request_id` ↔ PATCH 6.4 / 7.1 / 7.2
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_latency_event` | Latência E2E servidor + breakdown por etapa | Toda resposta HTTP instrumentada (200/400/500) |
+
+**Campos-chave:** `total_duration_ms` · `latency_band` · `slow_request` · `stages[]` · `response_outcome` · `error_present`
+
+**Delta 6.4:** `query_duration_ms` (6.4) ≠ `total_duration_ms` (7.3). Referência: `data_layer_query_duration_ms`.
+
+**Deduplicação:** `request_id + event_name + event_version` — máximo 1 evento total por requisição.
+
+Detalhamento: [RELIABILITY_LATENCY_ANALYTICS.md](../RELIABILITY_LATENCY_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
