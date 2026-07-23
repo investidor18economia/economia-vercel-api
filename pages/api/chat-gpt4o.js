@@ -21211,7 +21211,17 @@ const context = {
   // Transported as-is — no recalculation, no reordering, no score mutation.
   lastRankingSnapshot: Array.isArray(sessionContext?.lastRankingSnapshot)
     ? sessionContext.lastRankingSnapshot
-    : null
+    : null,
+
+  // PATCH 9.2 / 9.3 — preserve decision analytics correlation across turns.
+  lastRecommendationDecisionRequestId:
+    sessionContext?.lastRecommendationDecisionRequestId || null,
+  lastRecommendationDecisionAtMs:
+    sessionContext?.lastRecommendationDecisionAtMs ?? null,
+  lastRecommendationDecisionSource:
+    sessionContext?.lastRecommendationDecisionSource || null,
+  lastRecommendationDecisionWinnerFamily:
+    sessionContext?.lastRecommendationDecisionWinnerFamily || null,
 };
 
   for (let i = messages.length - 1; i >= 0; i--) {

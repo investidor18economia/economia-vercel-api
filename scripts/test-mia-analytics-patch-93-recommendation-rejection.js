@@ -230,7 +230,7 @@ const chat = readFileSync(CHAT_API, "utf8");
 assert("chat rejection import", chat.includes("miaRecommendationRejectionAnalytics"));
 assert("turn observe hook", chat.includes("observeRejectionSignalsFromTurnContext"));
 assert("decision transition hook", chat.includes("observeRejectionSignalFromDecisionTransition"));
-assert("fire-and-forget pattern", chat.includes("observeRejectionSignalFromDecisionTransition"));
+assert("session context preserves decision id", chat.includes("lastRecommendationDecisionRequestId"));
 
 console.log("\nSQL files");
 for (const file of SQL_FILES) {
