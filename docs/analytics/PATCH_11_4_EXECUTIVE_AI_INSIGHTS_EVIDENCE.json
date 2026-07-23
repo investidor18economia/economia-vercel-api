@@ -1,0 +1,60 @@
+{
+  "patch": "11.4",
+  "title": "Executive AI Insights",
+  "status": "APPROVED",
+  "validated_at": "2026-07-23T20:45:00-03:00",
+  "commits": {
+    "implementation": "b05e2b7",
+    "contract": "a13987c"
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "a13987cc63a9",
+    "endpoint": "GET /api/founder/executive-insights",
+    "health_ok": true
+  },
+  "architecture": {
+    "engine": "lib/miaExecutiveInsightsEngine.js",
+    "thresholds": "lib/miaExecutiveInsightsThresholds.js",
+    "compare": "lib/miaExecutiveInsightsCompare.js",
+    "llm": "lib/miaExecutiveInsightsLlm.js",
+    "api": "lib/miaExecutiveInsightsApi.js",
+    "endpoint": "pages/api/founder/executive-insights.js",
+    "cockpit_ui": "components/founder-cockpit/FounderExecutiveInsights.jsx",
+    "migration": "supabase/migrations/20260723230000_mia_executive_metrics_period_offset_v11_4.sql",
+    "principle": "Teilor calculates facts; LLM verbalizes only"
+  },
+  "period_comparison": {
+    "strategy": "current N days vs previous N days",
+    "backend_only": true,
+    "offset_days_param": "p_offset_days on executive metrics RPCs"
+  },
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-114-executive-ai-insights.js",
+    "passed": 37,
+    "failed": 0
+  },
+  "regression": {
+    "patch_111": 30,
+    "patch_113": 31
+  },
+  "production_smoke": {
+    "script": "scripts/patch-114-production-smoke.mjs",
+    "build": "a13987cc63a9",
+    "checks": { "total": 3, "passed": 3, "failed": 0 },
+    "notes": "401 unauthenticated validated; authed E2E requires MIA_ADMIN_API_KEY"
+  },
+  "llm": {
+    "optional": true,
+    "env": "MIA_EXECUTIVE_INSIGHTS_LLM_ENABLED",
+    "fallback": "deterministic summary always available"
+  },
+  "privacy": {
+    "founder_gate": true,
+    "no_pii_in_contract": true,
+    "cockpit_noindex": true
+  },
+  "documentation": ["docs/analytics/EXECUTIVE_AI_INSIGHTS.md"],
+  "next_patch_recommended": "11.5",
+  "verdict": "PATCH 11.4 APROVADO"
+}
