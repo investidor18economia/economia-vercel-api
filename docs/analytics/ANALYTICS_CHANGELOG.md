@@ -1035,6 +1035,8 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Veredito:** 🟢 **PATCH 11.4 APROVADO**
 
+**Complemento (2026-07-23):** `p_offset_days` completo para price_intelligence, savings, anti_regret, user_value — migration `20260723240000`
+
 ---
 
 ## 35. Referências

@@ -22,12 +22,26 @@
     "endpoint": "pages/api/founder/executive-insights.js",
     "cockpit_ui": "components/founder-cockpit/FounderExecutiveInsights.jsx",
     "migration": "supabase/migrations/20260723230000_mia_executive_metrics_period_offset_v11_4.sql",
+    "migration_complement": "supabase/migrations/20260723240000_mia_executive_metrics_period_offset_complement_v11_4.sql",
+    "migration_drop_overloads": "supabase/migrations/20260723240100_mia_executive_metrics_drop_legacy_rpc_overloads.sql",
     "principle": "Teilor calculates facts; LLM verbalizes only"
   },
   "period_comparison": {
     "strategy": "current N days vs previous N days",
     "backend_only": true,
-    "offset_days_param": "p_offset_days on executive metrics RPCs"
+    "offset_days_param": "p_offset_days on all 9 executive metrics RPCs",
+    "complement_applied": true,
+    "categories": [
+      "platform",
+      "conversation",
+      "recommendation",
+      "commerce",
+      "alerts",
+      "price_intelligence",
+      "savings",
+      "anti_regret",
+      "user_value"
+    ]
   },
   "unit_tests": {
     "script": "scripts/test-mia-analytics-patch-114-executive-ai-insights.js",

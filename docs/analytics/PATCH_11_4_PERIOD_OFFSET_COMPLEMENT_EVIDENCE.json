@@ -1,0 +1,32 @@
+{
+  "complement": "11.4-period-offset",
+  "title": "Executive AI Insights — period offset complement",
+  "status": "APPROVED",
+  "validated_at": "2026-07-23T21:00:00-03:00",
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "d015295957c6",
+    "supabase_migrations_applied": [
+      "20260723230000_mia_executive_metrics_period_offset_v11_4.sql",
+      "20260723240000_mia_executive_metrics_period_offset_complement_v11_4.sql",
+      "20260723240100_mia_executive_metrics_drop_legacy_rpc_overloads.sql"
+    ]
+  },
+  "categories_completed": [
+    "price_intelligence",
+    "savings",
+    "anti_regret",
+    "user_value"
+  ],
+  "all_categories_offset_support": true,
+  "tests": {
+    "unit_complement": { "script": "scripts/test-mia-analytics-patch-114-period-offset-complement.js", "passed": 39, "failed": 0 },
+    "prod_validation": { "script": "scripts/patch-114-complement-production-validation.mjs", "passed": 18, "failed": 0 },
+    "regression_111": 30
+  },
+  "fixes": [
+    "Removed same-window fallback in miaExecutiveMetricsApi.js when offset fails",
+    "Dropped legacy single-arg RPC overloads to prevent ambiguous function errors"
+  ],
+  "verdict": "PATCH 11.4 COMPLEMENT APROVADO"
+}

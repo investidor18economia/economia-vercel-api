@@ -40,7 +40,8 @@ GET /api/founder/executive-insights (auth: founder gate)
 - **Atual:** últimos N dias  
 - **Anterior:** N dias imediatamente anteriores (`offset_days = N`)  
 - Calculado no backend via `buildExecutiveMetricsResponse({ offsetDays })`  
-- Migration: `20260723230000_mia_executive_metrics_period_offset_v11_4.sql`
+- Migration: `20260723230000_mia_executive_metrics_period_offset_v11_4.sql` + complement `20260723240000_mia_executive_metrics_period_offset_complement_v11_4.sql`
+- **Todas as 9 categorias RPC** suportam `p_offset_days` (sem fallback por offset ausente)
 
 ---
 
@@ -103,6 +104,7 @@ Endpoint protegido por gate do fundador. Scan de PII em auditorias. Cockpit `noi
 
 ```bash
 npm run test:mia:analytics:patch-114:executive-ai-insights
+npm run test:mia:analytics:patch-114:period-offset-complement
 npm run test:mia:analytics:patch-114:prod-smoke
 ```
 
@@ -110,6 +112,5 @@ npm run test:mia:analytics:patch-114:prod-smoke
 
 ## Limitações
 
-- Comparação anterior requer RPCs com `p_offset_days` (migration 11.4)  
 - Sem histórico intra-janela além de dois períodos adjacentes  
 - LLM opcional — módulo funciona sem ele
