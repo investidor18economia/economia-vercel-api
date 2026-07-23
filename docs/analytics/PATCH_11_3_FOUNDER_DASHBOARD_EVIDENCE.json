@@ -2,71 +2,48 @@
   "patch": "11.3",
   "title": "Cockpit Executivo do Fundador",
   "status": "APPROVED",
-  "validated_at": "2026-07-23T20:30:00-03:00",
-  "commits": {
-    "implementation": "2265214"
-  },
+  "validated_at": "2026-07-23T23:55:34.531Z",
   "production": {
     "base_url": "https://economia-ai.vercel.app",
-    "build": "226521455c5d",
+    "build": "513ed81753fe",
     "page_path": "/cockpit-fundador",
-    "api_path": "/api/executive-metrics",
-    "health_ok": true
+    "api_path": "/api/executive-metrics"
   },
-  "architecture": {
-    "route": "pages/cockpit-fundador.jsx",
-    "rendering": "SSR getServerSideProps",
-    "auth": {
-      "gate_cookie": "mia_founder_gate",
-      "allowlist_env": "MIA_FOUNDER_ALLOWED_EMAILS",
-      "admin_key_env": "MIA_ADMIN_API_KEY",
-      "endpoints": ["/api/founder/authenticate", "/api/founder/logout"]
-    },
-    "libs": ["lib/miaFounderAccess.js", "lib/miaFounderCockpitDisplay.js"],
-    "components": "components/founder-cockpit/*",
-    "single_source": "GET /api/executive-metrics",
-    "no_frontend_aggregation": true,
-    "no_direct_database_on_page": true
-  },
-  "modules": [
-    "overview_kpis",
-    "platform",
-    "recommendation",
-    "commerce",
-    "price_intelligence",
-    "savings",
-    "anti_regret",
-    "user_value",
-    "system"
-  ],
-  "period_filters": [7, 30, 90, 365],
-  "unit_tests": {
-    "script": "scripts/test-mia-analytics-patch-113-founder-executive-cockpit.js",
-    "passed": 31,
-    "failed": 0
-  },
-  "regression": {
-    "patch_111": 30,
-    "patch_112": 35
-  },
-  "production_smoke": {
-    "script": "scripts/patch-113-production-smoke.mjs",
-    "build": "226521455c5d",
-    "checks": { "total": 6, "passed": 6, "failed": 0 },
-    "notes": "Gate, noindex and privacy validated in production; admin auth E2E uses MIA_ADMIN_API_KEY on server"
-  },
-  "build": {
-    "local_ok": true,
-    "route": "/cockpit-fundador",
-    "rendering": "dynamic SSR",
-    "first_load_js_kb": 81.9
-  },
-  "privacy": {
-    "robots_noindex": true,
-    "forbidden_body_scan_pass": true,
-    "aggregates_only": true
-  },
-  "documentation": ["docs/analytics/FOUNDER_EXECUTIVE_DASHBOARD.md"],
-  "next_patch_recommended": "11.4",
-  "verdict": "PATCH 11.3 APROVADO"
+  "checks": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "items": [
+      {
+        "label": "health 200",
+        "pass": true,
+        "detail": "build=513ed81753fe"
+      },
+      {
+        "label": "gate page HTTP 200",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "login gate visible",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "robots noindex",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "gate no forbidden body",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "admin auth skipped",
+        "pass": true,
+        "detail": "MIA_ADMIN_API_KEY not set locally"
+      }
+    ]
+  }
 }

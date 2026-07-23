@@ -1,97 +1,35 @@
 {
   "patch": "11.1",
-  "title": "API Executiva de Métricas",
-  "status": "APPROVED",
-  "validated_at": "2026-07-23T22:58:00-03:00",
-  "commits": {
-    "implementation": "16a1efc"
+  "health": {
+    "ok": true,
+    "build": "513ed81753fe"
   },
-  "production": {
-    "base_url": "https://economia-ai.vercel.app",
-    "build": "16a1efcde394",
-    "endpoint": "GET /api/executive-metrics",
-    "health_ok": true
-  },
-  "endpoint": {
-    "path": "/api/executive-metrics",
-    "method": "GET",
+  "api": {
+    "elapsed_ms": 888,
     "metrics_version": "11.1.0",
-    "query_params": ["days", "fresh"]
+    "partial_errors": []
   },
-  "architecture": {
-    "libs": [
-      "lib/miaExecutiveMetricsCatalog.js",
-      "lib/miaExecutiveMetricsCache.js",
-      "lib/miaExecutiveMetricsApi.js"
-    ],
-    "route": "pages/api/executive-metrics.js",
-    "database": "Supabase RPC functions mia_executive_metrics_*",
-    "migration": "supabase/migrations/20260723210000_mia_executive_metrics_api_v1.sql"
+  "sample": {
+    "platform": {
+      "grain": "rolling_window",
+      "questions": 237,
+      "denominator": "days",
+      "offset_days": 0,
+      "window_days": 30,
+      "conversations": 90,
+      "total_sessions": 104,
+      "unique_visitors": 105
+    },
+    "system": {
+      "analytics_version": "12E.1.0",
+      "build_version": "513ed81753fe",
+      "environment": "production",
+      "last_update": "2026-07-23T23:55:30.142Z"
+    }
   },
-  "cache": {
-    "type": "in_memory_ttl",
-    "default_ttl_ms": 300000,
-    "env": "MIA_EXECUTIVE_METRICS_CACHE_TTL_MS",
-    "bypass": "?fresh=1"
-  },
-  "contract": {
-    "categories": [
-      "platform",
-      "conversation",
-      "recommendation",
-      "commerce",
-      "alerts",
-      "price_intelligence",
-      "savings",
-      "anti_regret",
-      "user_value",
-      "system"
-    ],
-    "aggregates_only": true,
-    "partial_resilience": true
-  },
-  "unit_tests": {
-    "script": "scripts/test-mia-analytics-patch-111-executive-metrics-api.js",
-    "passed": 30,
+  "checks": {
+    "total": 16,
+    "passed": 16,
     "failed": 0
-  },
-  "production_smoke": {
-    "script": "scripts/patch-111-production-smoke.mjs",
-    "build": "16a1efcde394",
-    "elapsed_ms": 1406,
-    "partial_errors": [],
-    "checks": { "total": 16, "passed": 16, "failed": 0 }
-  },
-  "sql_validation": {
-    "script": "scripts/patch-111-production-validation.mjs",
-    "queries": 5,
-    "passed": 10,
-    "failed": 0
-  },
-  "privacy": {
-    "forbidden_keys_blocked": true,
-    "production_scan_pass": true,
-    "no_individual_events": true
-  },
-  "performance": {
-    "production_latency_ms": 1406,
-    "parallel_rpc_groups": 9
-  },
-  "regressions": {
-    "patch_106_phase10_audit": { "passed": 56, "failed": 0 }
-  },
-  "limitations": [
-    "Rolling 30-day window default — not lifetime totals",
-    "Acceptance rate is signal-based — not satisfaction or purchase",
-    "Savings totals are potential/unverified only",
-    "In-memory cache is per serverless instance — not distributed",
-    "Migration applied via db query — migration history may need repair for db push"
-  ],
-  "documentation": [
-    "docs/analytics/EXECUTIVE_METRICS_API.md",
-    "docs/analytics/contracts/EVENT_CONTRACT.md §7.25",
-    "docs/analytics/ANALYTICS_CHANGELOG.md §59"
-  ],
-  "next_patch_recommended": "11.2",
-  "verdict": "PATCH 11.1 APROVADO"
+  }
 }

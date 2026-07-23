@@ -129,6 +129,8 @@
     "test:mia:analytics:patch-114:prod-smoke": "node scripts/patch-114-production-smoke.mjs",
     "test:mia:analytics:patch-114:period-offset-complement": "node scripts/test-mia-analytics-patch-114-period-offset-complement.js",
     "test:mia:analytics:patch-114:complement-prod-validation": "node scripts/patch-114-complement-production-validation.mjs",
+    "test:mia:analytics:patch-115:phase11-final-audit": "node scripts/test-mia-analytics-patch-115-phase11-final-audit.js",
+    "test:mia:analytics:patch-115:prod-audit": "node scripts/patch-115-phase11-production-audit.mjs",
     "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",

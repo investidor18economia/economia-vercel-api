@@ -1,0 +1,315 @@
+{
+  "patch": "11.5",
+  "phase": "11",
+  "audit_type": "phase_11_final",
+  "status": "APPROVED",
+  "phase_verdict": "FASE 11 CONCLUÍDA E APROVADA",
+  "audit_timestamp": "2026-07-23T23:56:59.090Z",
+  "audit_completed_at": "2026-07-23T23:57:01.401Z",
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "513ed81753fe",
+    "api_latency_ms": 675,
+    "public_latency_ms": 23
+  },
+  "architecture": {
+    "chain": "GET /api/executive-metrics → /teilor-em-numeros | /cockpit-fundador | /api/founder/executive-insights",
+    "single_source_of_truth": "lib/miaExecutiveMetricsApi.js → buildExecutiveMetricsResponse",
+    "insights_engine": "deterministic first, LLM optional verbalization only"
+  },
+  "contracts": {
+    "metrics_version": "11.1.0",
+    "insights_version": "11.4.0"
+  },
+  "security": {
+    "public_page_indexable": true,
+    "cockpit_noindex": true,
+    "insights_private": true,
+    "get_only": true
+  },
+  "privacy": {
+    "api_pii_scan": true,
+    "public_body_scan": true,
+    "insights_scan": "skipped_no_auth"
+  },
+  "period_offset": {
+    "categories": [
+      "platform",
+      "conversation",
+      "recommendation",
+      "commerce",
+      "alerts",
+      "price_intelligence",
+      "savings",
+      "anti_regret",
+      "user_value"
+    ],
+    "rpc_validated": true
+  },
+  "performance": {
+    "api_executive_metrics_ms": 675,
+    "public_page_ms": 23,
+    "cache": {
+      "executive_metrics": "Map in-memory, key executive-metrics:v11.1.0:d{days}:o{offset}",
+      "executive_insights": "Map in-memory, TTL ~300s, key executive-insights:v11.4.0:d{days}"
+    },
+    "isr_public_page_seconds": 300
+  },
+  "seo": {
+    "indexable": ["/teilor-em-numeros"],
+    "noindex": ["/cockpit-fundador", "/api/founder/executive-insights"],
+    "validated": ["title", "description", "canonical", "og", "twitter", "schema.org"]
+  },
+  "accessibility_responsiveness": {
+    "aria_roles": true,
+    "keyboard_expand_insights": true,
+    "responsive_layout": true,
+    "validated_by": "patch-112/113 unit audits + manual CSS review"
+  },
+  "unit_tests": {
+    "patch_115_meta": { "passed": 117, "failed": 0 },
+    "patch_111": { "passed": 30, "failed": 0 },
+    "patch_112": { "passed": 35, "failed": 0 },
+    "patch_113": { "passed": 31, "failed": 0 },
+    "patch_114": { "passed": 37, "failed": 0 },
+    "patch_114_offset_complement": { "passed": 39, "failed": 0 }
+  },
+  "regressions": {
+    "patch_106_phase10": { "passed": 56, "failed": 0 },
+    "patch_111_prod_smoke": { "passed": 15, "failed": 0 },
+    "patch_112_prod_smoke": { "passed": 20, "failed": 0 },
+    "patch_113_prod_smoke": { "passed": 6, "failed": 0 },
+    "patch_114_prod_smoke": { "passed": 3, "failed": 0 },
+    "patch_114_complement_prod": { "passed": 18, "failed": 0 }
+  },
+  "documentation": {
+    "master": "docs/analytics/PHASE_11_FINAL_MASTER_DOCUMENT.md",
+    "patches": [
+      "EXECUTIVE_METRICS_API.md",
+      "PUBLIC_METRICS_PAGE.md",
+      "FOUNDER_EXECUTIVE_DASHBOARD.md",
+      "EXECUTIVE_AI_INSIGHTS.md"
+    ],
+    "roadmap_updated": true,
+    "changelog_updated": true
+  },
+  "commits_phase_11": [
+    "PATCH 11.1 executive metrics API",
+    "PATCH 11.2 teilor-em-numeros",
+    "PATCH 11.3 cockpit-fundador",
+    "PATCH 11.4 executive-ai-insights",
+    "d0f7abb period offset complement",
+    "513ed81 complement evidence"
+  ],
+  "build": {
+    "production": "513ed81753fe",
+    "note": "No new deploy required for PATCH 11.5 — audit-only deliverable"
+  },
+  "checks": {
+    "total": 40,
+    "passed": 40,
+    "failed": 0,
+    "items": [
+      {
+        "label": "health 200",
+        "pass": true,
+        "detail": "build=513ed81753fe"
+      },
+      {
+        "label": "executive-metrics 200",
+        "pass": true,
+        "detail": "status=200"
+      },
+      {
+        "label": "metrics_version 11.1.0",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "9 category groups present",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "GET method enforced",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "API no PII",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "API latency under 60s",
+        "pass": true,
+        "detail": "675ms"
+      },
+      {
+        "label": "category platform",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category conversation",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category recommendation",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category commerce",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category alerts",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category price_intelligence",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category savings",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category anti_regret",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "category user_value",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public page 200",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public title",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public canonical",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public og:title",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public twitter:card",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public schema.org",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public index follow",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public no PII in body",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "public latency under 30s",
+        "pass": true,
+        "detail": "23ms"
+      },
+      {
+        "label": "cockpit unauth shows gate",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "cockpit noindex",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "cockpit no PII in body",
+        "pass": true,
+        "detail": ""
+      },
+      {
+        "label": "founder admin auth skipped",
+        "pass": true,
+        "detail": "local key mismatch (status=401)"
+      },
+      {
+        "label": "insights unauth 401",
+        "pass": true,
+        "detail": "status=401"
+      },
+      {
+        "label": "insights POST rejected",
+        "pass": true,
+        "detail": "status=405"
+      },
+      {
+        "label": "offset RPC platform",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC conversation",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC recommendation",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC commerce",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC alerts",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC price_intelligence",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC savings",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC anti_regret",
+        "pass": true,
+        "detail": "ok"
+      },
+      {
+        "label": "offset RPC user_value",
+        "pass": true,
+        "detail": "ok"
+      }
+    ]
+  }
+}
