@@ -740,6 +740,25 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 44. PATCH 8.2 — Provider Analytics (2026-07-23)
+
+**Objetivo:** observabilidade server-side por tentativa de provider (`mia_provider_attempt` · `8.2.0`).
+
+**Entregas:**
+
+- `lib/miaProviderAttempt*.js`, `lib/miaProviderIdCatalog.js`, `lib/miaProviderShadowTraceAdapter.js`
+- Hooks legacy (`fetchCommercialProductsFromProviders`), conditional fetch, shadow subset
+- SQL Q1–Q6 · [PROVIDER_ANALYTICS.md](./PROVIDER_ANALYTICS.md)
+- [PATCH_8_2_PROVIDER_ANALYTICS.md](./PATCH_8_2_PROVIDER_ANALYTICS.md)
+
+**Delta:** correlaciona com 8.1 via `request_id`; não duplica 7.2/7.3; sem `mia_provider_summary`.
+
+**Testes locais:** 8.2 **45/45** · regressões 8.1 + 7.x intactas.
+
+**Veredito:** 🟡 **IMPLEMENTAÇÃO CONCLUÍDA · AGUARDANDO DEPLOY E PRODUÇÃO**
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

@@ -475,6 +475,24 @@ Detalhamento: [RELIABILITY_HEALTH_ANALYTICS.md](../RELIABILITY_HEALTH_ANALYTICS.
 
 Detalhamento: [COMMERCIAL_SEARCH_ANALYTICS.md](../COMMERCIAL_SEARCH_ANALYTICS.md)
 
+### 7.12 Evento server-side — Provider Attempt (`mia_provider_attempt`) — PATCH 8.2
+
+**Categoria:** `provider_attempt` (produção) · `provider_attempt_test` (smoke)  
+**Writer:** `emitProviderAttemptAnalytics()` via `pages/api/chat-gpt4o.js`  
+**Versionamento:** `metadata.event_version = "8.2.0"`  
+**Correlação:** `metadata.request_id` ↔ PATCH 8.1 / 6.4 / 7.x
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_provider_attempt` | Observar tentativa real de execução de provider comercial | Após fetch legacy, conditional fetch ou shadow subset |
+
+**Deduplicação:** `request_id + provider_id + attempt_index + event_name + event_version`.
+
+**Delta 8.1:** search hub permanece em `mia_commercial_search`; detalhes de provider não são copiados para 8.1.  
+**Delta 8.3:** sem oferta individual, preço ou card.
+
+Detalhamento: [PROVIDER_ANALYTICS.md](../PROVIDER_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |

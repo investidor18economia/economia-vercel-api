@@ -116,6 +116,12 @@ import {
   updateCommercialSearchAnalyticsFromPipeline,
 } from "../../lib/miaCommercialSearchAnalytics.js";
 import {
+  buildProviderAttemptRecommendationMetadata,
+  initializeProviderAttemptAnalyticsTracking,
+  instrumentProviderAttemptAnalyticsForDelivery,
+  observeLegacyProviderAttempt,
+} from "../../lib/miaProviderAttemptAnalytics.js";
+import {
   createLatencyTracker,
   markLatencyStage,
   recordDataLayerStageLatency,
@@ -1863,6 +1869,8 @@ async function fetchCommercialProductsFromProviders(query = "", limit = 12) {
     return [];
   }
 console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
+  let _legacyPreviousProviderId = null;
+  let _legacyPreviousFailedOrEmpty = false;
   for (const provider of providers) {
     const _providerAuth = authorizeProviderExecution({
       providerId: provider.name,
@@ -1877,6 +1885,16 @@ console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
         providerId: provider.name,
         executed: false,
         blockedReason: _providerAuth.blockedReason,
+      });
+      observeLegacyProviderAttempt({
+        providerId: provider.name,
+        providerPriority: provider.priority,
+        skipped: true,
+        blockedReason: _providerAuth.blockedReason,
+        error: _providerAuth.blockedReason,
+        fallbackTriggered: _legacyPreviousFailedOrEmpty,
+        fallbackFromProvider: _legacyPreviousFailedOrEmpty ? _legacyPreviousProviderId : null,
+        fallbackToProvider: _legacyPreviousFailedOrEmpty ? provider.name : null,
       });
       continue;
     }
@@ -1896,6 +1914,16 @@ console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
         providerId: provider.name,
         decision: costGuardDecision,
       });
+      observeLegacyProviderAttempt({
+        providerId: provider.name,
+        providerPriority: provider.priority,
+        skipped: true,
+        blockedReason: costGuardDecision.reasonCode,
+        error: costGuardDecision.reasonCode,
+        fallbackTriggered: _legacyPreviousFailedOrEmpty,
+        fallbackFromProvider: _legacyPreviousFailedOrEmpty ? _legacyPreviousProviderId : null,
+        fallbackToProvider: _legacyPreviousFailedOrEmpty ? provider.name : null,
+      });
       continue;
     }
 
@@ -1903,9 +1931,10 @@ console.log("🧪 PROVIDERS ORDENADOS:", providers.map(p => p.name));
 
 const _providerStartedAt = Date.now();
 const result = await provider.fn(query, limit);
+const _providerDurationMs = Date.now() - _providerStartedAt;
 recordProviderLatencyAttempt(getSharedRequestState()?.latencyAnalytics, {
   provider: provider.name,
-  durationMs: Date.now() - _providerStartedAt,
+  durationMs: _providerDurationMs,
   status: result?.ok ? "ok" : "failed",
 });
 
@@ -1918,6 +1947,24 @@ console.log("✅ PROVIDER FINALIZADO:", provider.name);
     );
 
     const count = Array.isArray(result.products) ? result.products.length : 0;
+    observeLegacyProviderAttempt({
+      providerId: result.provider || provider.name,
+      providerPriority: provider.priority,
+      ok: result.ok,
+      resultCount: count,
+      rawResultsCount: count,
+      normalizedResultsCount: count,
+      error: result.error || null,
+      durationMs: _providerDurationMs,
+      httpStatusCode: result.httpStatus || result.statusCode || null,
+      retryAttempt: (result.retryCount || 0) > 0,
+      retryIndex: result.retryCount || 0,
+      fallbackTriggered: _legacyPreviousFailedOrEmpty,
+      fallbackFromProvider: _legacyPreviousFailedOrEmpty ? _legacyPreviousProviderId : null,
+      fallbackToProvider: _legacyPreviousFailedOrEmpty
+        ? result.provider || provider.name
+        : null,
+    });
     const isDedupHit = result.requestDeduplicated === true;
     const isCacheHit = result.cacheHit === true;
 
@@ -1962,6 +2009,9 @@ console.log("✅ PROVIDER FINALIZADO:", provider.name);
 
       break;
     }
+
+    _legacyPreviousProviderId = result.provider || provider.name;
+    _legacyPreviousFailedOrEmpty = true;
   }
 
   console.log("🧭 COMMERCIAL PROVIDER RESULTS:", providerResults);
@@ -26512,6 +26562,11 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
     responsePath,
     httpStatus: 200,
   });
+  const _providerAttemptSummaries = instrumentProviderAttemptAnalyticsForDelivery(supabase, {
+    requestId: _sharedStateForCommercialSearch?.requestId || null,
+    analyticsContext: _sharedStateForCommercialSearch?.responseAnalytics?.analyticsContext || {},
+    body,
+  });
   const _responseOutcomeSummary = instrumentResponseOutcomeAnalytics(body, responsePath, {
     httpStatus: 200,
   });
@@ -26528,6 +26583,7 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
     response_outcome_analytics: _responseOutcomeSummary,
     latency_analytics: buildLatencyRecommendationMetadata(_latencySummary),
     commercial_search_analytics: buildCommercialSearchRecommendationMetadata(_commercialSearchSummary),
+    provider_attempt_analytics: buildProviderAttemptRecommendationMetadata(_providerAttemptSummaries),
   };
 
   res.status(200).json(
@@ -30454,6 +30510,12 @@ initializeCommercialSearchAnalyticsTracking({
   intent,
   category: detectProductCategory(query) || detectProductCategory(resolvedQuery) || null,
   productDomain: detectProductCategory(query) || detectProductCategory(resolvedQuery) || null,
+});
+initializeProviderAttemptAnalyticsTracking({
+  commercialPermission: intentAuthority?.commercialPermission || null,
+  interactionMode: intentRecognitionEarly?.interactionMode || null,
+  requestId: getSharedRequestState()?.requestId || null,
+  analyticsContext: getSharedRequestState()?.responseAnalytics?.analyticsContext || {},
 });
 
 // PATCH 11B.3 — Constraint refinement continuity (RF-01)
