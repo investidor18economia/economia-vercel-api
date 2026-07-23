@@ -510,6 +510,23 @@ Detalhamento: [PROVIDER_ANALYTICS.md](../PROVIDER_ANALYTICS.md)
 
 Detalhamento: [OFFER_ANALYTICS.md](../OFFER_ANALYTICS.md)
 
+### 7.14 Evento server-side — Recommendation Decision (`mia_recommendation_decision`) — PATCH 9.1
+
+**Categoria:** `recommendation_decision` (produção) · `recommendation_decision_test` (smoke)  
+**Writer:** `emitRecommendationDecisionAnalytics()` via `pages/api/chat-gpt4o.js`  
+**Versionamento:** `metadata.event_version = "9.1.0"`  
+**Correlação:** `metadata.request_id` ↔ PATCH 8.1 / 8.2 / 8.3 / 7.x
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_recommendation_decision` | Observar decisão cognitiva final (winner, runner-up, restrições, scores agregados) | Decisão estabilizada — após ranking/selection/lock/sanitize/reset, antes do Response Builder |
+
+**Deduplicação:** `request_id + event_name + event_version` — máximo 1 evento por requisição.
+
+**Delta 8.x:** busca, providers e ofertas permanecem nos eventos anteriores; 9.1 cobre apenas a decisão final.
+
+Detalhamento: [RECOMMENDATION_DECISION_ANALYTICS.md](../RECOMMENDATION_DECISION_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
@@ -531,7 +548,7 @@ Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
 | Cliente frontend | `lib/analytics.js` |
 | UI MIA | `components/MIAChat.jsx` |
 | API track | `pages/api/analytics/track/index.js` |
-| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` · `lib/miaResponseAnalytics.js` · `lib/miaErrorAnalytics.js` · `lib/miaLatencyAnalytics.js` · `lib/miaCommercialSearchAnalytics.js` |
+| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` · `lib/miaResponseAnalytics.js` · `lib/miaErrorAnalytics.js` · `lib/miaLatencyAnalytics.js` · `lib/miaCommercialSearchAnalytics.js` · `lib/miaRecommendationDecisionAnalytics.js` |
 | Send gate (produção) | `lib/miaPriceAlertSendGate.js` |
 | Analytics Storage Schema | `supabase/migrations/20260719153000_*` + `53002_*` + `53003_*` |
 | Dashboards | [DASHBOARDS.md](../DASHBOARDS.md) |

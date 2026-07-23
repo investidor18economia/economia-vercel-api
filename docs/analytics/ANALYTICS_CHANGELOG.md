@@ -797,6 +797,22 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 47. PATCH 9.1 — Recommendation Decision Outcomes (2026-07-23)
+
+**Objetivo:** observar a decisão cognitiva final da MIA (`mia_recommendation_decision` · `9.1.0`) sem alterar ranking, selection, routing ou Response Builder.
+
+**Entregas:**
+
+- Libs `miaRecommendationDecision*` (catalog, classifier, identity, tracker, analytics)
+- Hooks em `chat-gpt4o.js` — `return_seguro`, `commercial_only_fallback`, `commercial_new_search_no_result`, legacy LLM
+- SQL Q1–Q5 (`patch-91-query*`)
+- Docs: [PATCH_9_1_RECOMMENDATION_DECISION.md](./PATCH_9_1_RECOMMENDATION_DECISION.md), [RECOMMENDATION_DECISION_ANALYTICS.md](./RECOMMENDATION_DECISION_ANALYTICS.md)
+- `EVENT_CONTRACT.md` §7.14
+
+**Veredito:** pendente validação produção
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

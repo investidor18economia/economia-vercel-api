@@ -415,7 +415,7 @@ Patches
 
 PATCH 9.1
 
-Recommendation Outcomes
+Recommendation Decision Outcomes — 🟡 em implementação (`mia_recommendation_decision` · `9.1.0`)
 
 PATCH 9.2
 

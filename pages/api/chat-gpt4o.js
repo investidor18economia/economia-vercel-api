@@ -129,6 +129,13 @@ import {
   updateOfferSetAnalyticsFromSelection,
 } from "../../lib/miaOfferSetAnalytics.js";
 import {
+  buildRecommendationDecisionRecommendationMetadata,
+  initializeRecommendationDecisionAnalyticsTracking,
+  instrumentRecommendationDecisionAnalyticsForDelivery,
+  observeRecommendationDecisionAnalytics,
+  MIA_DECISION_SOURCES,
+} from "../../lib/miaRecommendationDecisionAnalytics.js";
+import {
   createLatencyTracker,
   markLatencyStage,
   recordDataLayerStageLatency,
@@ -26556,6 +26563,41 @@ function instrumentLatencyAnalyticsForDelivery(body, responsePath, options = {})
   return built.summary;
 }
 
+function observeDecisionAnalyticsForStabilizedContext({
+  selectedBestProduct = null,
+  displayProducts = [],
+  rankedProducts = [],
+  routingDecision = {},
+  specificProductLock = null,
+  commercialOfferReset = {},
+  decisionSource = MIA_DECISION_SOURCES.UNKNOWN,
+  responsePath = null,
+  winnerSanitizedAway = false,
+  hadAnchor = false,
+  categoryHint = "",
+  budgetConstraintApplied = false,
+} = {}) {
+  const sharedState = getSharedRequestState();
+  return observeRecommendationDecisionAnalytics(supabase, {
+    requestId: sharedState?.requestId || null,
+    analyticsContext: sharedState?.responseAnalytics?.analyticsContext || {},
+    selectedBestProduct,
+    displayProducts,
+    rankedProducts,
+    routingDecision,
+    specificProductLock,
+    commercialOfferReset,
+    decisionSource,
+    responsePath,
+    winnerSanitizedAway,
+    hadAnchor,
+    winnerCategory: categoryHint || null,
+    budgetConstraintApplied,
+    categoryConstraintApplied: !!specificProductLock?.active || !!categoryHint,
+    brandConstraintApplied: false,
+  });
+}
+
 function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace, extraTrace = {}) {
   const _blocked = preventDoubleHttpResponse(runtimeEnforcementRef, res);
   if (_blocked.blocked) return;
@@ -26591,6 +26633,8 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
     responsePath,
     commercialSearchSummary: _commercialSearchSummary,
   });
+  const _recommendationDecisionSummary =
+    instrumentRecommendationDecisionAnalyticsForDelivery(supabase);
   const _responseOutcomeSummary = instrumentResponseOutcomeAnalytics(body, responsePath, {
     httpStatus: 200,
   });
@@ -26609,6 +26653,9 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
     commercial_search_analytics: buildCommercialSearchRecommendationMetadata(_commercialSearchSummary),
     provider_attempt_analytics: buildProviderAttemptRecommendationMetadata(_providerAttemptSummaries),
     offer_set_analytics: buildOfferSetRecommendationMetadata(_offerSetSummary),
+    recommendation_decision_analytics: buildRecommendationDecisionRecommendationMetadata(
+      _recommendationDecisionSummary
+    ),
   };
 
   res.status(200).json(
@@ -30543,6 +30590,12 @@ initializeProviderAttemptAnalyticsTracking({
   analyticsContext: getSharedRequestState()?.responseAnalytics?.analyticsContext || {},
 });
 initializeOfferSetAnalyticsTracking({
+  commercialPermission: intentAuthority?.commercialPermission || null,
+  interactionMode: intentRecognitionEarly?.interactionMode || null,
+  requestId: getSharedRequestState()?.requestId || null,
+  analyticsContext: getSharedRequestState()?.responseAnalytics?.analyticsContext || {},
+});
+initializeRecommendationDecisionAnalyticsTracking({
   commercialPermission: intentAuthority?.commercialPermission || null,
   interactionMode: intentRecognitionEarly?.interactionMode || null,
   requestId: getSharedRequestState()?.requestId || null,
@@ -34681,6 +34734,21 @@ if (Array.isArray(products) && products.length > 0) {
             },
           });
         }
+        observeDecisionAnalyticsForStabilizedContext({
+          selectedBestProduct: null,
+          displayProducts: commercialDisplayLocked,
+          rankedProducts: commercialDisplayLocked,
+          routingDecision,
+          specificProductLock,
+          commercialOfferReset,
+          decisionSource: MIA_DECISION_SOURCES.NO_RESULT,
+          responsePath: "commercial_resolution_incomplete",
+          winnerSanitizedAway: !!commercialDisplayProducts[0]?.product_name,
+          hadAnchor: !!anchorBeforeFallback,
+          categoryHint:
+            detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+          budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+        });
         return void respondWithContract(
           res,
           pipelineTracer,
@@ -34859,6 +34927,24 @@ if (Array.isArray(products) && products.length > 0) {
         winnerSource: routingDecision.allowReplaceWinner
           ? "commercial_serp_only"
           : "anchor_preserved_commercial_enrich",
+      });
+
+      observeDecisionAnalyticsForStabilizedContext({
+        selectedBestProduct,
+        displayProducts: commercialDisplayLocked,
+        rankedProducts: commercialDisplayLocked,
+        routingDecision,
+        specificProductLock,
+        commercialOfferReset,
+        decisionSource: MIA_DECISION_SOURCES.COMMERCIAL_ONLY_FALLBACK,
+        responsePath: "commercial_only_fallback",
+        winnerSanitizedAway:
+          !!(commercialDisplayProducts[0]?.product_name || commercialDisplayLocked[0]?.product_name) &&
+          !selectedBestProduct?.product_name,
+        hadAnchor: !!anchorBeforeFallback,
+        categoryHint:
+          detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+        budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
       });
 
       return void respondWithContract(
@@ -35092,6 +35178,21 @@ if (Array.isArray(products) && products.length > 0) {
       displayProducts: [],
     });
 
+    observeDecisionAnalyticsForStabilizedContext({
+      selectedBestProduct: null,
+      displayProducts,
+      rankedProducts: Array.isArray(products) ? products : [],
+      routingDecision,
+      specificProductLock,
+      commercialOfferReset,
+      decisionSource: MIA_DECISION_SOURCES.NO_RESULT,
+      responsePath: "commercial_new_search_no_result",
+      hadAnchor: !!sessionContext?.lastBestProduct,
+      categoryHint:
+        detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+      budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+    });
+
     return void sendRuntimeResponse(
       res,
       pipelineTracer,
@@ -35128,6 +35229,22 @@ if (Array.isArray(products) && products.length > 0) {
     displayProducts: displayProducts.length,
     selectedBestProduct: selectedBestProduct?.product_name || null,
     searchBehaviorMode
+  });
+
+  observeDecisionAnalyticsForStabilizedContext({
+    selectedBestProduct,
+    displayProducts,
+    rankedProducts: Array.isArray(products) ? products : displayProducts,
+    routingDecision,
+    specificProductLock,
+    commercialOfferReset,
+    decisionSource: MIA_DECISION_SOURCES.COGNITIVE_PRIMARY,
+    responsePath: "return_seguro",
+    winnerSanitizedAway: !!lockWinnerBefore && !selectedBestProduct?.product_name,
+    hadAnchor: !!sessionContext?.lastBestProduct,
+    categoryHint:
+      detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
+    budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
   });
 
   const selectedTitle = cleanTitle(selectedBestProduct?.product_name || "");
@@ -37596,6 +37713,24 @@ if (specificProductLock?.active) {
     preventedReplacement: finalEnforcedWinner.preventedReplacement,
   });
 }
+
+observeDecisionAnalyticsForStabilizedContext({
+  selectedBestProduct,
+  displayProducts,
+  rankedProducts: Array.isArray(products) ? products : displayProducts,
+  routingDecision,
+  specificProductLock,
+  commercialOfferReset,
+  decisionSource: MIA_DECISION_SOURCES.LEGACY_LLM,
+  responsePath: isComparison ? "legacy_llm_comparison" : "legacy_llm_search",
+  winnerSanitizedAway: !!finalWinnerBefore && !selectedBestProduct?.product_name,
+  hadAnchor: !!sessionContext?.lastBestProduct,
+  categoryHint:
+    detectProductCategory(resolvedQuery) ||
+    sessionContext.lastCategory ||
+    "",
+  budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+});
 
 console.log("✅ PRONTO PARA RESPONDER AO FRONT:", {
   replyLength: String(reply || "").length,
