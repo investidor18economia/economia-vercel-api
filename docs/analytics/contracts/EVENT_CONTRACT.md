@@ -595,6 +595,25 @@ Evidência: [PATCH_9_5_FINAL_AUDIT_EVIDENCE.json](../PATCH_9_5_FINAL_AUDIT_EVIDE
 
 Detalhamento: [PRICE_INTELLIGENCE_ANALYTICS.md](../PRICE_INTELLIGENCE_ANALYTICS.md)
 
+### 7.20 Evento server-side — Savings Estimation (`mia_savings_estimation`) — PATCH 10.2
+
+**Categoria:** `savings_estimation` (produção) · `savings_estimation_test` (smoke)  
+**Writer:** `emitSavingsEstimationAnalytics()` via offer set delivery hook  
+**Versionamento:** `metadata.event_version = "10.2.0"`  
+**Correlação:** `metadata.request_id` / `decision_request_id` ↔ PATCH 8.3 / 9.1 / 10.1
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_savings_estimation` | Observar estimativas de economia (OBSERVED / UNVERIFIED) sem afirmar economia real | Após `mia_offer_set` + price intelligence na mesma request |
+
+**Deduplicação:** `request_id + event_name + event_version + calculation_method + baseline_type`
+
+**Métodos emitidos:** `WINNER_VS_MINIMUM` (OBSERVED) · `PERCENTAGE_ASSUMPTION` (UNVERIFIED UI)
+
+**Nunca emitir:** `VERIFIED` · `CONFIRMED_SAVINGS` · `purchase_confirmed=true`
+
+Detalhamento: [SAVINGS_ESTIMATION_AND_CONFIDENCE_ANALYTICS.md](../SAVINGS_ESTIMATION_AND_CONFIDENCE_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |

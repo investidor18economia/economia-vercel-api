@@ -887,6 +887,18 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 54. PATCH 10.2 — Savings Estimation & Confidence Analytics (2026-07-23)
+
+**Evento:** `mia_savings_estimation` · `10.2.0` · categoria `savings_estimation`
+
+**Arquitetura:** derivado de `mia_offer_set` (8.3) + contexto 10.1 — sem recálculo de ranking; hook em `instrumentOfferSetAnalyticsForDelivery`.
+
+**Métodos:** `WINNER_VS_MINIMUM` (OBSERVED) · `PERCENTAGE_ASSUMPTION` (UNVERIFIED UI 4–6%)
+
+**Veredito:** 🟡 **PATCH 10.2 IMPLEMENTADO** — aguardando deploy/evidência produção
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |
