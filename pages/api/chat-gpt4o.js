@@ -140,6 +140,11 @@ import {
   isAcceptanceAnalyticsDomainAllowed,
 } from "../../lib/miaRecommendationAcceptanceAnalytics.js";
 import {
+  observeRejectionSignalsFromTurnContext,
+  observeRejectionSignalFromDecisionTransition,
+  isRejectionAnalyticsDomainAllowed,
+} from "../../lib/miaRecommendationRejectionAnalytics.js";
+import {
   createLatencyTracker,
   markLatencyStage,
   recordDataLayerStageLatency,
@@ -26580,8 +26585,14 @@ function observeDecisionAnalyticsForStabilizedContext({
   hadAnchor = false,
   categoryHint = "",
   budgetConstraintApplied = false,
+  sessionContext = {},
 } = {}) {
   const sharedState = getSharedRequestState();
+  const previousDecisionRequestId =
+    sessionContext?.lastRecommendationDecisionRequestId ||
+    sharedState?.lastRecommendationDecisionRequestId ||
+    null;
+
   const summary = observeRecommendationDecisionAnalytics(supabase, {
     requestId: sharedState?.requestId || null,
     analyticsContext: sharedState?.responseAnalytics?.analyticsContext || {},
@@ -26601,6 +26612,30 @@ function observeDecisionAnalyticsForStabilizedContext({
     brandConstraintApplied: false,
   });
   if (sharedState?.requestId) {
+    if (
+      previousDecisionRequestId &&
+      previousDecisionRequestId !== sharedState.requestId &&
+      isRejectionAnalyticsDomainAllowed({
+        commercialPermission: sharedState?.commercialPermission || null,
+        interactionMode: sharedState?.interactionMode || null,
+      })
+    ) {
+      observeRejectionSignalFromDecisionTransition(supabase, {
+        previousDecisionRequestId,
+        replacementDecisionRequestId: sharedState.requestId,
+        requestId: sharedState.requestId,
+        sessionId: sharedState?.responseAnalytics?.analyticsContext?.session_id || null,
+        analyticsContext: sharedState?.responseAnalytics?.analyticsContext || {},
+        decisionSource: sessionContext?.lastRecommendationDecisionSource || null,
+        decisionAtMs: sessionContext?.lastRecommendationDecisionAtMs ?? null,
+        productFamilyHash: sessionContext?.lastRecommendationDecisionWinnerFamily || null,
+        category: categoryHint || sessionContext?.lastCategory || null,
+        routingMode: routingDecision?.mode || null,
+        signalAtMs: Date.now(),
+        commercialDomain: true,
+      });
+    }
+
     sharedState.lastRecommendationDecisionRequestId = sharedState.requestId;
     sharedState.lastRecommendationDecisionAtMs = Date.now();
   }
@@ -30654,6 +30689,36 @@ if (
     signalAtMs: Date.now(),
     winnerProductFamilyHash: sessionContext?.lastRecommendationDecisionWinnerFamily || null,
     category: sessionContext?.lastCategory || null,
+    commercialDomain: true,
+  });
+}
+
+if (
+  isRejectionAnalyticsDomainAllowed({
+    commercialPermission: intentAuthority?.commercialPermission || null,
+    interactionMode: intentRecognitionEarly?.interactionMode || null,
+  }) &&
+  sessionContext?.lastRecommendationDecisionRequestId
+) {
+  observeRejectionSignalsFromTurnContext(supabase, {
+    decisionRequestId: sessionContext.lastRecommendationDecisionRequestId,
+    requestId: getSharedRequestState()?.requestId || null,
+    sessionId: getSharedRequestState()?.responseAnalytics?.analyticsContext?.session_id || null,
+    analyticsContext: getSharedRequestState()?.responseAnalytics?.analyticsContext || {},
+    decisionSource: sessionContext?.lastRecommendationDecisionSource || null,
+    decisionAtMs: sessionContext?.lastRecommendationDecisionAtMs ?? null,
+    signalAtMs: Date.now(),
+    winnerProductFamilyHash: sessionContext?.lastRecommendationDecisionWinnerFamily || null,
+    category: sessionContext?.lastCategory || null,
+    followUpType: contextualFollowUpEarly?.contextualCommercialAuthorized
+      ? contextualFollowUpEarly?.followUpType
+      : null,
+    constraintRefinement: constraintRefinementEarly,
+    cognitiveTurn: cognitiveTurnEarly,
+    userMessage: query,
+    allowNewSearch: routingDecision?.allowNewSearch === true,
+    farewell: intentRecognitionEarly?.socialFamilies?.farewell === true,
+    routingMode: routingDecision?.mode || null,
     commercialDomain: true,
   });
 }
@@ -34800,6 +34865,7 @@ if (Array.isArray(products) && products.length > 0) {
           categoryHint:
             detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
           budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+        sessionContext,
         });
         return void respondWithContract(
           res,
@@ -34997,6 +35063,7 @@ if (Array.isArray(products) && products.length > 0) {
         categoryHint:
           detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
         budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+        sessionContext,
       });
 
       return void respondWithContract(
@@ -35243,6 +35310,7 @@ if (Array.isArray(products) && products.length > 0) {
       categoryHint:
         detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
       budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+      sessionContext,
     });
 
     return void sendRuntimeResponse(
@@ -35297,6 +35365,7 @@ if (Array.isArray(products) && products.length > 0) {
     categoryHint:
       detectProductCategory(resolvedQuery) || sessionContext.lastCategory || "",
     budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+    sessionContext,
   });
 
   const selectedTitle = cleanTitle(selectedBestProduct?.product_name || "");
@@ -37782,6 +37851,7 @@ observeDecisionAnalyticsForStabilizedContext({
     sessionContext.lastCategory ||
     "",
   budgetConstraintApplied: !!budget || !!extractBudget(resolvedQuery),
+  sessionContext,
 });
 
 console.log("✅ PRONTO PARA RESPONDER AO FRONT:", {

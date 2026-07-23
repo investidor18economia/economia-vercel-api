@@ -831,6 +831,18 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 49. PATCH 9.3 — Recommendation Rejection and Abandonment Signals (2026-07-23)
+
+**Objetivo:** observar sinais negativos e de interrupção pós-decisão (`mia_recommendation_rejection_signal` · `9.3.0`) distinguindo rejeição, refinamento, substituição e abandono observável.
+
+**Arquitetura:** modelo híbrido (D) — evento agregado server-side + transição de decisão + SQL Q1–Q10.
+
+**Lib:** `lib/miaRecommendationRejection*.js` · hooks em `pages/api/chat-gpt4o.js`
+
+**Veredito:** 🟡 **PATCH 9.3 IMPLEMENTADO** — aguardando commit/deploy/evidência produção
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |
