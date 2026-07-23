@@ -1,0 +1,113 @@
+{
+  "patch": "10.4",
+  "title": "Anti-Regret Foundation Analytics",
+  "status": "APPROVED",
+  "validated_at": "2026-07-23T18:30:00-03:00",
+  "commits": {
+    "implementation": "fb233ab",
+    "serverless_delivery_fix": "5e103f2"
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "5e103f2e611d",
+    "health_ok": true,
+    "deploy_method": "github_vercel_auto_deploy"
+  },
+  "event": {
+    "event_name": "mia_anti_regret_foundation",
+    "event_version": "10.4.0",
+    "category": "anti_regret",
+    "dedup": "request_id + decision_request_id + event_name + event_version",
+    "hooks": [
+      "instrumentOfferSetAnalyticsForDelivery → emitAntiRegretFoundationAnalytics (await)",
+      "observeAcceptanceSignalAnalytics → scheduleAntiRegretFoundationFromPostDecisionSignal",
+      "observeRejectionSignalAnalytics → scheduleAntiRegretFoundationFromPostDecisionSignal"
+    ]
+  },
+  "audit_pre_implementation": {
+    "events_reviewed": [
+      "mia_recommendation_decision",
+      "mia_recommendation_acceptance_signal",
+      "mia_recommendation_rejection_signal",
+      "mia_offer_set",
+      "mia_price_intelligence",
+      "mia_savings_estimation",
+      "mia_price_alert_lifecycle",
+      "favorite_created",
+      "offer_click"
+    ],
+    "gaps_identified": [
+      "No dedicated anti-regret analytics event before 10.4",
+      "Anti-regret conversational flow skips commercial offer_set path",
+      "Post-decision signals require DB correlation joins"
+    ],
+    "no_duplication": "Foundation derives summaries only; does not replay upstream payloads"
+  },
+  "score": {
+    "field": "anti_regret_score",
+    "range": "0-100",
+    "base": 50,
+    "internal_only": true,
+    "formula_location": "lib/miaAntiRegretFoundationClassifier.js"
+  },
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-104-anti-regret-foundation.js",
+    "passed": 68,
+    "failed": 0
+  },
+  "regressions": {
+    "patch_101_price_intelligence": { "passed": 52, "failed": 0, "prod_smoke": "12/12" },
+    "patch_102_savings_estimation": { "passed": 70, "failed": 0 },
+    "patch_103_price_alert_lifecycle": { "passed": 111, "failed": 0 }
+  },
+  "production_smoke": {
+    "script": "scripts/patch-104-production-smoke.mjs",
+    "build": "5e103f2e611d",
+    "request_id": "da49ea8a-e4db-4b6d-b5f7-b245934e590e",
+    "session_id": "8c69b8f1-9290-42d2-b571-120b81be5605",
+    "foundation_count": 1,
+    "anti_regret_score": 43,
+    "observed_pattern": "MULTIPLE_CONSTRAINT_CHANGES",
+    "checks": { "total": 14, "passed": 14, "failed": 0 }
+  },
+  "sql_validation": {
+    "script": "scripts/patch-104-production-validation.mjs",
+    "build": "5e103f2e611d",
+    "queries": 15,
+    "health_and_link_checks": 2,
+    "passed": 17,
+    "failed": 0
+  },
+  "privacy": {
+    "no_product_name_in_metadata": true,
+    "no_urls_in_metadata": true,
+    "no_user_email_in_metadata": true,
+    "no_query_text": true,
+    "regret_confirmed_always_false": true,
+    "purchase_confirmed_always_false": true,
+    "satisfaction_assumed_always_false": true,
+    "smoke_scan_pass": true
+  },
+  "issues_found_and_fixed": [
+    {
+      "issue": "Offer-set delivery analytics (8.3/10.1/10.2/10.4) not persisting in production",
+      "cause": "Serverless terminated before fire-and-forget inserts at HTTP response",
+      "fix": "Await delivery analytics chain in sendHttpRuntimeResponse before res.json",
+      "commit": "5e103f2"
+    }
+  ],
+  "limitations": [
+    "anti_regret_score is observational only — not satisfaction or confirmed regret",
+    "Primary emit at commercial delivery; post-decision enrichment async if not yet emitted",
+    "Anti-regret conversational-only paths without offer_set do not emit foundation",
+    "Score never displayed to users or used in ranking in this patch"
+  ],
+  "documentation": [
+    "docs/analytics/ANTI_REGRET_FOUNDATION_ANALYTICS.md",
+    "docs/analytics/contracts/EVENT_CONTRACT.md §7.22",
+    "docs/analytics/ANALYTICS_CHANGELOG.md §56",
+    "docs/analytics/sql/patch-104-query1-score-distribution.sql … query15"
+  ],
+  "next_patch_recommended": "10.5",
+  "verdict": "PATCH 10.4 APROVADO"
+}

@@ -473,7 +473,7 @@ Price Alert Lifecycle Analytics — 🟢 APROVADO
 
 PATCH 10.4
 
-Anti-Regret Foundation Analytics — 🟡 EM VALIDAÇÃO
+Anti-Regret Foundation Analytics — 🟢 APROVADO
 
 PATCH 10.5
 

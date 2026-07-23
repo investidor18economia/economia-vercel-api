@@ -935,9 +935,13 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **SQL:** Q1–Q15 em `docs/analytics/sql/patch-104-query*.sql`
 
-**Testes locais:** `test-mia-analytics-patch-104-anti-regret-foundation.js` (68/68)
+**Testes locais:** `test-mia-analytics-patch-104-anti-regret-foundation.js` (68/68) · regressões 10.1–10.3 OK
 
-**Veredito:** 🟡 **PATCH 10.4 EM VALIDAÇÃO** (aguardando deploy + smoke produção)
+**Produção:** build `5e103f2e611d` · smoke 14/14 · SQL Q1–Q15 17/17
+
+**Correção pós-deploy:** await delivery analytics chain para persistência serverless (`5e103f2`)
+
+**Veredito:** 🟢 **PATCH 10.4 APROVADO**
 
 ---
 
