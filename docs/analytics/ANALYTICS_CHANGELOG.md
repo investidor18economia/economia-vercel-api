@@ -1017,6 +1017,8 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Documentação:** `FOUNDER_EXECUTIVE_DASHBOARD.md`
 
+**Produção:** build `226521455c5d` · smoke 6/6 · unit 31/31 · regressões 11.1/11.2 OK
+
 **Veredito:** 🟢 **PATCH 11.3 APROVADO**
 
 ---
