@@ -578,6 +578,23 @@ Evidência: [PATCH_9_5_FINAL_AUDIT_EVIDENCE.json](../PATCH_9_5_FINAL_AUDIT_EVIDE
 
 **Veredito:** 🟢 **FASE 9 ENCERRADA E APROVADA**
 
+### 7.19 Evento server-side — Price Intelligence (`mia_price_intelligence`) — PATCH 10.1
+
+**Categoria:** `price_intelligence` (produção) · `price_intelligence_test` (smoke)  
+**Writer:** `emitPriceIntelligenceAnalytics()` via offer set delivery hook  
+**Versionamento:** `metadata.event_version = "10.1.0"`  
+**Correlação:** `metadata.request_id` / `decision_request_id` ↔ PATCH 8.3 / 9.1
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_price_intelligence` | Observar qualidade, dispersão, confiança e posição de preço do winner | Após `mia_offer_set` na mesma request comercial |
+
+**Deduplicação:** `request_id + event_name + event_version`
+
+**Delta 8.3:** não duplica aggregates — deriva taxonomias do metadata offer_set.
+
+Detalhamento: [PRICE_INTELLIGENCE_ANALYTICS.md](../PRICE_INTELLIGENCE_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |

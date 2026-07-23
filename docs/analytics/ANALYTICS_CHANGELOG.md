@@ -863,6 +863,26 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 52. PATCH 10.0 — Auditoria da Arquitetura de Preços, Economia e Alertas (2026-07-23)
+
+**Objetivo:** mapear arquitetura de preços, alertas, favoritos e economia antes de implementar Analytics Fase 10.
+
+**Entregas:** `PRICE_ARCHITECTURE_AUDIT.md` · `PATCH_10_0_ARCHITECTURE_AUDIT_EVIDENCE.json`
+
+**Veredito:** 🟢 **PATCH 10.0 APROVADO** — auditoria exclusivamente documental; nenhum código alterado
+
+---
+
+## 53. PATCH 10.1 — Price Intelligence & Price Quality Analytics (2026-07-23)
+
+**Evento:** `mia_price_intelligence` · `10.1.0` · categoria `price_intelligence`
+
+**Arquitetura:** derivado de `mia_offer_set` (8.3) — sem recálculo de preços; hook em `instrumentOfferSetAnalyticsForDelivery`.
+
+**Veredito:** 🟡 **PATCH 10.1 IMPLEMENTADO** — aguardando deploy/evidência produção
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

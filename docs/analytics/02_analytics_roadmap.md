@@ -440,7 +440,7 @@ Auditoria Final — 🟢 APROVADO (Fase 9 encerrada)
 ---
 
 # FASE 10
-## Savings Analytics
+## Savings & Price Intelligence Analytics
 
 Objetivo
 
@@ -455,25 +455,33 @@ Entregas
 
 Patches
 
+PATCH 10.0
+
+Auditoria da Arquitetura de Preços, Economia e Alertas — 🟢 APROVADO
+
 PATCH 10.1
 
-Price Intelligence
+Price Intelligence & Price Quality Analytics — 🟡 IMPLEMENTADO
 
 PATCH 10.2
 
-Savings Estimation
+Savings Estimation & Confidence Analytics
 
 PATCH 10.3
 
-Price Alert Analytics
+Price Alert Lifecycle Analytics
 
 PATCH 10.4
 
-Anti-Regret Foundation
+Anti-Regret Foundation Analytics
 
 PATCH 10.5
 
-Auditoria Final
+Savings Outcomes & User Value Analytics
+
+PATCH 10.6
+
+Auditoria Final da Fase 10
 
 ---
 
