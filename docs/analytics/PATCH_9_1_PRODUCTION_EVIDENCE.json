@@ -1,0 +1,32 @@
+{
+  "patch": "9.1",
+  "health": {
+    "ok": true,
+    "build": "2585c8eb5071"
+  },
+  "events": [
+    {
+      "request_id": "96456164-af9e-4e41-95f5-c6afe33e8c41",
+      "decision_source": "COGNITIVE_PRIMARY",
+      "winner_present": true,
+      "runner_up_present": true,
+      "decision_valid": true,
+      "runtime_mode": "CONTROLLED",
+      "score_gap": 119.36
+    },
+    {
+      "request_id": "b11ea6ca-1a2a-4a40-aca3-e33c1a1b69e2",
+      "decision_source": "COMMERCIAL_ONLY_FALLBACK",
+      "winner_present": true,
+      "runner_up_present": true,
+      "decision_valid": true,
+      "runtime_mode": "CONTROLLED",
+      "score_gap": 0.01
+    }
+  ],
+  "checks": {
+    "total": 15,
+    "passed": 15,
+    "failed": 0
+  }
+}

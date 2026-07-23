@@ -809,7 +809,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 - Docs: [PATCH_9_1_RECOMMENDATION_DECISION.md](./PATCH_9_1_RECOMMENDATION_DECISION.md), [RECOMMENDATION_DECISION_ANALYTICS.md](./RECOMMENDATION_DECISION_ANALYTICS.md)
 - `EVENT_CONTRACT.md` §7.14
 
-**Veredito:** pendente validação produção
+**Veredito:** 🟢 **PATCH 9.1 APROVADO** — `mia_recommendation_decision` · `9.1.0` · smoke 15/15 · SQL 5/5 · unit 54/54 · regressões 8.x intactas
 
 ---
 

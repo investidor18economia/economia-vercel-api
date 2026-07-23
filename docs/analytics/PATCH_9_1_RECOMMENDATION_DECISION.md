@@ -1,7 +1,7 @@
 # PATCH 9.1 — Recommendation Decision Analytics
 
 **Evento:** `mia_recommendation_decision` · **Versão:** `9.1.0`  
-**Status:** 🟡 **IMPLEMENTAÇÃO**
+**Status:** 🟢 **APROVADO** · produção `2585c8e` · build `2585c8eb5071`
 
 ## Modelo
 
@@ -48,6 +48,15 @@ npm run test:mia:analytics:patch-91:recommendation-decision
 npm run test:mia:analytics:patch-91:prod-smoke
 npm run test:mia:analytics:patch-91:prod-validation
 ```
+
+## Produção
+
+Evidência: [PATCH_9_1_PRODUCTION_EVIDENCE.json](./PATCH_9_1_PRODUCTION_EVIDENCE.json)
+
+Cenários validados:
+- **A** — Data Layer · `COGNITIVE_PRIMARY` · winner + runner-up · `CONTROLLED`
+- **B** — Provider-only · `COMMERCIAL_ONLY_FALLBACK` · winner + runner-up
+- **G** — Social · sem `mia_recommendation_decision`
 
 ## Limitações
 
