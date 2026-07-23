@@ -1,0 +1,95 @@
+{
+  "patch": "11.2",
+  "title": "Página Pública Teilor em Números",
+  "status": "APPROVED",
+  "validated_at": "2026-07-23T20:15:00-03:00",
+  "commits": {
+    "implementation": "366d379",
+    "evidence": "pending"
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "366d379ba795",
+    "page_path": "/teilor-em-numeros",
+    "api_path": "/api/executive-metrics",
+    "health_ok": true
+  },
+  "architecture": {
+    "route": "pages/teilor-em-numeros.jsx",
+    "isr_revalidate_seconds": 300,
+    "libs": ["lib/miaPublicMetricsDisplay.js"],
+    "components": [
+      "components/public-metrics/PublicMetricsPage.jsx",
+      "components/public-metrics/PublicMetricCard.jsx"
+    ],
+    "styles": "styles/public-metrics.css",
+    "single_source": "GET /api/executive-metrics",
+    "no_frontend_aggregation": true,
+    "no_direct_analytics": true
+  },
+  "sections": [
+    "hero",
+    "plataforma",
+    "recomendacoes",
+    "inteligencia-comercial",
+    "economia",
+    "sistema",
+    "transparencia"
+  ],
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-112-public-metrics-page.js",
+    "passed": 35,
+    "failed": 0
+  },
+  "regression": {
+    "script": "scripts/test-mia-analytics-patch-111-executive-metrics-api.js",
+    "passed": 30,
+    "failed": 0
+  },
+  "production_smoke": {
+    "script": "scripts/patch-112-production-smoke.mjs",
+    "build": "366d379ba795",
+    "page_load_ms": 30,
+    "checks": { "total": 20, "passed": 20, "failed": 0 }
+  },
+  "build": {
+    "local_ok": true,
+    "route": "/teilor-em-numeros",
+    "isr": "300 Seconds",
+    "first_load_js_kb": 81.7
+  },
+  "seo": {
+    "title": true,
+    "description": true,
+    "canonical": true,
+    "open_graph": true,
+    "twitter_card": true,
+    "schema_org_organization": true
+  },
+  "accessibility": {
+    "heading_hierarchy": true,
+    "aria_labelledby_sections": true,
+    "aria_label_values": true,
+    "prefers_reduced_motion": true,
+    "prefers_color_scheme": true
+  },
+  "performance": {
+    "isr_cache_seconds": 300,
+    "production_page_load_ms": 30,
+    "single_api_fetch_ssg": true
+  },
+  "privacy": {
+    "forbidden_body_scan_pass": true,
+    "no_pii_fields": true,
+    "no_private_financial_metrics": true,
+    "economia_disclaimer_visible": true
+  },
+  "responsiveness": {
+    "mobile_grid_single_column": true,
+    "tablet_desktop_auto_grid": true,
+    "landscape_supported": true
+  },
+  "documentation": ["docs/analytics/PUBLIC_METRICS_PAGE.md"],
+  "next_patch_recommended": "11.3",
+  "verdict": "PATCH 11.2 APROVADO"
+}
