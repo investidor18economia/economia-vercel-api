@@ -9,8 +9,8 @@
     "9.3_fix": "bbd9328",
     "9.4": "1a73a05",
     "9.4_sql_fix": "55f784d",
-    "9.5_audit": null,
-    "9.5_evidence": null
+    "9.5_audit": "1a29ac9",
+    "9.5_evidence": "1a29ac9"
   },
   "architecture": {
     "events": [
