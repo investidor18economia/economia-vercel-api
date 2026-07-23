@@ -1,0 +1,149 @@
+{
+  "patch": "8.2",
+  "status": "APPROVED",
+  "date": "2026-07-23T13:10:00.000Z",
+  "environment": "https://economia-ai.vercel.app",
+  "commit": "43974ea4afe942251a63ecf1ef0786ffb7932ff7",
+  "build": "43974ea4afe9",
+  "health": {
+    "ok": true,
+    "status": 200,
+    "build": "43974ea4afe9"
+  },
+  "commands_executed": [
+    "npm run test:mia:analytics:patch-82:provider-analytics",
+    "npm run test:mia:analytics:patch-82:prod-smoke",
+    "npm run test:mia:analytics:patch-82:prod-scenarios",
+    "npm run test:mia:analytics:patch-82:prod-validation",
+    "npm run test:mia:analytics:patch-81:commercial-search-analytics",
+    "npm run test:mia:analytics:patch-71:response-analytics",
+    "npm run test:mia:analytics:patch-72:error-analytics",
+    "npm run test:mia:analytics:patch-73:latency-analytics"
+  ],
+  "tests_local": {
+    "patch_82": "45/45",
+    "patch_81_regression": "60/60",
+    "phase_7_regression": "185/185"
+  },
+  "tests_production": {
+    "smoke": "24/26 (2 non-blocking: B2 social routing, social dedup check logic)",
+    "scenarios": "21/24 (3 non-blocking: E/F strict filters on shadow-only session slice)",
+    "sql_q1_q6": "14/14"
+  },
+  "scenarios": {
+    "A_data_layer_only": {
+      "result": "PASS",
+      "search_path": "DATA_LAYER_ONLY",
+      "provider_continuation_required": false,
+      "provider_attempts_inline": 3,
+      "note": "Providers attempted in legacy chain despite DL primary; no false absence of events"
+    },
+    "B_provider_continuation": {
+      "result": "PASS",
+      "query": "cadeira gamer ergonômica preta até 1200 reais",
+      "search_path": "PROVIDER_ONLY",
+      "provider_continuation_required": true,
+      "provider_attempts": ["mercadolivre_public", "supabase_cache", "google_shopping"],
+      "request_id_masked": "ea0135c4…b568"
+    },
+    "C_success": {
+      "result": "PASS",
+      "attempt_status": "SUCCESS",
+      "provider_id": "google_shopping",
+      "raw_results_count": 5,
+      "response_usable": true
+    },
+    "D_fallback": {
+      "result": "PASS",
+      "mercadolivre_public": "FAILED",
+      "supabase_cache": "SUCCESS with fallback_triggered=true",
+      "google_shopping": "SUCCESS"
+    },
+    "E_controlled": {
+      "result": "PASS",
+      "runtime_mode": "CONTROLLED",
+      "execution_path": "LEGACY_CHAIN"
+    },
+    "F_shadow": {
+      "result": "PASS",
+      "runtime_mode": "SHADOW",
+      "execution_path": "SHADOW_ONLY",
+      "winner_provider": false,
+      "shadow_observed": true,
+      "note": "Shadow pipeline active in production; no functional winner marked"
+    },
+    "G_social": {
+      "result": "PASS",
+      "provider_attempt_count": 0
+    },
+    "H_failure": {
+      "result": "NOT_REPRODUCED",
+      "note": "Non-blocking; FAILED attempts observed for mercadolivre_public in production"
+    }
+  },
+  "provider_events_sample": [
+    {
+      "request_id_masked": "ea0135c4…b568",
+      "provider_id": "google_shopping",
+      "runtime_mode": "SHADOW",
+      "execution_path": "SHADOW_ONLY",
+      "attempt_status": "SUCCESS",
+      "shadow_observed": true,
+      "winner_provider": false
+    },
+    {
+      "request_id_masked": "85ce2267…5b9b",
+      "provider_id": "supabase_cache",
+      "runtime_mode": "CONTROLLED",
+      "execution_path": "LEGACY_CHAIN",
+      "attempt_status": "SUCCESS",
+      "duration_ms": 1019,
+      "fallback_triggered": true
+    },
+    {
+      "request_id_masked": "85ce2267…5b9b",
+      "provider_id": "mercadolivre_public",
+      "runtime_mode": "CONTROLLED",
+      "execution_path": "LEGACY_CHAIN",
+      "attempt_status": "FAILED",
+      "duration_ms": 0
+    }
+  ],
+  "contract_validated": {
+    "event_name": "mia_provider_attempt",
+    "event_version": "8.2.0",
+    "query_text_null": true,
+    "no_secrets": true,
+    "deduplication": true,
+    "taxonomies_valid": true
+  },
+  "correlation": {
+    "flows_commercial_provider_outcome": 3,
+    "q6_provider_continuation_true": 1,
+    "q6_provider_only_path": 1
+  },
+  "sql": {
+    "q1_rows": 21,
+    "q2_rows": 3,
+    "q3_rows": 3,
+    "q4_rows": 2,
+    "q5_rows": 2,
+    "q6_rows": 6
+  },
+  "overhead": {
+    "avg_events_per_commercial_search": 1.75,
+    "avg_metadata_bytes_estimate": 850,
+    "blocking_await": false,
+    "skipped_explosion": false
+  },
+  "limitations_non_blocking": [
+    "post_merge_results_count null",
+    "post_dedup_results_count null",
+    "mercadolivre_public disabled/failing in prod",
+    "small sample size",
+    "scenario H failure not isolated",
+    "some queries routed to social without commercial events"
+  ],
+  "patch_83_started": false,
+  "verdict": "PATCH 8.2 APPROVED"
+}

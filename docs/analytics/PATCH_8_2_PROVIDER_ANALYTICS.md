@@ -1,7 +1,7 @@
 # PATCH 8.2 — Provider Analytics
 
 **Evento:** `mia_provider_attempt` · **Versão:** `8.2.0`  
-**Status:** 🟡 **IMPLEMENTAÇÃO CONCLUÍDA · AGUARDANDO DEPLOY E PRODUÇÃO**
+**Status:** 🟢 **PATCH 8.2 APROVADO** — deploy `43974ea` · produção validada · PATCH 8.3 não iniciado
 
 ---
 
@@ -15,9 +15,21 @@
 | Testes unitários (45/45) | ✅ |
 | Regressões 8.1 + 7.x | ✅ |
 | SQL Q1–Q6 documentado | ✅ |
-| Deploy produção | ⏳ pendente |
-| Validação Supabase produção | ⏳ pendente |
+| Deploy produção | ✅ `43974ea4afe9` |
+| Validação Supabase produção | ✅ |
 | PATCH 8.3 | ❌ não iniciado |
+
+---
+
+## Evidências de produção (2026-07-23)
+
+- **Health:** `/api/health` 200 · build `43974ea4afe9`
+- **Smoke:** 24/26 (2 checks não bloqueantes de roteamento)
+- **Cenários A–G:** provider_continuation comprovado (B3 · `PROVIDER_ONLY`)
+- **SQL Q1–Q6:** 14/14
+- **Eventos reais:** `mia_provider_attempt` · `8.2.0` · providers `google_shopping`, `supabase_cache`, `mercadolivre_public`
+- **Correlação:** 3 fluxos `mia_commercial_search` → `mia_provider_attempt` → `mia_response_outcome`
+- **Arquivo:** [PATCH_8_2_PRODUCTION_EVIDENCE.json](./PATCH_8_2_PRODUCTION_EVIDENCE.json)
 
 ---
 
