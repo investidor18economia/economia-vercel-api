@@ -853,6 +853,16 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 51. PATCH 9.5 — Auditoria Final da Fase 9 (2026-07-23)
+
+**Objetivo:** auditoria arquitetural completa da Fase 9 — sem novos eventos ou alterações funcionais.
+
+**Entregas:** `PHASE_9_MASTER_DOCUMENT.md` · `PATCH_9_5_FINAL_AUDIT_EVIDENCE.json` · correção bloqueante SQL Q8 recovery (9.4).
+
+**Veredito:** 🟢 **FASE 9 ENCERRADA E APROVADA**
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

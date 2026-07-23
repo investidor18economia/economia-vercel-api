@@ -11,10 +11,13 @@ with rejected as (
     )
 ),
 replacements as (
-  select distinct metadata->>'previous_decision_request_id' as prior_decision
+  select distinct
+    metadata->>'previous_decision_request_id' as prior_decision,
+    metadata->>'replacement_decision_request_id' as replacement_decision
   from analytics_events
   where event_name = 'mia_recommendation_rejection_signal'
     and metadata->>'replacement_decision_request_id' is not null
+    and metadata->>'previous_decision_request_id' is not null
 ),
 new_search as (
   select distinct metadata->>'decision_request_id' as decision_request_id
@@ -24,9 +27,9 @@ new_search as (
     and coalesce((metadata->>'signal_valid')::boolean, false) = true
 ),
 acceptance_after as (
-  select distinct a.metadata->>'decision_request_id' as decision_request_id, a.metadata->>'signal_target' as signal_target
+  select distinct rp.prior_decision as decision_request_id, a.metadata->>'signal_target' as signal_target
   from analytics_events a
-  join replacements r on r.prior_decision = a.metadata->>'decision_request_id'
+  join replacements rp on rp.replacement_decision = a.metadata->>'decision_request_id'
   where a.event_name = 'mia_recommendation_acceptance_signal'
     and coalesce((a.metadata->>'signal_valid')::boolean, false) = true
 ),

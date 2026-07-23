@@ -569,6 +569,15 @@ Campos additive: `runner_up_product_family`, `runner_up_in_display_products`, `s
 
 Detalhamento: [RUNNER_UP_ALTERNATIVE_ANALYTICS.md](../RUNNER_UP_ALTERNATIVE_ANALYTICS.md)
 
+### 7.18 PATCH 9.5 — Auditoria Final da Fase 9
+
+**Sem evento novo.** Consolidação arquitetural de 9.1–9.4.
+
+Documento mestre: [PHASE_9_MASTER_DOCUMENT.md](../PHASE_9_MASTER_DOCUMENT.md)  
+Evidência: [PATCH_9_5_FINAL_AUDIT_EVIDENCE.json](../PATCH_9_5_FINAL_AUDIT_EVIDENCE.json)
+
+**Veredito:** 🟢 **FASE 9 ENCERRADA E APROVADA**
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |

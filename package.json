@@ -97,6 +97,8 @@
     "test:mia:analytics:patch-94:runner-up-alternative": "node scripts/test-mia-analytics-patch-94-runner-up-alternative.js",
     "test:mia:analytics:patch-94:prod-smoke": "node scripts/patch-94-production-smoke.mjs",
     "test:mia:analytics:patch-94:prod-validation": "node scripts/patch-94-production-validation.mjs",
+    "test:mia:analytics:patch-95:phase9-final-audit": "node scripts/test-mia-analytics-patch-95-phase9-final-audit.js",
+    "test:mia:analytics:patch-95:prod-audit": "node scripts/patch-95-phase9-production-audit.mjs",
     "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",

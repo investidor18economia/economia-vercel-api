@@ -1,0 +1,89 @@
+{
+  "patch": "9.5",
+  "audit_type": "phase_9_final",
+  "phase_verdict": "FASE 9 ENCERRADA E APROVADA",
+  "implementation_commits": {
+    "9.1": "see git history",
+    "9.2": "see git history",
+    "9.3": "e117854",
+    "9.3_fix": "bbd9328",
+    "9.4": "1a73a05",
+    "9.4_sql_fix": "55f784d",
+    "9.5_audit": null,
+    "9.5_evidence": null
+  },
+  "architecture": {
+    "events": [
+      "mia_recommendation_decision",
+      "mia_recommendation_acceptance_signal",
+      "mia_recommendation_rejection_signal"
+    ],
+    "derived_layer": "9.4 runner-up/alternative (no new event)",
+    "correlation_hub": "decision_request_id",
+    "blind_spots": [
+      "SESSION_ABANDONED_OBSERVED not emitted",
+      "silence-based abandonment excluded",
+      "SECOND_BEST_DISCOVERY without dedicated 9.1 event"
+    ],
+    "overlap_valid": [
+      "client events + 9.2 server acceptance (hybrid model)",
+      "RUNNER_UP_FOLLOW_UP emits 9.2 + 9.3 INCONCLUSIVE"
+    ]
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "health_ok": true,
+    "build": "70f7e3399ee1",
+    "smoke_checks": { "total": 17, "passed": 17, "failed": 0 },
+    "sql_queries": { "phase8_sample": 3, "phase9_all": 35, "total_executed": 38, "passed": 38, "failed": 0 }
+  },
+  "unit_tests": {
+    "patch_95_meta": { "script": "scripts/test-mia-analytics-patch-95-phase9-final-audit.js", "passed": 46, "failed": 0 }
+  },
+  "regressions": {
+    "patch_8_1": "60/60",
+    "patch_8_2": "45/45",
+    "patch_8_3": "39/39",
+    "patch_8_4": "66/66",
+    "patch_9_1": "54/54",
+    "patch_9_2": "52/52",
+    "patch_9_3": "58/58",
+    "patch_9_4": "47/47"
+  },
+  "decision_request_id": "0e92f964-5aa6-492c-9c97-792bd58b055a",
+  "scenarios_tested": [
+    "commercial decision 9.1 inline + persistence",
+    "9.4 runner-up inline metadata",
+    "refinement turn (9.3 signals)",
+    "social turn without spurious events",
+    "phase 9 privacy scan (0 leaks)",
+    "historical events 9.1/9.2/9.3 present"
+  ],
+  "privacy_scan": {
+    "status": "passed",
+    "leaks_in_phase9_metadata": 0,
+    "forbidden_keys_checked": ["product_name", "https://", "query_text", "bearer", "access_token"]
+  },
+  "blocking_fixes_applied": [
+    {
+      "file": "docs/analytics/sql/patch-94-query8-recovery.sql",
+      "issue": "acceptance_after joined prior_decision instead of replacement_decision",
+      "resolution": "aligned with patch-93-query8 pattern"
+    }
+  ],
+  "backlog": [
+    "DB-level dedup for 9.2/9.3 in-memory stores",
+    "Wire or remove recovered_after_rejection field",
+    "Emit or remove orphan taxonomies (SESSION_ABANDONED_OBSERVED, PURCHASE_CONFIRMED)",
+    "JSONB indexes on decision_request_id",
+    "Update PATCH 9.2 doc (runner-up follow-up now enabled)",
+    "Remove unused dup_runner_up CTE in Q12 or wire to metric"
+  ],
+  "limitations_non_blocking": [
+    "9.2 client path metadata.request_id equals decision_request_id",
+    "Runner-up authority from rankedProducts scan only",
+    "In-memory dedup not cross-instance safe"
+  ],
+  "master_document": "docs/analytics/PHASE_9_MASTER_DOCUMENT.md",
+  "functional_invariance": "no ranking/routing/winner/response changes in audit patch"
+}
