@@ -1,7 +1,7 @@
 # PATCH 8.3 — Offer Analytics
 
 **Evento:** `mia_offer_set` · **Versão:** `8.3.0`  
-**Status:** 🟡 **EM IMPLEMENTAÇÃO**
+**Status:** 🟢 **APROVADO** · produção `2158de6` · build `2158de61bc27`
 
 ## Modelo
 
@@ -37,11 +37,20 @@ Correlaciona com:
 
 Ver [OFFER_ANALYTICS.md](./OFFER_ANALYTICS.md) e `EVENT_CONTRACT.md` §7.13.
 
-## Testes
+## Produção
+
+Evidência: [PATCH_8_3_PRODUCTION_EVIDENCE.json](./PATCH_8_3_PRODUCTION_EVIDENCE.json)
 
 ```bash
-npm run test:mia:analytics:patch-83:offer-analytics
+npm run test:mia:analytics:patch-83:prod-smoke
+npm run test:mia:analytics:patch-83:prod-validation
 ```
+
+Cenários validados:
+- **A** — Data Layer · `SUCCESS` · `delivered_offers_count=3`
+- **B** — Provider-only · `PARTIAL` · funil raw→ranked observado
+- **G** — Social · sem `mia_offer_set`
+
 
 ## SQL
 

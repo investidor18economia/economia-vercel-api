@@ -771,9 +771,11 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Modelo:** 1 evento agregado por `request_id` (sem evento por oferta individual).
 
-**Testes locais:** 8.3 **39/39** · regressões 8.1+8.2 intactas.
+**Testes locais:** 8.3 **39/39** · regressões 8.1 **60/60** + 8.2 **45/45**.
 
-**Veredito:** 🟡 **EM IMPLEMENTAÇÃO / AGUARDANDO DEPLOY**
+**Produção:** deploy `2158de6` · build `2158de61bc27` · smoke **12/12** · SQL Q1–Q7 **8/8** · evidência [PATCH_8_3_PRODUCTION_EVIDENCE.json](./PATCH_8_3_PRODUCTION_EVIDENCE.json).
+
+**Veredito:** 🟢 **PATCH 8.3 APROVADO** — `mia_offer_set` · `8.3.0` · DATA_LAYER SUCCESS (`delivered=3`) · PROVIDER_ONLY funil observado · social sem evento
 
 ---
 

@@ -1,0 +1,138 @@
+{
+  "patch": "8.3",
+  "status": "APPROVED",
+  "date": "2026-07-23",
+  "environment": "production",
+  "base_url": "https://economia-ai.vercel.app",
+  "commit": "2158de6",
+  "build_sha": "2158de61bc27",
+  "health": {
+    "ok": true,
+    "status": 200,
+    "version": "12E.1.0"
+  },
+  "tests": {
+    "unit_patch_83": "39/39",
+    "unit_patch_82": "45/45",
+    "unit_patch_81": "60/60",
+    "prod_smoke": "12/12",
+    "prod_sql": "8/8"
+  },
+  "scenarios": {
+    "A_data_layer": {
+      "query": "Quero um celular Samsung bom para jogos até 2500 reais",
+      "search_path": "DATA_LAYER_ONLY",
+      "offer_pipeline_status": "SUCCESS",
+      "delivered_offers_count": 3,
+      "winner_present": true,
+      "winner_provider_id": "product_specs"
+    },
+    "B_provider_only": {
+      "query": "cadeira gamer ergonômica preta até 1200 reais",
+      "search_path": "PROVIDER_ONLY",
+      "offer_pipeline_status": "PARTIAL",
+      "raw_offers_count": 7,
+      "normalized_offers_count": 6,
+      "ranked_offers_count": 6,
+      "delivered_offers_count": 0,
+      "note": "Pipeline observado; perda entre ranking e delivery documentada (FALLBACK_RESULT)."
+    },
+    "G_social": {
+      "query": "Boa tarde, como você está?",
+      "offer_set_emitted": false
+    }
+  },
+  "events": [
+    {
+      "created_at": "2026-07-23T13:36:49.221831+00:00",
+      "request_id": "5d07a267…e3a1",
+      "offer_pipeline_status": "SUCCESS",
+      "search_path": "DATA_LAYER_ONLY",
+      "runtime_mode": "CONTROLLED",
+      "raw_offers_count": 12,
+      "normalized_offers_count": 12,
+      "ranked_offers_count": 12,
+      "selected_offers_count": 3,
+      "delivered_offers_count": 3,
+      "removed_duplicate_count": null,
+      "winner_present": true,
+      "winner_provider_id": "product_specs",
+      "winner_is_lowest_price": false,
+      "provider_count": 3,
+      "merchant_count": 3,
+      "minimum_price": 1016.99,
+      "median_price": 1711.94,
+      "winner_price": 1160.1
+    },
+    {
+      "created_at": "2026-07-23T13:30:19.981945+00:00",
+      "request_id": "656b4d63…25d8",
+      "offer_pipeline_status": "PARTIAL",
+      "search_path": "PROVIDER_ONLY",
+      "runtime_mode": "CONTROLLED",
+      "raw_offers_count": 7,
+      "normalized_offers_count": 6,
+      "ranked_offers_count": 6,
+      "selected_offers_count": null,
+      "delivered_offers_count": 0,
+      "removed_duplicate_count": null,
+      "winner_present": false,
+      "winner_provider_id": null,
+      "winner_is_lowest_price": null,
+      "provider_count": 1,
+      "merchant_count": 4,
+      "minimum_price": 501.51,
+      "median_price": 609.33,
+      "winner_price": null
+    },
+    {
+      "created_at": "2026-07-23T13:28:11.09244+00:00",
+      "request_id": "c110d05b…9acd",
+      "offer_pipeline_status": "PARTIAL",
+      "search_path": "PROVIDER_ONLY",
+      "runtime_mode": "CONTROLLED",
+      "raw_offers_count": 7,
+      "normalized_offers_count": 6,
+      "ranked_offers_count": 6,
+      "selected_offers_count": null,
+      "delivered_offers_count": 0,
+      "removed_duplicate_count": 0,
+      "winner_present": false,
+      "winner_provider_id": null,
+      "winner_is_lowest_price": null,
+      "provider_count": 1,
+      "merchant_count": 4,
+      "minimum_price": 501.51,
+      "median_price": 609.33,
+      "winner_price": null
+    }
+  ],
+  "correlation": {
+    "by_request_id": true,
+    "with_mia_commercial_search": true,
+    "with_mia_provider_attempt": true,
+    "client_interactions": "session-based; request_id ausente em offer_click/favorite/price_alert"
+  },
+  "privacy": {
+    "query_text_persisted": false,
+    "full_urls_persisted": false,
+    "offer_lists_persisted": false,
+    "secrets_detected": false
+  },
+  "sql": {
+    "q1_funnel": "ok",
+    "q2_price_winner": "ok",
+    "q3_diversity": "ok",
+    "q4_quality": "ok",
+    "q5_interactions": "ok",
+    "q6_correlation": "ok",
+    "q7_loss_diagnostic": "ok"
+  },
+  "limitations": [
+    "session_id pode não correlacionar consultas mia-chat com Supabase em todos os paths",
+    "selected_offers_count parcial quando displayProducts não passa pelo hook de seleção",
+    "impressão real depende de mia_recommendation_shown (client)",
+    "frete/parcelamento raramente disponíveis no card legacy"
+  ],
+  "result": "PATCH 8.3 observacional em produção; funil, winner, preços agregados e diversidade confirmados."
+}
