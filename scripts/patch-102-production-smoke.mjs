@@ -26,7 +26,8 @@ loadEnv();
 const BASE = process.env.PATCH102_PROD_BASE_URL || "https://economia-ai.vercel.app";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const WAIT_MS = Number(process.env.PATCH102_PERSIST_WAIT_MS || 28000);
+const WAIT_MS = Number(process.env.PATCH102_PERSIST_WAIT_MS || 45000);
+const POLL_MS = Number(process.env.PATCH102_POLL_MS || 5000);
 
 const checks = [];
 
@@ -75,22 +76,36 @@ const visitorId = randomUUID();
 const conversationId = randomUUID();
 const startedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
-const commercial = await postChat({
-  text: "Quero um celular Samsung bom para jogos até 2500 reais",
-  conversation_id: conversationId,
-  analytics_context: { session_id: sessionId, visitor_id: visitorId },
-});
-ok("commercial HTTP 200", commercial.status === 200);
+const scenarios = [
+  { id: "A", text: "Quero um celular Samsung bom para jogos até 2500 reais" },
+  { id: "B", text: "cadeira gamer ergonômica preta até 1200 reais" },
+];
 
-const requestId = commercial.json?.request_id;
+let requestId = null;
+for (const s of scenarios) {
+  const commercial = await postChat({
+    text: s.text,
+    conversation_id: conversationId,
+    analytics_context: { session_id: sessionId, visitor_id: visitorId },
+  });
+  ok(`${s.id} HTTP 200`, commercial.status === 200);
+  ok(`${s.id} inline offer_set 8.3`, commercial.json?.offer_set_analytics?.offer_set_event_version === "8.3.0");
+  requestId = commercial.json?.request_id || requestId;
+  await new Promise((r) => setTimeout(r, 3000));
+}
+
 ok("request_id present", !!requestId);
-ok("inline offer_set 8.3", commercial.json?.offer_set_analytics?.offer_set_event_version === "8.3.0");
 
-console.log(`\nWaiting ${WAIT_MS}ms...`);
-await new Promise((r) => setTimeout(r, WAIT_MS));
-
-const offerSet = await fetchEvents(sessionId, "mia_offer_set", startedAt);
-const savings = await fetchEvents(sessionId, "mia_savings_estimation", startedAt);
+console.log(`\nPolling up to ${WAIT_MS}ms...`);
+let offerSet = [];
+let savings = [];
+const deadline = Date.now() + WAIT_MS;
+while (Date.now() < deadline) {
+  offerSet = await fetchEvents(sessionId, "mia_offer_set", startedAt);
+  savings = await fetchEvents(sessionId, "mia_savings_estimation", startedAt);
+  if (offerSet.length >= 1 && savings.length >= 1) break;
+  await new Promise((r) => setTimeout(r, POLL_MS));
+}
 
 ok("offer_set persisted", offerSet.length >= 1, `count=${offerSet.length}`);
 ok("savings_estimation persisted", savings.length >= 1, `count=${savings.length}`);

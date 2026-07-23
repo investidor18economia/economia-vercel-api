@@ -138,11 +138,19 @@ const singleOffer = buildWinnerVsMinimumEstimation(
 assert("single offer eligible", singleOffer.savings_estimation_eligible === true);
 
 const invalidPrice = buildWinnerVsMinimumEstimation(
-  { price_sample_count: 0, winner_present: false, price_currency: "BRL" },
-  {},
-  { requestId: "req-invalid" }
+  { price_sample_count: 6, winner_present: false, winner_price: null, minimum_price: 501.51, price_currency: "BRL" },
+  priceIntel,
+  { requestId: "req-no-winner" }
 );
-assert("invalid not in list", buildSavingsEstimationsFromOfferSetMetadata({ price_sample_count: 0, winner_present: false }).length === 0);
+assert("no winner ineligible", invalidPrice.savings_estimation_eligible === false);
+assert("no winner reason", invalidPrice.eligibility_reason === MIA_SAVINGS_ELIGIBILITY_REASON.INVALID_COMPARISON_PRICE);
+const prodLike = buildSavingsEstimationsFromOfferSetMetadata(
+  { price_sample_count: 6, winner_present: false, winner_price: null, minimum_price: 501.51, price_currency: "BRL" },
+  priceIntel,
+  { requestId: "req-prod-like" }
+);
+assert("prod-like emits two", prodLike.length === 2);
+assert("invalid empty sample", buildSavingsEstimationsFromOfferSetMetadata({ price_sample_count: 0, winner_present: false }).length === 0);
 
 console.log("\nPayload privacy");
 const payloads = buildSavingsEstimationAnalyticsPayloads({
