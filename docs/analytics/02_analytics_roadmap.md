@@ -461,7 +461,7 @@ Auditoria da Arquitetura de Preços, Economia e Alertas — 🟢 APROVADO
 
 PATCH 10.1
 
-Price Intelligence & Price Quality Analytics — 🟡 IMPLEMENTADO
+Price Intelligence & Price Quality Analytics — 🟢 APROVADO
 
 PATCH 10.2
 

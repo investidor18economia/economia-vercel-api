@@ -70,7 +70,7 @@ ok("health 200", health.ok, `build=${healthJson.build}`);
 const sessionId = randomUUID();
 const visitorId = randomUUID();
 const conversationId = randomUUID();
-const startedAt = new Date().toISOString();
+const startedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
 const commercial = await postChat({
   text: "Quero um celular Samsung bom para jogos até 2500 reais",

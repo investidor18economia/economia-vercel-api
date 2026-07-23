@@ -879,7 +879,11 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Arquitetura:** derivado de `mia_offer_set` (8.3) — sem recálculo de preços; hook em `instrumentOfferSetAnalyticsForDelivery`.
 
-**Veredito:** 🟡 **PATCH 10.1 IMPLEMENTADO** — aguardando deploy/evidência produção
+**Produção:** build `b6e5d555a8d6` · smoke 12/12 · SQL Q1–Q10 validado · regressões 8.3/9.1/8.4 OK
+
+**Correção pós-deploy:** domain gate redundante removido (`b6e5d55`) — `commercialPermission` não persistido em sharedState bloqueava emit.
+
+**Veredito:** 🟢 **PATCH 10.1 APROVADO**
 
 ---
 

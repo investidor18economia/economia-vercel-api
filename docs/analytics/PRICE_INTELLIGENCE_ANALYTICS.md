@@ -23,6 +23,8 @@ mia_offer_set (8.3) finalize metadata
 
 **Dedup:** `request_id + event_name + event_version` (máx. 1 por request comercial)
 
+**Domain gate:** herdado da ativação do tracker `mia_offer_set` (8.3) — não revalidado no delivery com campos ausentes em sharedState.
+
 ## Taxonomias
 
 | Campo | Valores |

@@ -1,0 +1,126 @@
+{
+  "patch": "10.1",
+  "title": "Price Intelligence & Price Quality Analytics",
+  "status": "APPROVED",
+  "commits": {
+    "implementation": "cfcf390",
+    "production_fix": "b6e5d55"
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "b6e5d555a8d6",
+    "health_ok": true
+  },
+  "event": {
+    "event_name": "mia_price_intelligence",
+    "event_version": "10.1.0",
+    "category": "price_intelligence",
+    "dedup": "request_id + event_name + event_version",
+    "hook": "instrumentOfferSetAnalyticsForDelivery → instrumentPriceIntelligenceAnalyticsFromOfferSet"
+  },
+  "contract": {
+    "source": "offer_set_derived",
+    "offer_set_event_version": "8.3.0",
+    "taxonomy_fields": [
+      "price_quality",
+      "price_confidence",
+      "winner_price_position",
+      "shipping_coverage"
+    ],
+    "coverage_fields": [
+      "price_sample_count",
+      "provider_count",
+      "merchant_count",
+      "raw_offers_count",
+      "normalized_offers_count",
+      "eligible_offers_count",
+      "delivered_offers_count",
+      "removed_invalid_count",
+      "removed_duplicate_count",
+      "removed_ineligible_count"
+    ],
+    "dispersion_fields": [
+      "minimum_price",
+      "maximum_price",
+      "average_price",
+      "median_price",
+      "price_range",
+      "price_range_percent"
+    ],
+    "forbidden_in_metadata": [
+      "query",
+      "query_text",
+      "product_name",
+      "title",
+      "url",
+      "link",
+      "prices",
+      "offers"
+    ]
+  },
+  "production_smoke": {
+    "request_id": "f083b1bd-087b-4612-a88f-4f7a6653402e",
+    "session_id": "aebcfd6f-7241-4f1c-a75b-27e822ccef93",
+    "offer_set_count": 1,
+    "price_intelligence_count": 1,
+    "checks": { "total": 12, "passed": 12, "failed": 0 }
+  },
+  "sql_validation": {
+    "queries": 10,
+    "passed": 10,
+    "failed": 0,
+    "files": [
+      "patch-101-query1-price-quality-distribution.sql",
+      "patch-101-query2-provider-coverage.sql",
+      "patch-101-query3-price-dispersion.sql",
+      "patch-101-query4-winner-price-position.sql",
+      "patch-101-query5-provider-reliability.sql",
+      "patch-101-query6-promotional-frequency.sql",
+      "patch-101-query7-invalid-price-frequency.sql",
+      "patch-101-query8-confidence-distribution.sql",
+      "patch-101-query9-quality-by-search-path.sql",
+      "patch-101-query10-quality-correlation.sql"
+    ]
+  },
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-101-price-intelligence.js",
+    "passed": 52,
+    "failed": 0
+  },
+  "regressions": {
+    "patch_83_offer_analytics": { "passed": 39, "failed": 0 },
+    "patch_91_recommendation_decision": { "passed": 54, "failed": 0 },
+    "patch_84_phase8_final_audit": { "passed": 66, "failed": 0 },
+    "patch_83_production_smoke": { "passed": true, "build": "b6e5d555a8d6" }
+  },
+  "privacy": {
+    "query_text_null": true,
+    "no_product_name_in_metadata": true,
+    "no_urls_in_metadata": true,
+    "production_scan_pass": true
+  },
+  "issues_found_and_fixed": [
+    {
+      "issue": "Domain gate re-checked sharedState.commercialPermission (never persisted) blocking production emit",
+      "fix": "Removed redundant gate in instrumentPriceIntelligenceAnalyticsFromOfferSet; domain enforced at offer_set init",
+      "commit": "b6e5d55"
+    },
+    {
+      "issue": "Production smoke startedAt clock skew excluded valid events",
+      "fix": "Smoke uses 10-minute lookback buffer on created_at filter",
+      "commit": "pending_local"
+    }
+  ],
+  "limitations": [
+    "lowest_price_provider_id not in offer_set metadata → null",
+    "Derived only from offer_set sample (≤6 offers)",
+    "Does not measure savings (PATCH 10.2)"
+  ],
+  "documentation": [
+    "docs/analytics/PRICE_INTELLIGENCE_ANALYTICS.md",
+    "docs/analytics/contracts/EVENT_CONTRACT.md §7.19",
+    "docs/analytics/ANALYTICS_CHANGELOG.md §53"
+  ],
+  "next_patches_recommended": ["10.2", "10.3", "10.4", "10.5", "10.6"],
+  "verdict": "PATCH 10.1 APROVADO"
+}
