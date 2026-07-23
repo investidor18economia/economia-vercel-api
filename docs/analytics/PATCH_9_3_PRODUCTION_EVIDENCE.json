@@ -1,0 +1,87 @@
+{
+  "patch": "9.3",
+  "event_name": "mia_recommendation_rejection_signal",
+  "event_version": "9.3.0",
+  "implementation_commit": "e117854",
+  "fix_commit": "bbd9328",
+  "evidence_commit": null,
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "health_ok": true,
+    "build": "bbd93286c96d",
+    "smoke_checks": { "total": 17, "passed": 17, "failed": 0 },
+    "sql_queries": { "total": 10, "passed": 10, "failed": 0 }
+  },
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-93-recommendation-rejection.js",
+    "passed": 58,
+    "failed": 0
+  },
+  "regressions": {
+    "patch_8_1": "60/60",
+    "patch_8_2": "45/45",
+    "patch_8_3": "39/39",
+    "patch_8_4": "66/66",
+    "patch_9_1": "54/54",
+    "patch_9_2": "51/51"
+  },
+  "decision_request_id": "b66b0345-5b17-4c9b-86d9-44f1dfe8c3dd",
+  "abandonment_definition": "explicit declaration or flow exit only — no silence-based abandonment; SESSION_ABANDONED_OBSERVED not emitted without lifecycle infra",
+  "scenarios_tested": [
+    "commercial decision 9.1",
+    "explicit rejection message turn",
+    "budget refinement turn",
+    "alternative request turn",
+    "social turn without rejection event",
+    "session_context decision correlation preservation"
+  ],
+  "events": [
+    {
+      "signal_type": "NEW_SEARCH_STARTED",
+      "signal_class": "SUBSTITUTION",
+      "evidence_strength": "STRONG",
+      "signal_target": "DECISION_GENERIC",
+      "signal_reason": "NOT_APPLICABLE",
+      "correlation_method": "REQUEST_ID",
+      "correlation_confidence": "HIGH",
+      "signal_outcome": "NEW_DECISION_CREATED",
+      "signal_valid": true,
+      "decision_request_id": "b66b0345-5b17-4c9b-86d9-44f1dfe8c3dd"
+    },
+    {
+      "signal_type": "ALTERNATIVE_REQUESTED",
+      "signal_class": "INCONCLUSIVE",
+      "evidence_strength": "MODERATE",
+      "signal_target": "ALTERNATIVE",
+      "signal_reason": "NOT_APPLICABLE",
+      "correlation_method": "REQUEST_ID",
+      "correlation_confidence": "HIGH",
+      "signal_outcome": "FLOW_CONTINUED",
+      "signal_valid": false,
+      "decision_request_id": "b66b0345-5b17-4c9b-86d9-44f1dfe8c3dd"
+    },
+    {
+      "signal_type": "ALTERNATIVE_REQUESTED",
+      "signal_class": "INCONCLUSIVE",
+      "evidence_strength": "MODERATE",
+      "signal_target": "RUNNER_UP",
+      "signal_reason": "NOT_APPLICABLE",
+      "correlation_method": "REQUEST_ID",
+      "correlation_confidence": "HIGH",
+      "signal_outcome": "FLOW_CONTINUED",
+      "signal_valid": false,
+      "decision_request_id": "b66b0345-5b17-4c9b-86d9-44f1dfe8c3dd"
+    }
+  ],
+  "dedup": "unique source_event_id per persisted event in smoke session",
+  "privacy_scan": "passed — no query_text, product_name, bearer tokens, or URLs in metadata",
+  "functional_invariance": "analytics observational only — no routing/ranking/winner/response changes",
+  "problems_found": [
+    "buildSessionContext dropped lastRecommendationDecisionRequestId — fixed in bbd9328"
+  ],
+  "limitations": [
+    "No silence-based SESSION_ABANDONED_OBSERVED without lifecycle infra",
+    "ALTERNATIVE_REQUESTED recorded as INCONCLUSIVE for official rejection metrics",
+    "Production smoke observed substitution/new-search path before explicit OBJECTION classification on some turns"
+  ]
+}

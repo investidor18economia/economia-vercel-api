@@ -1,7 +1,7 @@
 # PATCH 9.3 — Recommendation Rejection and Abandonment Signals
 
 **Evento:** `mia_recommendation_rejection_signal` · **Versão:** `9.3.0`  
-**Status:** 🟡 **IMPLEMENTADO** (aguardando evidência de produção)
+**Status:** 🟢 **APROVADO** · produção `bbd9328` · build `bbd93286c96d`
 
 ## Arquitetura escolhida — Modelo Híbrido (D)
 

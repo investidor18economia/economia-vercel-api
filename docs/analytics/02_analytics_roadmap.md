@@ -427,7 +427,7 @@ Recommendation Acceptance
 
 PATCH 9.3
 
-Recommendation Rejection and Abandonment Signals — 🟡 IMPLEMENTADO (`mia_recommendation_rejection_signal` · `9.3.0`)
+Recommendation Rejection and Abandonment Signals — 🟢 APROVADO (`mia_recommendation_rejection_signal` · `9.3.0`)
 
 PATCH 9.4
 

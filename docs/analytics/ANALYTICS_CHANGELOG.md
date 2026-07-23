@@ -839,7 +839,7 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Lib:** `lib/miaRecommendationRejection*.js` · hooks em `pages/api/chat-gpt4o.js`
 
-**Veredito:** 🟡 **PATCH 9.3 IMPLEMENTADO** — aguardando commit/deploy/evidência produção
+**Veredito:** 🟢 **PATCH 9.3 APROVADO** — smoke 17/17 · SQL 10/10 · unit 58/58 · build `bbd93286c96d`
 
 ---
 
