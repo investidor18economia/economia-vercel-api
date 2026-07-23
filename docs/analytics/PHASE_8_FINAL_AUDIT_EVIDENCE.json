@@ -1,0 +1,105 @@
+{
+  "phase": "8",
+  "patch": "8.4",
+  "status": "APPROVED",
+  "phase_status": "CONCLUDED",
+  "date": "2026-07-23",
+  "environment": "production",
+  "base_url": "https://economia-ai.vercel.app",
+  "branch": "master",
+  "commits": {
+    "8.1_impl": "e6b5eb1",
+    "8.1_evidence": "6cd9247",
+    "8.2_impl": "43974ea",
+    "8.2_evidence": "a6f2ab1",
+    "8.3_impl": "2158de6",
+    "8.3_evidence": "23320b8"
+  },
+  "build_sha": "23320b81e6e8",
+  "health": {
+    "ok": true,
+    "status": 200,
+    "version": "12E.1.0"
+  },
+  "architecture": {
+    "events": [
+      { "name": "mia_commercial_search", "version": "8.1.0", "unit": "request", "max_per_request": 1 },
+      { "name": "mia_provider_attempt", "version": "8.2.0", "unit": "attempt", "max_per_request": "N" },
+      { "name": "mia_offer_set", "version": "8.3.0", "unit": "request", "max_per_request": 1 }
+    ],
+    "correlation_hub": "request_id",
+    "fire_and_forget": true,
+    "functional_impact": "none"
+  },
+  "responsibility_matrix": {
+    "commercial_search": "mia_commercial_search",
+    "provider_attempt": "mia_provider_attempt",
+    "offer_funnel": "mia_offer_set",
+    "data_layer": "data_layer_resolution",
+    "outcome": "mia_response_outcome",
+    "error": "mia_error_event",
+    "latency": "mia_latency_event",
+    "impression": "mia_recommendation_shown",
+    "click": "offer_click",
+    "favorite": "favorite_created",
+    "price_alert": "price_alert_created"
+  },
+  "tests": {
+    "unit_81": "60/60",
+    "unit_82": "45/45",
+    "unit_83": "39/39",
+    "meta_audit_84": "66/66",
+    "sql_prod_81": "27/27",
+    "sql_prod_82": "14/14",
+    "sql_prod_83": "8/8",
+    "prod_audit_84": "15/15"
+  },
+  "production_events_48h": {
+    "mia_commercial_search": 16,
+    "mia_provider_attempt": 16,
+    "mia_offer_set": 3
+  },
+  "scenarios_validated": {
+    "social": { "phase8_events": false },
+    "data_layer": { "search_path": "DATA_LAYER_ONLY", "offer_status": "SUCCESS", "delivered": 3 },
+    "provider_only": { "search_path": "PROVIDER_ONLY", "offer_status": "PARTIAL", "funnel_observed": true },
+    "fallback": { "mercadolivre_public": "FAILED", "supabase_cache": "SUCCESS" },
+    "shadow": { "isolated": true, "winner_functional": false }
+  },
+  "privacy": {
+    "secrets_in_metadata": false,
+    "full_urls_in_metadata": false,
+    "offer_lists_persisted": false,
+    "commercial_search_query": "sanitized query_text column (by design EVENT_CONTRACT §7.11)"
+  },
+  "deduplication": {
+    "81": "request_id|event_name|event_version",
+    "82": "request_id|provider_id|attempt_index|event_name|event_version",
+    "83": "request_id|event_name|event_version"
+  },
+  "sql": {
+    "total_queries": 18,
+    "fan_out_fix": "patch-83-query5 session aggregation (PATCH 8.4)"
+  },
+  "problems_found": [
+    {
+      "id": "SQL-Q5-FANOUT",
+      "severity": "non-blocking",
+      "status": "fixed",
+      "description": "Q5 interactions could inflate delivery_ctr when multiple offer_sets share session_id"
+    }
+  ],
+  "corrections_applied": [
+    "docs/analytics/sql/patch-83-query5-offer-interactions.sql"
+  ],
+  "limitations_non_blocking": [
+    "fire-and-forget persistence delay ~35s",
+    "selected_offers_count null in some provider-only paths",
+    "merge/dedup counts partial outside legacy router",
+    "client interaction events lack request_id",
+    "impression = client mia_recommendation_shown",
+    "ranking-to-delivery loss in FALLBACK_RESULT paths"
+  ],
+  "blocking_issues": [],
+  "verdict": "PATCH 8.4 APROVADO — FASE 8 CONCLUÍDA"
+}

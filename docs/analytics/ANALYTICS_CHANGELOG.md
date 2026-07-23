@@ -779,6 +779,24 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 46. PATCH 8.4 — Auditoria Final da Fase 8 (2026-07-23)
+
+**Objetivo:** encerrar formalmente a Fase 8 — coerência arquitetural, contratos, correlação, SQL, produção, documentação.
+
+**Entregas:**
+
+- [PHASE_8_MASTER_DOCUMENT.md](./PHASE_8_MASTER_DOCUMENT.md)
+- [PATCH_8_4_PHASE_8_FINAL_AUDIT.md](./PATCH_8_4_PHASE_8_FINAL_AUDIT.md)
+- [PHASE_8_FINAL_AUDIT_EVIDENCE.json](./PHASE_8_FINAL_AUDIT_EVIDENCE.json)
+- Script meta-audit + prod audit (`patch-84-*`)
+- Correção SQL Q5 fan-out (`patch-83-query5-offer-interactions.sql`)
+
+**Testes:** 8.1 **60/60** · 8.2 **45/45** · 8.3 **39/39** · SQL prod **49/49** · meta-audit 8.4
+
+**Veredito:** 🟢 **PATCH 8.4 APROVADO** · 🟢 **FASE 8 CONCLUÍDA**
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

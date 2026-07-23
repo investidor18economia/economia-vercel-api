@@ -1,5 +1,5 @@
--- PATCH 8.3 — Q5 Interactions (delivery-based CTR)
-with offer_sets as (
+-- PATCH 8.3 — Q5 Interactions (delivery-based CTR; session-aggregated to avoid fan-out)
+with offer_sets_raw as (
   select
     metadata->>'request_id' as request_id,
     session_id,
@@ -8,6 +8,16 @@ with offer_sets as (
   from analytics_events
   where event_name = 'mia_offer_set'
     and coalesce(metadata->>'event_version', '') = '8.3.0'
+    and coalesce(category, '') <> 'offer_set_test'
+),
+offer_sets as (
+  select
+    session_id,
+    count(*) as offer_set_count,
+    sum(delivered_offers_count) as delivered_offers_count
+  from offer_sets_raw
+  where session_id is not null
+  group by session_id
 ),
 clicks as (
   select session_id, count(*) as click_count
@@ -28,7 +38,8 @@ alerts as (
   group by 1
 )
 select
-  count(*) as offer_sets,
+  count(*) as sessions_with_offer_sets,
+  sum(os.offer_set_count) as offer_sets,
   sum(os.delivered_offers_count) as delivered_offers,
   coalesce(sum(c.click_count), 0) as clicks,
   coalesce(sum(f.favorite_count), 0) as favorites,

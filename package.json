@@ -83,6 +83,8 @@
     "test:mia:analytics:patch-83:offer-analytics": "node scripts/test-mia-analytics-patch-83-offer-analytics.js",
     "test:mia:analytics:patch-83:prod-smoke": "node scripts/patch-83-production-smoke.mjs",
     "test:mia:analytics:patch-83:prod-validation": "node scripts/patch-83-production-validation.mjs",
+    "test:mia:analytics:patch-84:phase8-final-audit": "node scripts/test-mia-analytics-patch-84-phase8-final-audit.js",
+    "test:mia:analytics:patch-84:prod-audit": "node scripts/patch-84-phase8-production-audit.mjs",
     "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",

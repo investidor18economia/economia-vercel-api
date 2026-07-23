@@ -173,7 +173,7 @@ ANALYTICS_CHANGELOG.md
 | Rodar dashboard SQL | [DASHBOARDS.md](./DASHBOARDS.md) |
 | Histórico de patches | [ANALYTICS_CHANGELOG.md](./ANALYTICS_CHANGELOG.md) |
 | **Reliability Analytics (Fase 7)** | [PHASE_7_FINAL_AUDIT.md](./PHASE_7_FINAL_AUDIT.md) |
-| **Commercial Analytics (Fase 8)** | [COMMERCIAL_SEARCH_ANALYTICS.md](./COMMERCIAL_SEARCH_ANALYTICS.md) · [PATCH_8_1](./PATCH_8_1_COMMERCIAL_SEARCH_ANALYTICS.md) · [PROVIDER_ANALYTICS.md](./PROVIDER_ANALYTICS.md) · [PATCH_8_2](./PATCH_8_2_PROVIDER_ANALYTICS.md) · [OFFER_ANALYTICS.md](./OFFER_ANALYTICS.md) · [PATCH_8_3](./PATCH_8_3_OFFER_ANALYTICS.md) |
+| **Commercial Analytics (Fase 8)** | [PHASE_8_MASTER_DOCUMENT.md](./PHASE_8_MASTER_DOCUMENT.md) · [PATCH_8_4](./PATCH_8_4_PHASE_8_FINAL_AUDIT.md) · [COMMERCIAL_SEARCH_ANALYTICS.md](./COMMERCIAL_SEARCH_ANALYTICS.md) · [PATCH_8_1](./PATCH_8_1_COMMERCIAL_SEARCH_ANALYTICS.md) · [PROVIDER_ANALYTICS.md](./PROVIDER_ANALYTICS.md) · [PATCH_8_2](./PATCH_8_2_PROVIDER_ANALYTICS.md) · [OFFER_ANALYTICS.md](./OFFER_ANALYTICS.md) · [PATCH_8_3](./PATCH_8_3_OFFER_ANALYTICS.md) |
 | Roadmap futuro | [02_analytics_roadmap.md](./02_analytics_roadmap.md) |
 | Migrations executáveis | `supabase/migrations/20260719153000_*` + `53001_*` + visitor/conversation + `20260722180000_analytics_retention_foundation_v1.sql` |
 | Operações Supabase | [docs/infrastructure/SUPABASE_OPERATIONS.md](../infrastructure/SUPABASE_OPERATIONS.md) |
