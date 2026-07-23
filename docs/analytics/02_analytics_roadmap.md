@@ -505,7 +505,7 @@ Patches
 
 PATCH 11.1
 
-API Executiva de Métricas — 🟡 EM VALIDAÇÃO
+API Executiva de Métricas — 🟢 APROVADO
 
 PATCH 11.2
 

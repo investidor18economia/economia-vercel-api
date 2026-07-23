@@ -989,7 +989,9 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Documentação:** `EXECUTIVE_METRICS_API.md`
 
-**Veredito:** 🟡 **PATCH 11.1 EM VALIDAÇÃO**
+**Produção:** build `16a1efcde394` · smoke 16/16 · SQL 10/10 · latência ~1.4s
+
+**Veredito:** 🟢 **PATCH 11.1 APROVADO**
 
 ---
 
