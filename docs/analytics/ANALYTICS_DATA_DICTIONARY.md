@@ -314,6 +314,19 @@ Não é campo de segredo; ainda assim sujeito a limites de ingestão.
 
 Server-side remove chaves proibidas (`email`, `token`, `secret`, etc.).
 
+#### Chaves PATCH 7.1 — `mia_response_outcome` (`event_version: 7.1.0`)
+
+| Chave | Tipo | Descrição |
+|-------|------|-----------|
+| `outcome` | string | Taxonomia: SUCCESS · PARTIAL_SUCCESS · FALLBACK · NO_RESULT · ERROR · TIMEOUT · CANCELLED |
+| `response_validity` | string | valid · partial · invalid · interrupted |
+| `response_path` | string | Caminho runtime da resposta |
+| `http_status` | number | Status HTTP entregue |
+| `outcome_success` … `outcome_cancelled` | boolean | Flags one-hot por outcome |
+| `data_layer_response_classification` | string | Correlação opcional com PATCH 6.4 |
+
+Ver [RELIABILITY_RESPONSE_ANALYTICS.md](./RELIABILITY_RESPONSE_ANALYTICS.md).
+
 ---
 
 ### `created_at`

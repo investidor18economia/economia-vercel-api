@@ -96,6 +96,10 @@ import {
 } from "../../lib/miaProductExplanationBuilder.js";
 import { attachCommercialKnowledgeMetadataToChatResponse } from "../../lib/miaCommercialKnowledgeTransparencyPayload.js";
 import { emitDataLayerUsageAnalytics } from "../../lib/miaDataLayerUsageAnalytics.js";
+import {
+  buildResponseOutcomeAnalyticsPayload,
+  scheduleResponseOutcomeAnalytics,
+} from "../../lib/miaResponseAnalytics.js";
 import { isAnalyticsUuid } from "../../lib/miaAnalyticsPayload.js";
 import {
   buildFallbackCandidateIsolationDiagnostics,
@@ -268,6 +272,7 @@ import {
   bindSharedRuntimeEnforcement,
   createInitialSharedRequestState,
   createSharedStateAccessor,
+  getSharedRequestState,
   runWithSharedRequestState,
 } from "../../lib/miaSharedRequestState.js";
 
@@ -26351,6 +26356,33 @@ function applyGovernedSemanticSessionTransition(
   return transitionResult.sessionContext;
 }
 
+function collectResponseOutcomeAnalyticsInput(body, responsePath, { httpStatus = 200, reasonCode = null } = {}) {
+  const sharedState = getSharedRequestState();
+  const responseAnalytics = sharedState?.responseAnalytics || {};
+  return {
+    requestId: sharedState?.requestId || null,
+    analyticsContext: responseAnalytics.analyticsContext || {},
+    query: responseAnalytics.query || null,
+    intent:
+      semanticGovernanceRef.ctx?.intentRecognition?.intent ||
+      semanticGovernanceRef.legacyIntentSignal ||
+      null,
+    responsePath,
+    httpStatus,
+    reasonCode,
+    body,
+    pipelineStartedAt: responseAnalytics.pipelineStartedAt ?? null,
+    endpoint: "/api/chat-gpt4o",
+  };
+}
+
+function instrumentResponseOutcomeAnalytics(body, responsePath, options = {}) {
+  const input = collectResponseOutcomeAnalyticsInput(body, responsePath, options);
+  const built = buildResponseOutcomeAnalyticsPayload(input);
+  scheduleResponseOutcomeAnalytics(supabase, input);
+  return built.summary;
+}
+
 function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace, extraTrace = {}) {
   const _blocked = preventDoubleHttpResponse(runtimeEnforcementRef, res);
   if (_blocked.blocked) return;
@@ -26366,9 +26398,16 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
 
   markHttpResponseSent(runtimeEnforcementRef);
   const _enforcementTrace = runtimeEnforcementToTrace(runtimeEnforcementRef);
+  const _responseOutcomeSummary = instrumentResponseOutcomeAnalytics(body, responsePath, {
+    httpStatus: 200,
+  });
+  const _responseBody = {
+    ...(body || {}),
+    response_outcome_analytics: _responseOutcomeSummary,
+  };
 
   res.status(200).json(
-    pipelineTracer.enrichResponse(body, {
+    pipelineTracer.enrichResponse(_responseBody, {
       ...extraTrace,
       response_path: responsePath,
       runtime_precedence: trace,
@@ -27555,6 +27594,17 @@ async function miaChatCoreHandler(req, res) {
 
     const { text, image_base64 } = req.body || {};
   const query = (text || "").trim();
+  sharedState.responseAnalytics = {
+    pipelineStartedAt: Date.now(),
+    query: query || null,
+    analyticsContext: {
+      session_id: req.body?.analytics_context?.session_id || null,
+      visitor_id: req.body?.analytics_context?.visitor_id || null,
+      conversation_id:
+        req.body?.conversation_id || req.body?.analytics_context?.conversation_id || null,
+      user_id: isAnalyticsUuid(req.body?.user_id) ? req.body.user_id : null,
+    },
+  };
   const pipelineTracer = createMiaChatPipelineTracer(query);
   const commercialRequestDedupContext = createCommercialRequestDedupContext({
     requestId: sharedState.requestId || observability?.requestId || `chat-${Date.now()}`,
@@ -27567,9 +27617,17 @@ async function miaChatCoreHandler(req, res) {
   const conversationMessages = Array.isArray(req.body?.messages) ? req.body.messages : [];
 
   if (!query && !hasImage) {
-    return void res.status(400).json({
+    const _emptyQueryBody = {
       reply: "Me manda o que você quer comprar ou envia uma imagem do produto que eu te ajudo.",
-      prices: []
+      prices: [],
+    };
+    const _emptyQuerySummary = instrumentResponseOutcomeAnalytics(_emptyQueryBody, "empty_query_rejected", {
+      httpStatus: 400,
+      reasonCode: "chat_empty_query",
+    });
+    return void res.status(400).json({
+      ..._emptyQueryBody,
+      response_outcome_analytics: _emptyQuerySummary,
     });
   }
  
@@ -37402,9 +37460,17 @@ return void respondWithContract(
     reasonCode: "chat_internal_error",
   });
 
-    return void res.status(500).json({
+    const _errorBody = {
       reply: "⚠️ Tive um problema aqui na busca. Tenta de novo que eu continuo te ajudando.",
-      prices: []
+      prices: [],
+    };
+    const _errorSummary = instrumentResponseOutcomeAnalytics(_errorBody, "chat_internal_error", {
+      httpStatus: 500,
+      reasonCode: "chat_internal_error",
+    });
+    return void res.status(500).json({
+      ..._errorBody,
+      response_outcome_analytics: _errorSummary,
     });
   } finally {
     clearActiveRequestExecutionEnv();

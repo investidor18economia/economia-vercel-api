@@ -1,4 +1,4 @@
-# Analytics — Dashboards SQL (PATCH 1.3 + PATCH 4.1–4.5 + PATCH 5.1–5.4 + PATCH 6.1–6.4)
+# Analytics — Dashboards SQL (PATCH 1.3 + PATCH 4.1–4.5 + PATCH 5.1–5.4 + PATCH 6.1–6.4 + PATCH 7.1)
 
 ## Fase 4 vs Fase 5 vs Fase 6
 
@@ -7,6 +7,7 @@
 | **Operacional (Fase 4)** | O que aconteceu? | 4.1–4.5 dashboards SQL |
 | **Estratégica (Fase 5)** | O que isso significa? | 5.1–5.4 analytics estratégico |
 | **Data Layer (Fase 6)** | Cobertura · qualidade · estatísticas · **uso runtime** | 6.1 · 6.2 · 6.3 · **6.4** |
+| **Reliability (Fase 7)** | Confiabilidade das respostas entregues | **7.1** (response outcomes) |
 
 ## Sessão vs visitante vs usuário
 
@@ -25,7 +26,7 @@
 | Documento | Conteúdo |
 |-----------|----------|
 | [ANALYTICS_SCHEMA.md](./ANALYTICS_SCHEMA.md) | Analytics Storage Schema v1 |
-| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | Event Contract v1 — 7 eventos públicos / 18 totais |
+| [contracts/EVENT_CONTRACT.md](./contracts/EVENT_CONTRACT.md) | Event Contract v1 — 7 eventos públicos / 19 totais |
 | [EXECUTIVE_METRICS.md](./EXECUTIVE_METRICS.md) | Governança DAU/WAU/MAU Visitors + Users |
 | [ANALYTICS_DATA_DICTIONARY.md](./ANALYTICS_DATA_DICTIONARY.md) | Colunas consultadas |
 | [README.md](./README.md) | Índice oficial |
@@ -40,6 +41,7 @@ Migrations: `supabase/migrations/20260719153000_*` + `20260719153001_*` (PATCH 1
 | `analytics-data-layer-quality.sql` | **PATCH 6.2** — qualidade Data Layer (completude · duplicações · integridade) |
 | `analytics-data-layer-statistics.sql` | **PATCH 6.3** — estatísticas Data Layer (inventário · distribuição · concentração) |
 | `analytics-data-layer-usage.sql` | **PATCH 6.4** — uso e efetividade Data Layer (runtime · fallback · cobertura prática) |
+| `analytics-reliability-response.sql` | **PATCH 7.1** — confiabilidade de resposta (outcomes · taxas · evolução) |
 | `analytics-buying-intent-strategic.sql` | **PATCH 5.4** — intenção de compra estratégica (sinais · antecedentes · tendências) |
 | `analytics-conversion-strategic.sql` | **PATCH 5.3** — funil estratégico (gargalos · cohorts · tendências) |
 | `analytics-conversation-strategic.sql` | **PATCH 5.2** — conversation estratégico (profundidade · recorrência · tendências) |

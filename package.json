@@ -60,6 +60,8 @@
     "test:mia:analytics:patch-64:prod-validation": "node scripts/patch-64-production-validation.mjs",
     "test:mia:analytics:patch-64:local-validation": "node scripts/patch-64-local-validation.mjs",
     "test:mia:analytics:patch-64:prod-smoke": "node scripts/patch-64-production-smoke.mjs",
+    "test:mia:analytics:patch-71:response-analytics": "node scripts/test-mia-analytics-patch-71-response-analytics.js",
+    "test:mia:analytics:patch-71:prod-validation": "node scripts/patch-71-production-validation.mjs",
     "test:mia:analytics:patch-34:prod-smoke": "node scripts/patch-34-production-smoke.mjs",
     "test:mia:auth:secret-separation": "node scripts/test-mia-auth-secret-separation.js",
     "test:mia:auth:trust-foundation": "node scripts/test-mia-auth-trust-foundation.js",

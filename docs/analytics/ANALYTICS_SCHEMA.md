@@ -236,7 +236,7 @@ Preflight antes de aplicar segurança: `docs/analytics/analytics-events-schema-p
 
 | Caminho | Mecanismo | Eventos |
 |---------|-----------|---------|
-| `pages/api/analytics/track/index.js` | Allowlist pública | 6 eventos MIA (ver §10) |
+| `pages/api/analytics/track/index.js` | Allowlist pública | 7 eventos MIA (ver §10) |
 | `lib/miaPriceAlertEmailAnalytics.js` | Server-side | Eventos `price_drop_email_*`, test, e2e |
 
 Cliente Supabase: **service_role** (`lib/supabaseClient.js`) — somente backend.
@@ -253,13 +253,14 @@ Cliente Supabase: **service_role** (`lib/supabaseClient.js`) — somente backend
 
 ## 10. Eventos conhecidos
 
-Catálogo completo (16 eventos, payloads, metadata): **[Event Contract v1](./contracts/EVENT_CONTRACT.md) §7**.
+Catálogo completo (18 eventos, payloads, metadata): **[Event Contract v1](./contracts/EVENT_CONTRACT.md) §7**.
 
 Resumo:
 
-### Allowlist pública (`lib/miaAnalyticsAllowlist.js`)
+### Allowlist pública (`lib/miaAnalyticsAllowlist.js`) — 7 eventos
 
 - `session_started`
+- `user_authenticated`
 - `mia_question_sent`
 - `mia_recommendation_shown`
 - `offer_click`
@@ -270,6 +271,8 @@ Resumo:
 
 - `price_drop_email_attempted`, `price_drop_email_sent`, `price_drop_email_failed`, `price_drop_email_skipped`
 - `price_drop_email_test_*`, `price_drop_email_e2e_*`
+- `data_layer_resolution` (PATCH 6.4)
+- `mia_response_outcome` (PATCH 7.1)
 
 A tabela **aceita** qualquer `event_name` inserido por código autorizado; a allowlist restringe apenas o endpoint público.
 

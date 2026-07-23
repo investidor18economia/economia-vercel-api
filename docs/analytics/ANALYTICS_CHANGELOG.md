@@ -580,6 +580,25 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 37. PATCH 7.1 — Response Reliability Analytics (2026-07-22)
+
+**Objetivo:** medir confiabilidade do **resultado final** entregue ao usuário (primeira instrumentação runtime da Fase 7).
+
+**Entregas:**
+
+- [RELIABILITY_RESPONSE_ANALYTICS.md](./RELIABILITY_RESPONSE_ANALYTICS.md)
+- [analytics-reliability-response.sql](./analytics-reliability-response.sql)
+- Runtime: `lib/miaResponseOutcomeClassifier.js` · `lib/miaResponseAnalytics.js` · hooks em `chat-gpt4o.js`
+- Queries split: `sql/patch-71-query1-outcome-overview.sql` … `query4`
+- [PATCH_7.1_RESPONSE_ANALYTICS.md](./PATCH_7.1_RESPONSE_ANALYTICS.md)
+- Event Contract §7.6 — `mia_response_outcome` (`event_version: 7.1.0`)
+
+**Testes:** `npm run test:mia:analytics:patch-71:response-analytics` · `npm run test:mia:analytics:patch-71:prod-validation`
+
+**Princípio:** observação apenas · fire-and-forget · taxonomia outcome única · delta explícito vs 6.4 · deploy necessário para eventos reais.
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

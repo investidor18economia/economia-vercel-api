@@ -129,7 +129,7 @@ Todo evento possui:
 | Origem | Eventos |
 |--------|---------|
 | Browser → API | 7 eventos da allowlist pública |
-| Backend (service role) | 11 eventos server-side (`price_drop_email_*` + `data_layer_resolution`) |
+| Backend (service role) | 12 eventos server-side (`price_drop_email_*` + `data_layer_resolution` + `mia_response_outcome`) |
 | Operador / cron | Indiretamente via módulos de price alert |
 
 ### Quem **consome** eventos
@@ -371,12 +371,50 @@ Total: **18** `event_name` distintos em produção hoje (7 públicos via API all
 
 Detalhamento: [DATA_LAYER_USAGE_ANALYTICS.md](../DATA_LAYER_USAGE_ANALYTICS.md)
 
-### 7.6 Classificação de `conversation_id` (PATCH 3.2)
+### 7.6 Evento server-side — Response reliability (`mia_response_outcome`) — PATCH 7.1
+
+**Categoria:** `reliability_response` (produção) · `reliability_response_test` (smoke controlado)  
+**Writer:** `emitResponseOutcomeAnalytics()` via `pages/api/chat-gpt4o.js` (`sendHttpRuntimeResponse` + saídas 400/500)  
+**Persistência:** INSERT direto — correlaciona `session_id`, `visitor_id`, `conversation_id` quando enviados pelo frontend  
+**Versionamento:** `metadata.event_version = "7.1.0"`
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_response_outcome` | Classificar confiabilidade do resultado final entregue ao usuário | Ao enviar resposta HTTP do chat (200 via `sendHttpRuntimeResponse`; 400/500 instrumentados) |
+
+**Decisão:** evento único parametrizado (`outcome`, flags booleanos) — distinto de `data_layer_resolution` (6.4).
+
+**Outcomes:** `SUCCESS` · `PARTIAL_SUCCESS` · `FALLBACK` · `NO_RESULT` · `ERROR` · `TIMEOUT` · `CANCELLED`
+
+**Metadata principal:** `request_id`, `endpoint`, `http_status`, `response_path`, `response_path_category`, `intent`, `outcome`, `response_validity`, `reason_code`, `response_duration_ms`, flags `outcome_*`, `reply_present`, `products_in_response`, `data_layer_response_classification` (correlação opcional 6.4)
+
+**Exemplo:**
+
+```json
+{
+  "event_name": "mia_response_outcome",
+  "category": "reliability_response",
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "query_text": "notebook até 3000",
+  "metadata": {
+    "event_version": "7.1.0",
+    "outcome": "SUCCESS",
+    "response_validity": "valid",
+    "response_path": "return_seguro",
+    "http_status": 200,
+    "outcome_success": true
+  }
+}
+```
+
+Detalhamento: [RELIABILITY_RESPONSE_ANALYTICS.md](../RELIABILITY_RESPONSE_ANALYTICS.md)
+
+### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
 |-----------|---------|
 | **NULL por semântica** | `session_started`; todos os `price_drop_email_*` / `_test_*` / `_e2e_*` |
-| **Obrigatório no fluxo chat** | `mia_question_sent`; `mia_recommendation_shown`; `data_layer_resolution` (quando `analytics_context` presente) |
+| **Obrigatório no fluxo chat** | `mia_question_sent`; `mia_recommendation_shown`; `data_layer_resolution` (quando consulta comercial); `mia_response_outcome` (toda resposta HTTP instrumentada) |
 | **Opcional conforme origem** | `offer_click`, `favorite_created`, `price_alert_created` — presente se conversa ativa em `localStorage` |
 
 Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
@@ -392,7 +430,7 @@ Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
 | Cliente frontend | `lib/analytics.js` |
 | UI MIA | `components/MIAChat.jsx` |
 | API track | `pages/api/analytics/track/index.js` |
-| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` |
+| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` · `lib/miaResponseAnalytics.js` |
 | Send gate (produção) | `lib/miaPriceAlertSendGate.js` |
 | Analytics Storage Schema | `supabase/migrations/20260719153000_*` + `53002_*` + `53003_*` |
 | Dashboards | [DASHBOARDS.md](../DASHBOARDS.md) |
