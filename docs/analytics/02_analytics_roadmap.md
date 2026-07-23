@@ -419,6 +419,10 @@ Recommendation Decision Outcomes — 🟢 APROVADO (`mia_recommendation_decision
 
 PATCH 9.2
 
+Recommendation Acceptance Signals — 🟡 em implementação (`mia_recommendation_acceptance_signal` · `9.2.0`)
+
+PATCH 9.2
+
 Recommendation Acceptance
 
 PATCH 9.3

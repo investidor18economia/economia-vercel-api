@@ -9,6 +9,7 @@ import {
 } from "../../../../lib/miaEndpointAccessPolicy.js";
 import { withMiaObservability } from "../../../../lib/miaObservability.js";
 import { logAudit } from "../../../../lib/miaLogger.js";
+import { observeAcceptanceSignalFromClientTrackEvent } from "../../../../lib/miaRecommendationAcceptanceAnalytics.js";
 
 async function handler(req, res) {
   applyInternalSecurityHeaders(res);
@@ -71,6 +72,22 @@ async function handler(req, res) {
       operation: "analytics_track",
       eventName: row.event_name,
       status: 200,
+    });
+
+    void observeAcceptanceSignalFromClientTrackEvent(supabase, {
+      row: {
+        event_name: row.event_name,
+        visitor_id: row.visitor_id,
+        session_id: row.session_id,
+        conversation_id: row.conversation_id,
+        user_id: authenticatedUserId,
+        category: row.category,
+        product_id: row.product_id,
+        product_name: row.product_name,
+        offer_store: row.offer_store,
+        metadata: row.metadata || {},
+      },
+      signalAtMs: Date.now(),
     });
 
     return res.status(200).json({ success: true });

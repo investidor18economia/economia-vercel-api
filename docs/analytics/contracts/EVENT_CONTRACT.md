@@ -527,6 +527,23 @@ Detalhamento: [OFFER_ANALYTICS.md](../OFFER_ANALYTICS.md)
 
 Detalhamento: [RECOMMENDATION_DECISION_ANALYTICS.md](../RECOMMENDATION_DECISION_ANALYTICS.md)
 
+### 7.15 Evento server-side — Acceptance Signal (`mia_recommendation_acceptance_signal`) — PATCH 9.2
+
+**Categoria:** `recommendation_acceptance_signal` (produção) · `recommendation_acceptance_signal_test` (smoke)  
+**Writer:** `emitRecommendationAcceptanceSignalAnalytics()` via track hook + conversation follow-up  
+**Versionamento:** `metadata.event_version = "9.2.0"`  
+**Correlação:** `metadata.decision_request_id` ↔ PATCH 9.1 `mia_recommendation_decision`
+
+| event_name | Objetivo | Quando dispara |
+|------------|----------|----------------|
+| `mia_recommendation_acceptance_signal` | Registrar sinal observado pós-decisão (interesse/aceitação proxy) | Client track correlacionado ou follow-up server-side |
+
+**Deduplicação:** `decision_request_id + signal_type + signal_target + source_event_id + event_version`
+
+**Delta 9.1:** decisão permanece em 9.1; 9.2 cobre sinais posteriores. Eventos client originais preservados.
+
+Detalhamento: [RECOMMENDATION_ACCEPTANCE_ANALYTICS.md](../RECOMMENDATION_ACCEPTANCE_ANALYTICS.md)
+
 ### 7.7 Classificação de `conversation_id` (PATCH 3.2)
 
 | Categoria | Eventos |
@@ -548,7 +565,7 @@ Detalhamento: [CONVERSATION_ID.md](../CONVERSATION_ID.md) §10.
 | Cliente frontend | `lib/analytics.js` |
 | UI MIA | `components/MIAChat.jsx` |
 | API track | `pages/api/analytics/track/index.js` |
-| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` · `lib/miaResponseAnalytics.js` · `lib/miaErrorAnalytics.js` · `lib/miaLatencyAnalytics.js` · `lib/miaCommercialSearchAnalytics.js` · `lib/miaRecommendationDecisionAnalytics.js` |
+| Analytics server-side | `lib/miaPriceAlertEmailAnalytics.js` · `lib/miaDataLayerUsageAnalytics.js` · `lib/miaResponseAnalytics.js` · `lib/miaErrorAnalytics.js` · `lib/miaLatencyAnalytics.js` · `lib/miaCommercialSearchAnalytics.js` · `lib/miaRecommendationDecisionAnalytics.js` · `lib/miaRecommendationAcceptanceAnalytics.js` |
 | Send gate (produção) | `lib/miaPriceAlertSendGate.js` |
 | Analytics Storage Schema | `supabase/migrations/20260719153000_*` + `53002_*` + `53003_*` |
 | Dashboards | [DASHBOARDS.md](../DASHBOARDS.md) |

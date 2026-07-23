@@ -813,6 +813,24 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 ---
 
+## 48. PATCH 9.2 — Recommendation Acceptance Signals (2026-07-23)
+
+**Objetivo:** observar sinais graduados pós-decisão (`mia_recommendation_acceptance_signal` · `9.2.0`) sem tratar clique como compra.
+
+**Arquitetura:** modelo híbrido — eventos client preservados + camada agregada 9.2 + propagação cirúrgica de `request_id`.
+
+**Entregas:**
+
+- Libs `miaRecommendationAcceptance*`
+- Hook track + follow-up server-side
+- Frontend `decision_request_id` propagation
+- SQL Q1–Q8
+- Docs PATCH_9_2 + RECOMMENDATION_ACCEPTANCE_ANALYTICS
+
+**Veredito:** pendente validação produção
+
+---
+
 ## 35. Referências
 
 | Documento | Conteúdo |

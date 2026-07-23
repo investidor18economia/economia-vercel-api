@@ -136,6 +136,10 @@ import {
   MIA_DECISION_SOURCES,
 } from "../../lib/miaRecommendationDecisionAnalytics.js";
 import {
+  observeAcceptanceSignalFromConversationFollowUp,
+  isAcceptanceAnalyticsDomainAllowed,
+} from "../../lib/miaRecommendationAcceptanceAnalytics.js";
+import {
   createLatencyTracker,
   markLatencyStage,
   recordDataLayerStageLatency,
@@ -26578,7 +26582,7 @@ function observeDecisionAnalyticsForStabilizedContext({
   budgetConstraintApplied = false,
 } = {}) {
   const sharedState = getSharedRequestState();
-  return observeRecommendationDecisionAnalytics(supabase, {
+  const summary = observeRecommendationDecisionAnalytics(supabase, {
     requestId: sharedState?.requestId || null,
     analyticsContext: sharedState?.responseAnalytics?.analyticsContext || {},
     selectedBestProduct,
@@ -26596,6 +26600,11 @@ function observeDecisionAnalyticsForStabilizedContext({
     categoryConstraintApplied: !!specificProductLock?.active || !!categoryHint,
     brandConstraintApplied: false,
   });
+  if (sharedState?.requestId) {
+    sharedState.lastRecommendationDecisionRequestId = sharedState.requestId;
+    sharedState.lastRecommendationDecisionAtMs = Date.now();
+  }
+  return summary;
 }
 
 function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace, extraTrace = {}) {
@@ -26648,6 +26657,7 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
   });
   const _responseBody = {
     ...(body || {}),
+    request_id: _sharedStateForCommercialSearch?.requestId || null,
     response_outcome_analytics: _responseOutcomeSummary,
     latency_analytics: buildLatencyRecommendationMetadata(_latencySummary),
     commercial_search_analytics: buildCommercialSearchRecommendationMetadata(_commercialSearchSummary),
@@ -26657,6 +26667,24 @@ function sendHttpRuntimeResponse(res, pipelineTracer, body, responsePath, trace,
       _recommendationDecisionSummary
     ),
   };
+
+  if (
+    _sharedStateForCommercialSearch?.lastRecommendationDecisionRequestId &&
+    _responseBody.session_context &&
+    typeof _responseBody.session_context === "object"
+  ) {
+    _responseBody.session_context = {
+      ..._responseBody.session_context,
+      lastRecommendationDecisionRequestId:
+        _sharedStateForCommercialSearch.lastRecommendationDecisionRequestId,
+      lastRecommendationDecisionAtMs:
+        _sharedStateForCommercialSearch.lastRecommendationDecisionAtMs ?? null,
+      lastRecommendationDecisionSource:
+        _recommendationDecisionSummary?.decision_source ?? null,
+      lastRecommendationDecisionWinnerFamily:
+        _recommendationDecisionSummary?.winner_product_family ?? null,
+    };
+  }
 
   res.status(200).json(
     pipelineTracer.enrichResponse(_responseBody, {
@@ -30605,6 +30633,30 @@ initializeRecommendationDecisionAnalyticsTracking({
 // PATCH 11B.3 — Constraint refinement continuity (RF-01)
 const contextualFollowUpEarly = intentRecognitionEarly?.contextualFollowUp || null;
 const constraintRefinementEarly = contextualFollowUpEarly?.constraintRefinement || null;
+
+if (
+  isAcceptanceAnalyticsDomainAllowed({
+    commercialPermission: intentAuthority?.commercialPermission || null,
+    interactionMode: intentRecognitionEarly?.interactionMode || null,
+  }) &&
+  contextualFollowUpEarly?.contextualCommercialAuthorized &&
+  contextualFollowUpEarly?.followUpType &&
+  sessionContext?.lastRecommendationDecisionRequestId
+) {
+  observeAcceptanceSignalFromConversationFollowUp(supabase, {
+    followUpType: contextualFollowUpEarly.followUpType,
+    decisionRequestId: sessionContext.lastRecommendationDecisionRequestId,
+    requestId: getSharedRequestState()?.requestId || null,
+    sessionId: getSharedRequestState()?.responseAnalytics?.analyticsContext?.session_id || null,
+    analyticsContext: getSharedRequestState()?.responseAnalytics?.analyticsContext || {},
+    decisionSource: sessionContext?.lastRecommendationDecisionSource || null,
+    decisionAtMs: sessionContext?.lastRecommendationDecisionAtMs ?? null,
+    signalAtMs: Date.now(),
+    winnerProductFamilyHash: sessionContext?.lastRecommendationDecisionWinnerFamily || null,
+    category: sessionContext?.lastCategory || null,
+    commercialDomain: true,
+  });
+}
 
 if (constraintRefinementEarly?.mergedConstraints) {
   sessionContext = applyMergedConstraintsToSessionContext(

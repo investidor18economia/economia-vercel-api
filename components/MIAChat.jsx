@@ -283,6 +283,7 @@ export default function MIAChat() {
   const speechTranscriptRef = useRef("");
   const speechBaseMsgRef = useRef("");
   const conversationIdRef = useRef(null);
+  const lastDecisionContextRef = useRef(null);
   const actionToastTimer = useRef(null);
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -708,6 +709,54 @@ export default function MIAChat() {
     };
   }
 
+  function captureDecisionContextFromApiResponse(apiResponse = {}) {
+    const requestId = apiResponse?.request_id || null;
+    const rd = apiResponse?.recommendation_decision_analytics || {};
+    if (!requestId) {
+      return;
+    }
+    const decisionAtMs = Date.now();
+    lastDecisionContextRef.current = {
+      decision_request_id: requestId,
+      decision_at_ms: decisionAtMs,
+      decision_context: {
+        decision_source: rd.recommendation_decision_source ?? null,
+        decision_event_version: rd.recommendation_decision_event_version ?? "9.1.0",
+        winner_product_family: rd.recommendation_decision_winner_product_family ?? null,
+        decision_at_ms: decisionAtMs,
+      },
+    };
+  }
+
+  function buildAcceptanceTrackingMetadata() {
+    const ctx = lastDecisionContextRef.current;
+    if (!ctx?.decision_request_id) return {};
+    const signalId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `sig-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return {
+      decision_request_id: ctx.decision_request_id,
+      decision_context: ctx.decision_context,
+      acceptance_signal_id: signalId,
+    };
+  }
+
+  function mergeAcceptanceMetadata(metadata = {}) {
+    return {
+      ...(metadata || {}),
+      ...buildAcceptanceTrackingMetadata(),
+    };
+  }
+
+  function withAcceptanceMetadata(payload = {}) {
+    if (!payload || typeof payload !== "object") return payload;
+    return {
+      ...payload,
+      metadata: mergeAcceptanceMetadata(payload.metadata || {}),
+    };
+  }
+
   function buildRecommendationShownPayloadFromApiResponse({
     pergunta,
     cardProduct,
@@ -724,6 +773,7 @@ export default function MIAChat() {
       dataLayerUsage: buildDataLayerUsageRecommendationMetadata(
         apiResponse?.data_layer_usage_analytics
       ),
+      acceptanceMetadata: buildAcceptanceTrackingMetadata(),
     });
   }
 
@@ -2153,6 +2203,7 @@ useEffect(() => {
       });
 
             const data = await resp.json();
+      captureDecisionContextFromApiResponse(data);
       const productsRaw = extractApiProducts(data);
       const detectedPriority = detectPriorityFromText(pergunta);
 
@@ -2319,6 +2370,7 @@ useEffect(() => {
       });
 
       const data = await resp.json();
+      captureDecisionContextFromApiResponse(data);
       const productsRaw = extractApiProducts(data);
       const detectedPriority = detectPriorityFromText(pergunta);
 
@@ -2496,10 +2548,12 @@ function detectPriorityFromText(text = "") {
         });
         trackMiaEvent(
           "favorite_created",
-          buildMiaFavoriteCreatedPayload({
-            prod,
-            detectCategory: detectAnalyticsCategory,
-          }),
+          withAcceptanceMetadata(
+            buildMiaFavoriteCreatedPayload({
+              prod,
+              detectCategory: detectAnalyticsCategory,
+            })
+          ),
           buildAnalyticsTrackOptions(
             actingUser,
             getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
@@ -2565,13 +2619,15 @@ function detectPriorityFromText(text = "") {
     
     trackMiaEvent(
       "price_alert_created",
-      buildMiaPriceAlertCreatedPayload({
-        prod,
-        targetPrice,
-        numericPrice,
-        actionSource: targetOverride != null ? "alert_form" : "offer_card",
-        detectCategory: detectAnalyticsCategory,
-      }),
+      withAcceptanceMetadata(
+        buildMiaPriceAlertCreatedPayload({
+          prod,
+          targetPrice,
+          numericPrice,
+          actionSource: targetOverride != null ? "alert_form" : "offer_card",
+          detectCategory: detectAnalyticsCategory,
+        })
+      ),
       buildAnalyticsTrackOptions(
         actingUser,
         getCurrentConversationId() ? { conversationId: getCurrentConversationId() } : {}
@@ -3082,10 +3138,12 @@ function detectPriorityFromText(text = "") {
                          const activeConversationId = getCurrentConversationId();
                          trackMiaEvent(
                            "offer_click",
-                           buildMiaOfferClickPayload({
-                             offerCard,
-                             detectCategory: detectAnalyticsCategory,
-                           }),
+                           withAcceptanceMetadata(
+                             buildMiaOfferClickPayload({
+                               offerCard,
+                               detectCategory: detectAnalyticsCategory,
+                             })
+                           ),
                            buildAnalyticsTrackOptions(
                              user,
                              activeConversationId ? { conversationId: activeConversationId } : {}
