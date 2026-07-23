@@ -895,7 +895,11 @@ Patches de infraestrutura Supabase (SUPABASE-01 → 08) estão em [docs/infrastr
 
 **Métodos:** `WINNER_VS_MINIMUM` (OBSERVED) · `PERCENTAGE_ASSUMPTION` (UNVERIFIED UI 4–6%)
 
-**Veredito:** 🟡 **PATCH 10.2 IMPLEMENTADO** — aguardando deploy/evidência produção
+**Produção:** build `28bd732c2325` · smoke 15/15 · SQL Q1–Q15 validado · regressões 8.3/9.1/9.2/10.1 OK
+
+**Correção pós-deploy:** emite estimativas inelegíveis quando `winner_price` ausente (`28bd732`)
+
+**Veredito:** 🟢 **PATCH 10.2 APROVADO**
 
 ---
 

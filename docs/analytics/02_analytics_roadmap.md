@@ -465,7 +465,7 @@ Price Intelligence & Price Quality Analytics — 🟢 APROVADO
 
 PATCH 10.2
 
-Savings Estimation & Confidence Analytics — 🟡 IMPLEMENTADO
+Savings Estimation & Confidence Analytics — 🟢 APROVADO
 
 PATCH 10.3
 

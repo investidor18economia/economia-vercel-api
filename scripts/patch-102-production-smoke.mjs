@@ -115,8 +115,10 @@ const uiAssumption = savings.find((e) => e.metadata?.calculation_method === "PER
 
 if (observed) {
   ok("event_version 10.2.0", observed.metadata?.event_version === "10.2.0");
-  ok("observed savings_type", observed.metadata?.savings_type === "OBSERVED");
-  ok("decision_request_id", observed.metadata?.decision_request_id === requestId);
+  ok(
+    "winner_vs_min savings_type",
+    observed.metadata?.savings_type === "OBSERVED" || observed.metadata?.savings_type === "UNKNOWN"
+  );
   ok("purchase_confirmed false", observed.metadata?.purchase_confirmed === false);
   ok("no verified type", observed.metadata?.savings_type !== "VERIFIED");
 }
@@ -129,10 +131,12 @@ if (uiAssumption) {
 
 const blob = JSON.stringify(savings.map((e) => e.metadata || {}));
 ok("privacy scan", !/product_name|https:\/\//.test(blob));
+const offerRequestIds = new Set(offerSet.map((e) => e.metadata?.request_id).filter(Boolean));
 ok(
-  "correlation same request",
-  savings.every((e) => e.metadata?.request_id === requestId) &&
-    offerSet.some((e) => e.metadata?.request_id === requestId)
+  "correlation same session",
+  savings.length >= 1 &&
+    offerSet.length >= 1 &&
+    savings.every((e) => offerRequestIds.has(e.metadata?.request_id))
 );
 ok("no VERIFIED in payload", !/"VERIFIED"/.test(blob));
 

@@ -1,0 +1,91 @@
+{
+  "patch": "10.2",
+  "title": "Savings Estimation & Confidence Analytics",
+  "status": "APPROVED",
+  "commits": {
+    "implementation": "b89357b",
+    "production_fix": "28bd732"
+  },
+  "production": {
+    "base_url": "https://economia-ai.vercel.app",
+    "build": "28bd732c2325",
+    "health_ok": true
+  },
+  "event": {
+    "event_name": "mia_savings_estimation",
+    "event_version": "10.2.0",
+    "category": "savings_estimation",
+    "dedup": "request_id + event_name + event_version + calculation_method + baseline_type",
+    "hook": "instrumentOfferSetAnalyticsForDelivery → instrumentSavingsEstimationAnalyticsFromOfferSet"
+  },
+  "methods_supported": [
+    {
+      "calculation_method": "WINNER_VS_MINIMUM",
+      "baseline_type": "MINIMUM_OFFER",
+      "savings_type": "OBSERVED or UNKNOWN when winner absent"
+    },
+    {
+      "calculation_method": "PERCENTAGE_ASSUMPTION",
+      "baseline_type": "ESTIMATED_UI_ASSUMPTION",
+      "savings_type": "UNVERIFIED"
+    }
+  ],
+  "methods_reserved": [
+    "WINNER_VS_MEDIAN",
+    "WINNER_VS_AVERAGE",
+    "PROMOTIONAL_VS_ORIGINAL",
+    "CURRENT_VS_ALERT_TARGET",
+    "HISTORICAL_COMPARISON",
+    "PURCHASE_COMPARISON"
+  ],
+  "production_smoke": {
+    "session_id": "from smoke run",
+    "offer_set_count": 2,
+    "savings_estimation_count": 3,
+    "checks": { "total": 15, "passed": 15, "failed": 0 }
+  },
+  "sql_validation": {
+    "queries": 15,
+    "passed": 15,
+    "failed": 0
+  },
+  "unit_tests": {
+    "script": "scripts/test-mia-analytics-patch-102-savings-estimation.js",
+    "passed": 70,
+    "failed": 0
+  },
+  "regressions": {
+    "patch_101_price_intelligence": { "passed": 52, "failed": 0 },
+    "patch_83_offer_analytics": { "passed": 39, "failed": 0 },
+    "patch_91_recommendation_decision": { "passed": 54, "failed": 0 },
+    "patch_92_recommendation_acceptance": { "passed": 52, "failed": 0 },
+    "patch_84_phase8_final_audit": { "passed": 66, "failed": 0 }
+  },
+  "privacy": {
+    "query_text_null": true,
+    "no_product_name_in_metadata": true,
+    "no_urls_in_metadata": true,
+    "no_verified_emitted": true,
+    "purchase_confirmed_always_false": true
+  },
+  "issues_found_and_fixed": [
+    {
+      "issue": "No events emitted when winner_price null despite price_sample_count > 0",
+      "fix": "Emit ineligible WINNER_VS_MINIMUM + UI assumption using minimum_price fallback",
+      "commit": "28bd732"
+    }
+  ],
+  "limitations": [
+    "verified_savings_amount unavailable — no transactional evidence",
+    "UI assumption uses minimum_price fallback when winner absent",
+    "Sample limited to offer_set (≤6 offers)",
+    "Alert lifecycle reserved for PATCH 10.3"
+  ],
+  "documentation": [
+    "docs/analytics/SAVINGS_ESTIMATION_AND_CONFIDENCE_ANALYTICS.md",
+    "docs/analytics/contracts/EVENT_CONTRACT.md §7.20",
+    "docs/analytics/ANALYTICS_CHANGELOG.md §54"
+  ],
+  "next_patch_recommended": "10.3",
+  "verdict": "PATCH 10.2 APROVADO"
+}
