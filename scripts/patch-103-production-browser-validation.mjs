@@ -40,6 +40,43 @@ function ok(label, pass, detail = "") {
   console.log(`${pass ? "PASS" : "FAIL"} — ${label}${detail ? ` (${detail})` : ""}`);
 }
 
+function extractOtpFromHtml(html = "") {
+  const match = String(html).match(/\b(\d{6})\b/);
+  return match?.[1] || null;
+}
+
+async function fetchOtpFromResend(email, startedAtMs) {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+  if (!apiKey) return null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    await new Promise((r) => setTimeout(r, attempt === 0 ? 2000 : 3000));
+    const listRes = await fetch("https://api.resend.com/emails?limit=20", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!listRes.ok) continue;
+    const listJson = await listRes.json().catch(() => ({}));
+    const candidates = (listJson?.data || []).filter((item) => {
+      const toList = Array.isArray(item.to) ? item.to : [item.to].filter(Boolean);
+      const createdMs = Date.parse(String(item.created_at || ""));
+      return (
+        toList.some((to) => String(to).toLowerCase() === email.toLowerCase()) &&
+        String(item.subject || "").includes("código de acesso") &&
+        Number.isFinite(createdMs) &&
+        createdMs >= startedAtMs - 5000
+      );
+    });
+    if (!candidates.length) continue;
+    const detailRes = await fetch(`https://api.resend.com/emails/${candidates[0].id}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!detailRes.ok) continue;
+    const detailJson = await detailRes.json().catch(() => ({}));
+    const otp = extractOtpFromHtml(detailJson?.html || "");
+    if (otp) return otp;
+  }
+  return null;
+}
+
 async function sendQuestion(page, text) {
   const input = page.locator("input.mia-input");
   await input.waitFor({ state: "visible", timeout: 60000 });
@@ -49,18 +86,27 @@ async function sendQuestion(page, text) {
   await page.waitForTimeout(3000);
 }
 
-async function loginViaPopup(page, email, name) {
+async function loginViaOtp(page, email, name) {
+  const startedAtMs = Date.now();
   await page.locator("button.mia-menu-btn").click();
   await page.getByRole("button", { name: "Entrar na sua conta" }).click();
   await page.locator("#popupNome").fill(name);
   await page.locator("#popupEmail").fill(email);
-  const registerResp = page.waitForResponse(
-    (resp) => resp.url().includes("/api/register-user") && resp.request().method() === "POST",
+  await page.getByRole("button", { name: "Enviar código" }).click();
+  await page.locator("#popupCode").waitFor({ state: "visible", timeout: 30000 });
+
+  const otp = process.env.PATCH103_AUTH_OTP || (await fetchOtpFromResend(email, startedAtMs));
+  if (!otp) throw new Error("OTP unavailable for browser login");
+
+  await page.locator("#popupCode").fill(otp);
+
+  const verifyResp = page.waitForResponse(
+    (resp) => resp.url().includes("/api/auth/verify-code") && resp.request().method() === "POST",
     { timeout: 30000 }
   );
-  await page.getByRole("button", { name: "Continuar" }).click();
-  const resp = await registerResp;
-  return resp.json();
+  await page.getByRole("button", { name: "Verificar código" }).click();
+  const verify = await verifyResp;
+  return verify.json();
 }
 
 console.log("\nPATCH 10.3 — production browser validation\n");
@@ -80,10 +126,10 @@ await page.evaluate(() => {
 await page.reload({ waitUntil: "domcontentloaded", timeout: 120000 });
 await page.waitForTimeout(1500);
 
-const testEmail = `patch103-ui-${Date.now()}@teilor-qa.invalid`;
-const registerData = await loginViaPopup(page, testEmail, "Patch 103 UI");
-const userId = registerData?.user?.id;
-ok("UI login user id", typeof userId === "string" && userId.length === 36, userId || "missing");
+const testEmail = process.env.PATCH103_AUTH_EMAIL || `patch103-ui-${Date.now()}@teilor-qa.invalid`;
+const loginData = await loginViaOtp(page, testEmail, "Patch 103 UI");
+const userId = loginData?.user?.id;
+ok("UI OTP login user id", typeof userId === "string" && userId.length === 36, userId || "missing");
 
 await sendQuestion(page, COMMERCIAL_Q);
 

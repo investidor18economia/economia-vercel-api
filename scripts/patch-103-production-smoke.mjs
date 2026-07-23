@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { issueUserSessionToken } from "../lib/miaUserSessionToken.js";
+import { obtainProductionSession } from "./patch-103-production-auth.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -27,7 +28,6 @@ loadEnv();
 const BASE = process.env.PATCH103_PROD_BASE_URL || "https://economia-ai.vercel.app";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const testUserId = process.env.PATCH103_TEST_USER_ID || randomUUID();
 const WAIT_MS = Number(process.env.PATCH103_PERSIST_WAIT_MS || 45000);
 const POLL_MS = Number(process.env.PATCH103_POLL_MS || 5000);
 
@@ -64,13 +64,15 @@ const healthJson = await health.json().catch(() => ({}));
 ok("health 200", health.ok, `build=${healthJson.build}`);
 
 const startedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-const sessionToken = issueUserSessionToken(testUserId, process.env);
-ok("session token issued", !!sessionToken);
+const auth = await obtainProductionSession();
+const testUserId = auth.userId;
+const sessionToken = auth.sessionToken;
+ok("production session obtained", !!sessionToken, auth.source || "unknown");
 
 const productSuffix = Date.now();
 const createBody = {
   user_id: testUserId,
-  user_email: process.env.PATCH103_TEST_USER_EMAIL || `patch103+${productSuffix}@example.com`,
+  user_email: process.env.PATCH103_TEST_USER_EMAIL || auth.email || `patch103+${productSuffix}@example.com`,
   product_name: `PATCH103 smoke product ${productSuffix}`,
   product_url: "https://www.amazon.com.br/dp/B0SMOKE103",
   current_price: 999.99,

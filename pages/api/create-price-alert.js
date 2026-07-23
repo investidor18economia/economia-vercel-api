@@ -14,6 +14,7 @@ import {
   validateHttpMethod,
 } from "../../lib/miaEndpointAccessPolicy.js";
 import { requireUserSession } from "../../lib/miaUserSessionToken.js";
+import crypto from "crypto";
 
 export default async function handler(req, res) {
   applyInternalSecurityHeaders(res);
@@ -24,6 +25,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const requestAttemptId = crypto.randomUUID();
     const {
       user_id,
       user_email,
@@ -44,6 +46,7 @@ export default async function handler(req, res) {
       instrumentPriceAlertLifecycleFromCreation(supabase, {
         body: req.body,
         userId: session.userId ?? null,
+        requestAttemptId,
         failed: true,
         failureStage: MIA_ALERT_FAILURE_STAGE.CREATION,
         failureReason: MIA_ALERT_CREATION_FAILURE_REASON.VALIDATION_FAILED,
@@ -77,6 +80,7 @@ export default async function handler(req, res) {
         instrumentPriceAlertLifecycleFromCreation(supabase, {
           body: req.body,
           userId: session.userId,
+          requestAttemptId,
           failed: true,
           failureStage: MIA_ALERT_FAILURE_STAGE.PERSISTENCE,
           failureReason: MIA_ALERT_CREATION_FAILURE_REASON.PERSISTENCE_FAILED,
@@ -88,6 +92,7 @@ export default async function handler(req, res) {
         instrumentPriceAlertLifecycleFromCreation(supabase, {
           body: req.body,
           userId: session.userId,
+          requestAttemptId,
           alertRow: existingAlerts[0],
           duplicate: true,
         });
@@ -106,6 +111,7 @@ export default async function handler(req, res) {
       instrumentPriceAlertLifecycleFromCreation(supabase, {
         body: req.body,
         userId: session.userId,
+        requestAttemptId,
         failed: true,
         failureStage: MIA_ALERT_FAILURE_STAGE.PERSISTENCE,
         failureReason: MIA_ALERT_CREATION_FAILURE_REASON.PERSISTENCE_FAILED,
@@ -117,6 +123,7 @@ export default async function handler(req, res) {
     instrumentPriceAlertLifecycleFromCreation(supabase, {
       body: req.body,
       userId: session.userId,
+      requestAttemptId,
       alertRow: createdRow,
       duplicate: false,
     });
