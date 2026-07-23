@@ -4,8 +4,8 @@
   "event_version": "9.4.0",
   "architecture": "derived_layer_hybrid_d",
   "implementation_commit": "1a73a05",
-  "sql_fix_commit": null,
-  "evidence_commit": null,
+  "sql_fix_commit": "55f784d",
+  "evidence_commit": "ba7883c",
   "production": {
     "base_url": "https://economia-ai.vercel.app",
     "health_ok": true,
